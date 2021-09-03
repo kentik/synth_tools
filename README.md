@@ -1,2 +1,2 @@
 # synth_tools
-Tools supporting creation of synthetic tests
+Tools supporting management of Kentik synthetic tests

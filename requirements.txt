@@ -1,0 +1,3 @@
+grpcio
+kentik-api >= 0.3.0
+typer
