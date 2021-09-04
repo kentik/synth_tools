@@ -1,11 +1,11 @@
 import distutils.log
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 # noinspection Mypy
 from setuptools import Command, setup
-from tempfile import TemporaryDirectory
 
 # The directory containing this file
 HERE = Path(__file__).parent

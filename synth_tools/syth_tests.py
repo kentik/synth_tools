@@ -1,6 +1,6 @@
-from enum import Enum
 import logging
 from dataclasses import dataclass, field, fields
+from enum import Enum
 from typing import Dict, List, Optional, Tuple, Type, TypeVar
 
 log = logging.getLogger("synth_tests")

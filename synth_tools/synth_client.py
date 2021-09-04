@@ -1,8 +1,10 @@
-from datetime import datetime
 import logging
-from kentik_api import KentikAPI
-from typing import Any, List, Dict, Optional, Tuple
 from abc import ABC, abstractmethod
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
+from kentik_api import KentikAPI
+
 from .syth_tests import SynTest, TestStatus
 
 # from generated.kentik.synthetics.v202101beta1.synthetics_pb2_grpc import SyntheticsAdminService, SyntheticsDataService
