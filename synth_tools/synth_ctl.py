@@ -7,8 +7,10 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import typer
+
 # noinspection Mypy
 from kentik_api import KentikAPI
+
 # noinspection Mypy
 from kentik_api.utils import get_credentials
 

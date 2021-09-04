@@ -110,5 +110,5 @@ setup(
     classifiers=[
         "License :: OSI Approved :: Apache Software License",
     ],
-    scripts=["synth_tools/synth_ctl.py"]
+    scripts=["synth_tools/synth_ctl.py"],
 )
