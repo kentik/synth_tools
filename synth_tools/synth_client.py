@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from kentik_api import KentikAPI
 
-from .syth_tests import SynTest, TestStatus
+from .synth_tests import SynTest, TestStatus
 
 # from generated.kentik.synthetics.v202101beta1.synthetics_pb2_grpc import SyntheticsAdminService, SyntheticsDataService
 # import generated.kentik.synthetics.v202101beta1.synthetics_pb2
@@ -134,19 +134,19 @@ class KentikSynthClient:
         return self._transport.req("AgentPatch", id=agent_id, body=dict(agent=data, mask=modified))
 
     @property
-    def tests(self) -> List[Dict]:
-        return self._transport.req("TestsList")
+    def tests(self) -> List[SynTest]:
+        return [SynTest.test_from_dict(t) for t in self._transport.req("TestsList")]
 
-    def test(self, test_id: str) -> Dict:
-        return self._transport.req("TestGet", id=test_id)
+    def test(self, test_id: str) -> SynTest:
+        return SynTest.test_from_dict(self._transport.req("TestGet", id=test_id))
 
-    def create_test(self, test: SynTest) -> None:
-        return self._transport.req("TestCreate", body=test.to_dict())
+    def create_test(self, test: SynTest) -> SynTest:
+        return SynTest.test_from_dict(self._transport.req("TestCreate", body=test.to_dict()))
 
-    def patch_test(self, test_id: str, test: SynTest, modified: str) -> None:
+    def patch_test(self, test_id: str, test: SynTest, modified: str) -> SynTest:
         body = test.to_dict()
         body["mask"] = modified
-        return self._transport.req("TestPatch", id=test_id, body=body)
+        return SynTest.test_from_dict(self._transport.req("TestPatch", id=test_id, body=body))
 
     def delete_test(self, test_id: str) -> None:
         return self._transport.req("TestDelete", id=test_id)
