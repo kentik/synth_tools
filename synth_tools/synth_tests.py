@@ -60,7 +60,7 @@ class _ConfigElement:
         return ret
 
     @classmethod
-    def from_dict(cls, d: dict) -> _ConfigElementType:
+    def from_dict(cls: Type[_ConfigElementType], d: dict) -> _ConfigElementType:
         # noinspection PyProtectedMember
         def get_value(f, v):
             if hasattr(f, "from_dict"):
@@ -79,7 +79,7 @@ class _ConfigElement:
         _init_fields = {f.name: f for f in fields(cls) if f.init}
         args = {k: get_value(_init_fields[k].type, v) for k, v in d.items() if k in _init_fields.keys()}
         # noinspection PyArgumentList
-        inst: _ConfigElementType = cls(**args)
+        inst = cls(**args)  # type: ignore
         _other_fields = {f.name: f for f in fields(cls) if not f.init}
         for n, f in _other_fields.items():
             if n[0] == "_":
