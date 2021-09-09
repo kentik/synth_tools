@@ -15,14 +15,15 @@ class KentikSynthClient:
         credentials: Tuple[str, str],
         transport: Optional[KentikAPITransport] = None,
         url: str = "https://synthetics.api.kentik.com",
+        proxy: Optional[str] = None,
     ):
         self._url = url
         if transport:
             # noinspection Mypy
             # noinspection PyCallingNonCallable
-            self._transport = transport(credentials, url=url)  # type: ignore
+            self._transport = transport(credentials, url=url, proxy=proxy)  # type: ignore
         else:
-            self._transport = SynthHTTPTransport(credentials, url=url)
+            self._transport = SynthHTTPTransport(credentials, url=url, proxy=proxy)
 
     @property
     def agents(self) -> List[Dict]:

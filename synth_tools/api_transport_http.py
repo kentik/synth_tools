@@ -22,7 +22,7 @@ class SynthHTTPTransport(KentikAPITransport):
         TestPatch=dict(ep="tests", method="patch", params="{id}", body="test", resp="test"),
         TestStatusUpdate=dict(ep="tests", method="put", params="{id}/status", body="test_status"),
         GetHealthForTests=dict(ep="health", method="post", body="health_request", resp="health"),
-        GetTraceForTest=dict(ep="health", method="post", params="{id}/results/trace", body="trace_request", resp="*"),
+        GetTraceForTest=dict(ep="tests", method="post", params="{id}/results/trace", body="trace_request", resp="*"),
     )
     END_POINTS = dict(
         agents="/synthetics/v202101beta1/agents",
@@ -30,7 +30,7 @@ class SynthHTTPTransport(KentikAPITransport):
         health="/synthetics/v202101beta1/health/tests",
     )
 
-    def __init__(self, credentials: Tuple[str, str], url: str = "https://synthetics.api.kentik.com"):
+    def __init__(self, credentials: Tuple[str, str], url: str = "https://synthetics.api.kentik.com", proxy: Optional[str] = None):
         # noinspection PyProtectedMember
         self._session = KentikAPI(*credentials).query._api_connector._session
         self._url = url
@@ -82,11 +82,7 @@ class SynthHTTPTransport(KentikAPITransport):
             json = None
         r = method(url, json=json)
         if r.status_code not in self.HTTP_SUCCESS_CODES:
-            raise KentikAPIRequestError(
-                status=r.status_code,
-                message=f"{svc['method'].upper()} failed - status: {r.status_code} error: {r.content}",
-                response=r,
-            )
+            raise KentikAPIRequestError(r)
         resp = svc.get("resp")
         if resp:
             if resp == "*":
