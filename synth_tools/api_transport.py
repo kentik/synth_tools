@@ -15,8 +15,10 @@ class KentikAPIRequestError(Exception):
 
     @property
     def message(self) -> str:
-        return f"{self.response.request.method} {self.response.request.url} failed - " \
-               f"status: {self.response.status_code} error: {self.response.content.decode()}"
+        return (
+            f"{self.response.request.method} {self.response.request.url} failed - "
+            f"status: {self.response.status_code} error: {self.response.content.decode()}"
+        )
 
     @property
     def error(self) -> dict:

@@ -1,48 +1,18 @@
 import logging
 from dataclasses import dataclass, field, fields
 from datetime import datetime
-from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
+
+from .types import IPFamily, Protocol, TestStatus, TestType
 
 log = logging.getLogger("synth_tests")
 
 
-class SerializableEnum(Enum):
-    @classmethod
-    def from_dict(cls, value: str):
-        return cls(value)
-
-    def to_dict(self):
-        return self.value
-
-
-class TestType(SerializableEnum):
-    none = "<invalid>"
-    hostname = "hostname"
-    ip = "ip"
-    mesh = "application_mesh"
-    network_grid = "network_grid"
-    dns_grid = "dns_grid"
-
-
-class TestStatus(SerializableEnum):
-    none = "<invalid>"
-    active = "TEST_STATUS_ACTIVE"
-    paused = "TEST_STATUS_PAUSED"
-
-
-class IPFamily(SerializableEnum):
-    unspecified = "IP_FAMILY_UNSPECIFIED"
-    dual = "IP_FAMILY_DUAL"
-    v4 = "IP_FAMILY_V4"
-    v6 = "IP_FAMILY_V6"
-
-
-class Protocol(SerializableEnum):
-    none = ""
-    icmp = "icmp"
-    udp = "udp"
-    tcp = "tcp"
+@dataclass
+class Defaults:
+    period: int = 60
+    expiry: int = 5000
+    family: IPFamily = IPFamily.dual
 
 
 _ConfigElementType = TypeVar("_ConfigElementType", bound="_ConfigElement")
@@ -93,19 +63,30 @@ class _ConfigElement:
 
 @dataclass
 class PingTask(_ConfigElement):
-    period: int = 60
+    period: int = Defaults.period
     count: int = 5
     expiry: int = 3000
 
 
 @dataclass
 class TraceTask(_ConfigElement):
-    period: int = 60
+    period: int = Defaults.period
     count: int = 3
     protocol: Protocol = Protocol.icmp
     port: int = 0
     expiry: int = 22500
     limit: int = 30
+
+
+@dataclass
+class HTTPTask(_ConfigElement):
+    period: int = 0
+    expiry: int = 0
+    method: str = "GET"
+    headers: dict = field(default_factory=dict)
+    body: str = ""
+    ignoreTlsErrors: bool = False
+    cssSelectors: dict = field(default_factory=dict)
 
 
 class _DefaultList(list):
@@ -159,9 +140,12 @@ class SynTestSettings(_ConfigElement):
     healthSettings: HealthSettings = field(default_factory=HealthSettings)
     monitoringSettings: MonitoringSettings = field(default_factory=MonitoringSettings)
     port: int = 0
-    period: int = 0
+    period: int = Defaults.period
+    count: int = 0
+    expiry: int = Defaults.expiry
+    limit: int = 0
     protocol: Protocol = field(init=False, default=Protocol.none)
-    family: IPFamily = IPFamily.unspecified
+    family: IPFamily = Defaults.family
     rollupLevel: int = field(init=False, default=1)
     servers: List[str] = field(default_factory=list)
 
@@ -175,6 +159,7 @@ class SynTest(_ConfigElement):
     _id: str = field(default="0", init=False)
     _cdate: str = field(default_factory=str, init=False)
     _edate: str = field(default_factory=str, init=False)
+    settings: SynTestSettings = field(default_factory=SynTestSettings)
 
     @property
     def id(self) -> str:
@@ -206,16 +191,49 @@ class SynTest(_ConfigElement):
                 TestType.ip: IPTest,
                 TestType.mesh: MeshTest,
                 TestType.network_grid: NetworkGridTest,
+                TestType.dns: DNSTest,
                 TestType.dns_grid: DNSGridTest,
+                TestType.page_load: PageLoadTest,
+                TestType.agent: AgentTest,
+                TestType.bgp_monitor: SynTest,
+                TestType.url: UrlTest,
             }.get(test_type)
 
         try:
             cls_type = class_for_type(TestType(d["type"]))
         except KeyError as ex:
             raise RuntimeError(f"Required attribute '{ex}' missing in test data ('{d}')")
-        if cls_type is None or cls_type == cls:
+        if cls_type is None:
             raise RuntimeError(f"Unsupported test type: {d['type']}")
+        if cls_type == cls:
+            log.warning(
+                "'%s' tests are not fully supported in the API. Test will have incomplete attributes", d["type"]
+            )
         return cls_type.from_dict(d)
+
+    def set_period(self, period_seconds: int, tasks: Optional[List[str]] = None):
+        if not tasks:
+            self.settings.period = period_seconds
+        else:
+            missing = []
+            for task_name in tasks:
+                try:
+                    self.settings.__getattribute__(task_name).period = period_seconds
+                except AttributeError:
+                    missing.append(task_name)
+            if missing:
+                raise RuntimeError("tasks '{}' not presents in test '{}'".format(" ".join(missing), self.name))
+
+    def set_timeout(self, timeout_seconds: float, tasks: Optional[List[str]] = None):
+        if not tasks:
+            self.settings.expiry = int(timeout_seconds * 1000)
+        else:
+            # sanity check
+            missing = [t for t in tasks if t not in self.settings.tasks]
+            if missing:
+                raise RuntimeError("tasks '{}' not presents in test '{}'".format(" ".join(missing), self.name))
+            for task_name in tasks:
+                self.settings.__getattribute__(task_name).expiry = int(timeout_seconds * 1000)  # API wants it in millis
 
 
 @dataclass
@@ -239,6 +257,17 @@ class PingTraceTest(SynTest):
                 raise RuntimeError("tasks '{}' not presents in test '{}'".format(" ".join(missing), self.name))
         for task_name in tasks:
             self.settings.__getattribute__(task_name).period = period_seconds
+
+    def set_timeout(self, timeout_seconds: float, tasks: Optional[List[str]] = None):
+        if not tasks:
+            tasks = self.settings.tasks
+        else:
+            # sanity check
+            missing = [t for t in tasks if t not in self.settings.tasks]
+            if missing:
+                raise RuntimeError("tasks '{}' not presents in test '{}'".format(" ".join(missing), self.name))
+        for task_name in tasks:
+            self.settings.__getattribute__(task_name).expiry = int(timeout_seconds * 1000)  # API wants it in millis
 
 
 @dataclass
@@ -333,7 +362,124 @@ class DNSGridTest(SynTest):
             ),
         )
 
-    def set_period(self, period_seconds: int, tasks: Optional[List[str]] = None):
-        if tasks:
-            log.debug("tasks ('%s') ignored for DNSGridTest", ",".join(tasks))
-        self.settings.period = period_seconds
+
+@dataclass
+class DNSTestSettings(SynTestSettings):
+    dns: dict = field(default_factory=dict)
+
+
+DNSTestType = TypeVar("DNSTestType", bound="DNSTest")
+
+
+@dataclass
+class DNSTest(SynTest):
+    type: TestType = field(init=False, default=TestType.dns)
+    settings: DNSTestSettings = field(default_factory=DNSTestSettings)
+
+    @classmethod
+    def create(cls: Type[DNSTestType], name: str, target: str, agent_ids: List[str], servers: List[str]) -> DNSTestType:
+        return cls(
+            name=name,
+            settings=DNSTestSettings(
+                agentIds=agent_ids, dns=dict(target=target), servers=servers, tasks=["dns"], port=53
+            ),
+        )
+
+
+@dataclass
+class UrlTestSettings(SynTestSettings):
+    url: dict = field(default_factory=dict)
+    ping: PingTask = field(default_factory=PingTask)
+    trace: TraceTask = field(default_factory=TraceTask)
+    http: HTTPTask = field(default_factory=HTTPTask)
+
+
+UrlTestType = TypeVar("UrlTestType", bound="UrlTest")
+
+
+@dataclass
+class UrlTest(SynTest):
+    type: TestType = field(init=False, default=TestType.url)
+    settings: UrlTestSettings = field(default_factory=UrlTestSettings)
+
+    @classmethod
+    def create(
+        cls: Type[UrlTestType],
+        name: str,
+        target: str,
+        agent_ids: List[str],
+        method: str = "GET",
+        headers: Optional[Dict[str, str]] = None,
+        body: str = "",
+        ignore_tls_errors: bool = False,
+        ping: bool = False,
+        trace: bool = False,
+    ) -> UrlTestType:
+        tasks: List[str] = ["http"]
+        if ping:
+            tasks.append("ping")
+        if trace:
+            tasks.append("traceroute")
+        return cls(
+            name=name,
+            settings=UrlTestSettings(
+                agentIds=agent_ids,
+                url=dict(target=target),
+                tasks=tasks,
+                http=HTTPTask(method=method, body=body, headers=headers or {}, ignoreTlsErrors=ignore_tls_errors),
+            ),
+        )
+
+
+@dataclass
+class PageLoadTestSettings(SynTestSettings):
+    pageLoad: dict = field(default_factory=dict)
+    http: HTTPTask = field(default_factory=HTTPTask)
+
+
+PageLoadTestType = TypeVar("PageLoadTestType", bound="PageLoadTest")
+
+
+@dataclass
+class PageLoadTest(SynTest):
+    type: TestType = field(init=False, default=TestType.page_load)
+    settings: PageLoadTestSettings = field(default_factory=PageLoadTestSettings)
+
+    @classmethod
+    def create(
+        cls: Type[PageLoadTestType],
+        name: str,
+        target: str,
+        agent_ids: List[str],
+        method: str = "GET",
+        headers: Optional[Dict[str, str]] = None,
+        body: str = "",
+        ignore_tls_errors: bool = False,
+    ) -> PageLoadTestType:
+        return cls(
+            name=name,
+            settings=PageLoadTestSettings(
+                agentIds=agent_ids,
+                pageLoad=dict(target=target),
+                tasks=["page-load"],
+                http=HTTPTask(method=method, body=body, headers=headers or {}, ignoreTlsErrors=ignore_tls_errors),
+            ),
+        )
+
+
+@dataclass
+class AgentTestSettings(PingTraceTestSettings):
+    agent: dict = field(default_factory=dict)
+
+
+AgentTestType = TypeVar("AgentTestType", bound="AgentTest")
+
+
+@dataclass
+class AgentTest(PingTraceTest):
+    type: TestType = field(init=False, default=TestType.agent)
+    settings: AgentTestSettings = field(default=AgentTestSettings(agentIds=[]))
+
+    @classmethod
+    def create(cls: Type[AgentTestType], name: str, target: str, agent_ids: List[str]) -> AgentTestType:
+        return cls(name=name, settings=AgentTestSettings(agentIds=agent_ids, agent=dict(target=target)))

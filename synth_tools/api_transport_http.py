@@ -2,6 +2,7 @@ import logging
 from typing import Any, Dict, Optional, Tuple
 
 from kentik_api import KentikAPI
+from kentik_api.api_connection.retryable_session import Retry
 
 from .api_transport import KentikAPIRequestError, KentikAPITransport
 
@@ -30,9 +31,21 @@ class SynthHTTPTransport(KentikAPITransport):
         health="/synthetics/v202101beta1/health/tests",
     )
 
-    def __init__(self, credentials: Tuple[str, str], url: str = "https://synthetics.api.kentik.com", proxy: Optional[str] = None):
-        # noinspection PyProtectedMember
-        self._session = KentikAPI(*credentials).query._api_connector._session
+    def __init__(
+        self, credentials: Tuple[str, str], url: str = "https://synthetics.api.kentik.com", proxy: Optional[str] = None
+    ):
+        # noinspection PyProtectedMember,PyArgumentList
+        self._session = KentikAPI(
+            *credentials,
+            retry_strategy=Retry(
+                total=3,
+                backoff_factor=1,
+                status_forcelist=[429, 502, 503, 504],
+                allowed_methods=["DELETE", "HEAD", "GET", "PUT", "OPTIONS", "PATCH", "POST"],
+            ),
+        ).query._api_connector._session
+        if proxy:
+            self._session.proxies = dict(http=proxy, https=proxy)
         self._url = url
         self._methods = dict(
             get=self._session.get,
@@ -41,6 +54,7 @@ class SynthHTTPTransport(KentikAPITransport):
             patch=self._session.patch,
             delete=self._session.delete,
         )
+        log.debug("url: %s, proxy: %s", self._url, proxy)
 
     def _ep(self, fn: str, path: Optional[str] = None) -> str:
         try:
