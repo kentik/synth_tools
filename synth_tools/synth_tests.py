@@ -108,20 +108,20 @@ class DefaultDNSValidCodes(_DefaultList):
 
 @dataclass
 class HealthSettings(_ConfigElement):
-    latencyCritical: int = 1
-    latencyWarning: int = 2
-    packetLossCritical: int = 3
-    packetLossWarning: int = 4
-    jitterCritical: int = 5
-    jitterWarning: int = 6
-    httpLatencyCritical: int = 7
-    httpLatencyWarning: int = 8
+    latencyCritical: int = 0
+    latencyWarning: int = 0
+    packetLossCritical: int = 0
+    packetLossWarning: int = 0
+    jitterCritical: int = 0
+    jitterWarning: int = 0
+    httpLatencyCritical: int = 0
+    httpLatencyWarning: int = 0
     httpValidCodes: List[int] = field(default_factory=list)
     dnsValidCodes: List[int] = field(default_factory=list)
 
 
 class DefaultTasks(_DefaultList):
-    _values = ("ping", "trace")
+    _values = ("ping", "traceroute")
 
 
 @dataclass
@@ -166,6 +166,10 @@ class SynTest(_ConfigElement):
         return self._id
 
     @property
+    def deployed(self) -> bool:
+        return self.id != '0'
+
+    @property
     def cdate(self) -> Optional[datetime]:
         try:
             return datetime.fromisoformat(self._cdate.replace("Z", "+00:00"))
@@ -178,6 +182,13 @@ class SynTest(_ConfigElement):
             return datetime.fromisoformat(self._edate.replace("Z", "+00:00"))
         except ValueError:
             return None
+
+    @property
+    def max_period(self) -> int:
+        return max(
+            [self.settings.period]
+            + [self.settings.__getattribute__(t).period for t in self.settings.tasks if hasattr(self.settings, t)]
+        )
 
     def to_dict(self) -> dict:
         return {"test": super(SynTest, self).to_dict()}
@@ -241,6 +252,7 @@ class PingTraceTestSettings(SynTestSettings):
     ping: PingTask = field(default_factory=PingTask)
     trace: TraceTask = field(default_factory=TraceTask)
     family: IPFamily = IPFamily.dual
+    protocol: Protocol = Protocol.icmp
 
 
 @dataclass
@@ -249,10 +261,10 @@ class PingTraceTest(SynTest):
 
     def set_period(self, period_seconds: int, tasks: Optional[List[str]] = None):
         if not tasks:
-            tasks = self.settings.tasks
+            tasks = [t for t in self.settings.tasks and hasattr(self.settings, t)]
         else:
             # sanity check
-            missing = [t for t in tasks if t not in self.settings.tasks]
+            missing = [t for t in tasks if not hasattr(self.settings, t)]
             if missing:
                 raise RuntimeError("tasks '{}' not presents in test '{}'".format(" ".join(missing), self.name))
         for task_name in tasks:
@@ -362,6 +374,10 @@ class DNSGridTest(SynTest):
             ),
         )
 
+    @property
+    def max_period(self) -> int:
+        return self.settings.period
+
 
 @dataclass
 class DNSTestSettings(SynTestSettings):
@@ -384,6 +400,10 @@ class DNSTest(SynTest):
                 agentIds=agent_ids, dns=dict(target=target), servers=servers, tasks=["dns"], port=53
             ),
         )
+
+    @property
+    def max_period(self) -> int:
+        return self.settings.period
 
 
 @dataclass
@@ -483,3 +503,29 @@ class AgentTest(PingTraceTest):
     @classmethod
     def create(cls: Type[AgentTestType], name: str, target: str, agent_ids: List[str]) -> AgentTestType:
         return cls(name=name, settings=AgentTestSettings(agentIds=agent_ids, agent=dict(target=target)))
+
+
+def dict_compare(left: dict, right: dict, path: str = "") -> List[str]:
+    diffs = []
+    if path is None:
+        path = []
+    a_keys = set(left.keys())
+    b_keys = set(right.keys())
+    for k in a_keys.difference(right.keys()):
+        diffs.append(f"{path}: {k} not in right")
+    for k in b_keys.difference(left.keys()):
+        diffs.append(f"{path}: {k} not in left")
+    for k, vl, vr in [(_k, _v, right[_k]) for _k, _v in left.items() if _k in right]:
+        if not isinstance(vl, type(vr)) and not isinstance(vr, type(vl)):
+            diffs.append(f"{path}.{k}: incompatible types (left: {type(vl)} right: {type(vr)})")
+        else:
+            if isinstance(vl, dict):
+                diffs.extend(dict_compare(vl, vr, f"{path}.{k}"))
+            else:
+                if vl != vr:
+                    diffs.append(f"{path}.{k}: different value (left: {vl} right: {vr})")
+    return diffs
+
+
+def compare_tests(left: SynTest, right: SynTest) -> List[str]:
+    return dict_compare(left.to_dict(), right.to_dict())

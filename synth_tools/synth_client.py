@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from .api_transport import KentikAPITransport
 from .api_transport_http import SynthHTTPTransport
@@ -39,18 +39,28 @@ class KentikSynthClient:
     def tests(self) -> List[SynTest]:
         return [SynTest.test_from_dict(t) for t in self._transport.req("TestsList")]
 
-    def test(self, test_id: str) -> SynTest:
+    def test(self, test: Union[str, SynTest]) -> SynTest:
+        if isinstance(test, SynTest):
+            test_id = test.id
+        else:
+            test_id = test
         return SynTest.test_from_dict(self._transport.req("TestGet", id=test_id))
 
     def create_test(self, test: SynTest) -> SynTest:
         return SynTest.test_from_dict(self._transport.req("TestCreate", body=test.to_dict()))
 
-    def patch_test(self, test_id: str, test: SynTest, modified: str) -> SynTest:
+    def patch_test(self, test: SynTest, modified: str) -> SynTest:
+        if test.id == 0:
+            raise RuntimeError(f"test '{test.name}' has not been created yet (id=0). Cannot patch")
         body = test.to_dict()
         body["mask"] = modified
-        return SynTest.test_from_dict(self._transport.req("TestPatch", id=test_id, body=body))
+        return SynTest.test_from_dict(self._transport.req("TestPatch", id=test.id, body=body))
 
-    def delete_test(self, test_id: str) -> None:
+    def delete_test(self, test: Union[str, SynTest]) -> None:
+        if isinstance(test, SynTest):
+            test_id = test.id
+        else:
+            test_id = test
         return self._transport.req("TestDelete", id=test_id)
 
     def set_test_status(self, test_id: str, status: TestStatus) -> dict:
