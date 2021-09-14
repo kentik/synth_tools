@@ -13,6 +13,8 @@ HERE = Path(__file__).parent
 # The text of the README file
 README = (HERE / "README.md").read_text()
 
+PACKAGES = ["kentik_synth_client"]
+
 
 def run_cmd(cmd, reporter) -> None:
     """Run arbitrary command as subprocess"""
@@ -111,4 +113,6 @@ setup(
         "License :: OSI Approved :: Apache Software License",
     ],
     scripts=["synth_tools/synth_ctl.py"],
+    packages=PACKAGES,
+    package_dir={pkg: os.path.join(*pkg.split(".")) for pkg in PACKAGES},
 )

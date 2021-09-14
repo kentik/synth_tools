@@ -5,35 +5,18 @@ import os
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
 from time import sleep
+from typing import Dict, List, Optional
 
 import typer
-
-from synth_tools import (
-    AgentTest,
-    DNSGridTest,
-    DNSTest,
-    HostnameTest,
-    IPFamily,
-    IPTest,
-    KentikAPIRequestError,
-    KentikSynthClient,
-    MeshTest,
-    NetworkGridTest,
-    PageLoadTest,
-    Protocol,
-    SynTest,
-    TestStatus,
-    TestType,
-    UrlTest,
-)
 
 # noinspection Mypy
 from kentik_api import KentikAPI
 
 # noinspection Mypy
 from kentik_api.utils import get_credentials
+
+from kentik_synth_client import *
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()

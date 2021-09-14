@@ -3,7 +3,7 @@ from dataclasses import dataclass, field, fields
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
 
-from .types import IPFamily, Protocol, TestStatus, TestType
+from .types import *
 
 log = logging.getLogger("synth_tests")
 
@@ -21,12 +21,19 @@ _ConfigElementType = TypeVar("_ConfigElementType", bound="_ConfigElement")
 @dataclass
 class _ConfigElement:
     def to_dict(self) -> dict:
+        def value_to_dict(value: Any) -> Any:
+            if hasattr(value, "to_dict"):
+                return value.to_dict()
+            elif type(value) == dict:
+                return {_k: value_to_dict(_v) for _k, _v in value.items()}
+            elif type(value) == list:
+                return [value_to_dict(_v) for _v in value]
+            else:
+                return value
+
         ret: Dict[str, dict] = dict()
         for k, v in [(f.name, self.__getattribute__(f.name)) for f in fields(self) if f.name[0] != "_"]:
-            if hasattr(v, "to_dict"):
-                ret[k] = v.to_dict()
-            else:
-                ret[k] = v
+            ret[k] = value_to_dict(v)
         return ret
 
     @classmethod
@@ -167,7 +174,7 @@ class SynTest(_ConfigElement):
 
     @property
     def deployed(self) -> bool:
-        return self.id != '0'
+        return self.id != "0"
 
     @property
     def cdate(self) -> Optional[datetime]:
@@ -198,15 +205,16 @@ class SynTest(_ConfigElement):
         def class_for_type(test_type: TestType) -> Any:
             return {
                 TestType.none: SynTest,
+                TestType.agent: AgentTest,
+                TestType.bgp_monitor: SynTest,
+                TestType.dns: DNSTest,
+                TestType.dns_grid: DNSGridTest,
+                TestType.flow: FlowTest,
                 TestType.hostname: HostnameTest,
                 TestType.ip: IPTest,
                 TestType.mesh: MeshTest,
                 TestType.network_grid: NetworkGridTest,
-                TestType.dns: DNSTest,
-                TestType.dns_grid: DNSGridTest,
                 TestType.page_load: PageLoadTest,
-                TestType.agent: AgentTest,
-                TestType.bgp_monitor: SynTest,
                 TestType.url: UrlTest,
             }.get(test_type)
 
@@ -261,7 +269,7 @@ class PingTraceTest(SynTest):
 
     def set_period(self, period_seconds: int, tasks: Optional[List[str]] = None):
         if not tasks:
-            tasks = [t for t in self.settings.tasks and hasattr(self.settings, t)]
+            tasks = [t for t in self.settings.tasks if hasattr(self.settings, t)]
         else:
             # sanity check
             missing = [t for t in tasks if not hasattr(self.settings, t)]
@@ -348,6 +356,48 @@ class NetworkGridTest(PingTraceTest):
         cls: Type[NetworkGridTestType], name: str, targets: List[str], agent_ids: List[str]
     ) -> NetworkGridTestType:
         return cls(name=name, settings=GridTestSettings(agentIds=agent_ids, networkGrid=dict(targets=targets)))
+
+
+@dataclass
+class FlowTestSettings(PingTraceTestSettings):
+    flow: dict = field(default_factory=dict)
+
+
+FlowTestType = TypeVar("FlowTestType", bound="FlowTest")
+
+
+@dataclass
+class FlowTest(PingTraceTest):
+    type: TestType = field(init=False, default=TestType.flow)
+    settings: FlowTestSettings = field(default=FlowTestSettings(agentIds=[]))
+
+    # noinspection PyShadowingBuiltins
+    @classmethod
+    def create(
+        cls: Type[FlowTestType],
+        name: str,
+        target: str,
+        agent_ids: List[str],
+        type: FlowTestType,
+        direction: DirectionType,
+        inet_direction: DirectionType,
+        max_tasks: int = 5,
+        target_refresh_interval: int = 43200000,
+    ) -> FlowTestType:
+        return cls(
+            name=name,
+            settings=FlowTestSettings(
+                agentIds=agent_ids,
+                flow=dict(
+                    target=target,
+                    type=type,
+                    direction=direction,
+                    inetDirection=inet_direction,
+                    maxTasks=max_tasks,
+                    targetRefreshIntervalMillis=target_refresh_interval,
+                ),
+            ),
+        )
 
 
 @dataclass
@@ -503,29 +553,3 @@ class AgentTest(PingTraceTest):
     @classmethod
     def create(cls: Type[AgentTestType], name: str, target: str, agent_ids: List[str]) -> AgentTestType:
         return cls(name=name, settings=AgentTestSettings(agentIds=agent_ids, agent=dict(target=target)))
-
-
-def dict_compare(left: dict, right: dict, path: str = "") -> List[str]:
-    diffs = []
-    if path is None:
-        path = []
-    a_keys = set(left.keys())
-    b_keys = set(right.keys())
-    for k in a_keys.difference(right.keys()):
-        diffs.append(f"{path}: {k} not in right")
-    for k in b_keys.difference(left.keys()):
-        diffs.append(f"{path}: {k} not in left")
-    for k, vl, vr in [(_k, _v, right[_k]) for _k, _v in left.items() if _k in right]:
-        if not isinstance(vl, type(vr)) and not isinstance(vr, type(vl)):
-            diffs.append(f"{path}.{k}: incompatible types (left: {type(vl)} right: {type(vr)})")
-        else:
-            if isinstance(vl, dict):
-                diffs.extend(dict_compare(vl, vr, f"{path}.{k}"))
-            else:
-                if vl != vr:
-                    diffs.append(f"{path}.{k}: different value (left: {vl} right: {vr})")
-    return diffs
-
-
-def compare_tests(left: SynTest, right: SynTest) -> List[str]:
-    return dict_compare(left.to_dict(), right.to_dict())

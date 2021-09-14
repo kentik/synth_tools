@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
+from urllib.parse import urlparse
 
 from .api_transport import KentikAPITransport
 from .api_transport_http import SynthHTTPTransport
@@ -14,16 +15,26 @@ class KentikSynthClient:
         self,
         credentials: Tuple[str, str],
         transport: Optional[KentikAPITransport] = None,
-        url: str = "https://synthetics.api.kentik.com",
+        url: Optional[str] = None,
         proxy: Optional[str] = None,
     ):
-        self._url = url
+        if url:
+            u = urlparse(url)
+            dns_path = u.netloc.split(".")
+            if dns_path[0] == "api":
+                dns_path.insert(0, "synthetics")
+                log.debug("Setting url to: %s (input: %s)", u._replace(netloc=".".join(dns_path)).geturl(), url)
+                self._url = u._replace(netloc=".".join(dns_path)).geturl()
+            else:
+                self._url = url
+        else:
+            self._url = "https://synthetics.api.kentik.com"
         if transport:
             # noinspection Mypy
             # noinspection PyCallingNonCallable
-            self._transport = transport(credentials, url=url, proxy=proxy)  # type: ignore
+            self._transport = transport(credentials, url=self._url, proxy=proxy)  # type: ignore
         else:
-            self._transport = SynthHTTPTransport(credentials, url=url, proxy=proxy)
+            self._transport = SynthHTTPTransport(credentials, url=self._url, proxy=proxy)
 
     @property
     def agents(self) -> List[Dict]:
@@ -38,6 +49,13 @@ class KentikSynthClient:
     @property
     def tests(self) -> List[SynTest]:
         return [SynTest.test_from_dict(t) for t in self._transport.req("TestsList")]
+
+    def list_tests(self, presets: bool = False, raw: bool = False) -> Any:
+        r = self._transport.req("TestsList", params=dict(presets=presets))
+        if raw:
+            return r
+        else:
+            return [SynTest.test_from_dict(t) for t in r]
 
     def test(self, test: Union[str, SynTest]) -> SynTest:
         if isinstance(test, SynTest):

@@ -16,6 +16,7 @@ class TestType(SerializableEnum):
     bgp_monitor = "bgp_monitor"
     dns = "dns"
     dns_grid = "dns_grid"
+    flow = "flow"
     hostname = "hostname"
     ip = "ip"
     mesh = "application_mesh"
@@ -43,3 +44,17 @@ class Protocol(SerializableEnum):
     icmp = "icmp"
     udp = "udp"
     tcp = "tcp"
+
+
+class FlowTestType(SerializableEnum):
+    none = ""
+    asn = "asn"
+    cdn = "cdn"
+    country = "country"
+    region = "region"
+    city = "city"
+
+
+class DirectionType(SerializableEnum):
+    dst = "dst"
+    src = "src"
