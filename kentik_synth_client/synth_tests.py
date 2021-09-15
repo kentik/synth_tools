@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field, fields
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, TypeVar
 
 from .types import *
 
@@ -69,15 +69,22 @@ class _ConfigElement:
 
 
 @dataclass
-class PingTask(_ConfigElement):
+class _MonitoringTask(_ConfigElement):
+    _name: str
+    expiry: int
     period: int = Defaults.period
+
+
+@dataclass
+class PingTask(_MonitoringTask):
+    _name: str = "ping"
     count: int = 5
     expiry: int = 3000
 
 
 @dataclass
-class TraceTask(_ConfigElement):
-    period: int = Defaults.period
+class TraceTask(_MonitoringTask):
+    _name: str = "traceroute"
     count: int = 3
     protocol: Protocol = Protocol.icmp
     port: int = 0
@@ -86,7 +93,8 @@ class TraceTask(_ConfigElement):
 
 
 @dataclass
-class HTTPTask(_ConfigElement):
+class HTTPTask(_MonitoringTask):
+    _name: str = "http"
     period: int = 0
     expiry: int = 0
     method: str = "GET"
@@ -197,6 +205,16 @@ class SynTest(_ConfigElement):
             + [self.settings.__getattribute__(t).period for t in self.settings.tasks if hasattr(self.settings, t)]
         )
 
+    @property
+    def configured_tasks(self) -> Set[str]:
+        return set(
+            f.name
+            for f in fields(self.settings)
+            if hasattr(f.type, "period")
+            and hasattr(f.type, "_name")
+            and self.settings.__getattribute__(f.name)._name in self.settings.tasks
+        )
+
     def to_dict(self) -> dict:
         return {"test": super(SynTest, self).to_dict()}
 
@@ -230,29 +248,22 @@ class SynTest(_ConfigElement):
             )
         return cls_type.from_dict(d)
 
-    def set_period(self, period_seconds: int, tasks: Optional[List[str]] = None):
-        if not tasks:
-            self.settings.period = period_seconds
-        else:
-            missing = []
-            for task_name in tasks:
-                try:
-                    self.settings.__getattribute__(task_name).period = period_seconds
-                except AttributeError:
-                    missing.append(task_name)
-            if missing:
-                raise RuntimeError("tasks '{}' not presents in test '{}'".format(" ".join(missing), self.name))
+    def set_period(self, period_seconds: int):
+        self.settings.period = period_seconds
+        for t in self.configured_tasks:
+            self.settings.__getattribute__(t).period = int(period_seconds)
 
     def set_timeout(self, timeout_seconds: float, tasks: Optional[List[str]] = None):
         if not tasks:
             self.settings.expiry = int(timeout_seconds * 1000)
         else:
             # sanity check
-            missing = [t for t in tasks if t not in self.settings.tasks]
+            missing = set(tasks).difference(self.configured_tasks)
             if missing:
-                raise RuntimeError("tasks '{}' not presents in test '{}'".format(" ".join(missing), self.name))
-            for task_name in tasks:
-                self.settings.__getattribute__(task_name).expiry = int(timeout_seconds * 1000)  # API wants it in millis
+                log.warning("task(s) '%s' not presents in test '%s'", " ".join(missing), self.name)
+            for t in self.configured_tasks:
+                if t in tasks:
+                    self.settings.__getattribute__(t).expiry = int(timeout_seconds * 1000)  # API wants it in millis
 
 
 @dataclass
@@ -267,27 +278,27 @@ class PingTraceTestSettings(SynTestSettings):
 class PingTraceTest(SynTest):
     settings: PingTraceTestSettings = field(default_factory=PingTraceTestSettings)
 
-    def set_period(self, period_seconds: int, tasks: Optional[List[str]] = None):
-        if not tasks:
-            tasks = [t for t in self.settings.tasks if hasattr(self.settings, t)]
-        else:
+    def set_period(self, period_seconds: int, task_names: Optional[List[str]] = None):
+        existing = self.configured_tasks
+        if task_names:
             # sanity check
-            missing = [t for t in tasks if not hasattr(self.settings, t)]
+            missing = set(task_names).difference(existing)
             if missing:
-                raise RuntimeError("tasks '{}' not presents in test '{}'".format(" ".join(missing), self.name))
-        for task_name in tasks:
-            self.settings.__getattribute__(task_name).period = period_seconds
+                log.warning("task(s) '%s' not presents in test '%s'", " ".join(missing), self.name)
+        for t in existing:
+            if not task_names or t in task_names:
+                self.settings.__getattribute__(t).period = int(period_seconds)
 
     def set_timeout(self, timeout_seconds: float, tasks: Optional[List[str]] = None):
-        if not tasks:
-            tasks = self.settings.tasks
-        else:
+        existing = self.configured_tasks
+        if tasks:
             # sanity check
-            missing = [t for t in tasks if t not in self.settings.tasks]
+            missing = set(tasks).difference(existing)
             if missing:
-                raise RuntimeError("tasks '{}' not presents in test '{}'".format(" ".join(missing), self.name))
-        for task_name in tasks:
-            self.settings.__getattribute__(task_name).expiry = int(timeout_seconds * 1000)  # API wants it in millis
+                log.warning("task(s) '%s' not presents in test '%s'", " ".join(missing), self.name)
+        for t in existing:
+            if not tasks or t in tasks:
+                self.settings.__getattribute__(t).expiry = int(timeout_seconds * 1000)  # API wants it in millis
 
 
 @dataclass
