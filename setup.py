@@ -44,7 +44,7 @@ class FetchGRPCCode(Command):
     user_options = [
         ("repo=", None, "Source repository"),
         ("src-path=", None, "Path to generated Python code within the source repo"),
-        ("dst-path=", None, "Destination path in the local source tree")
+        ("dst-path=", None, "Destination path in the local source tree"),
     ]
 
     def initialize_options(self):
@@ -93,6 +93,52 @@ class MypyCmd(Command):
         run_cmd(cmd, self.announce)
 
 
+# noinspection PyAttributeOutsideInit
+class Black(Command):
+    """Custom command to run black"""
+
+    description = "run black on all relevant code"
+    user_options = [("dirs=", None, "Directories to check with black")]
+
+    def initialize_options(self) -> None:
+        self.dirs = ["."]
+
+    def finalize_options(self):
+        """Post-process options."""
+        for d in self.dirs:
+            assert os.path.exists(d), "Path {} does not exist.".format(d)
+
+    def run(self):
+        """Run command"""
+        cmd = ["black"]
+        for d in self.dirs:
+            cmd.append(d)
+        run_cmd(cmd, self.announce)
+
+
+# noinspection PyAttributeOutsideInit
+class Isort(Command):
+    """Custom command to run isort"""
+
+    description = "run isort on all relevant code"
+    user_options = [("dirs=", None, "Directories to check with isort")]
+
+    def initialize_options(self) -> None:
+        self.dirs = ["."]
+
+    def finalize_options(self):
+        """Post-process options."""
+        for d in self.dirs:
+            assert os.path.exists(d), "Path {} does not exist.".format(d)
+
+    def run(self):
+        """Run command"""
+        cmd = ["isort"]
+        for d in self.dirs:
+            cmd.append(d)
+        run_cmd(cmd, self.announce)
+
+
 setup(
     name="kentik-synth-tools",
     use_scm_version={
@@ -110,7 +156,7 @@ setup(
     install_requires=["kentik-api>=0.3.0"],
     setup_requires=["pytest-runner", "setuptools_scm", "wheel", "grpcio-tools", "gitpython"],
     tests_require=["httpretty", "pytest", "mypy"],
-    cmdclass={"mypy": MypyCmd, "grpc_stubs": FetchGRPCCode},
+    cmdclass={"mypy": MypyCmd, "grpc_stubs": FetchGRPCCode, "black": Black, "isort": Isort},
     classifiers=[
         "License :: OSI Approved :: Apache Software License",
     ],

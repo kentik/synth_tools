@@ -8,7 +8,7 @@ target-version = ['py39']
 
 [tool.isort]
 profile = "black"
-known_local_folder = ["synth_tools"]
+known_local_folder = ["synth_tools/synth_tools", "synth_tools/kentik_synth_client"]
 line_length = 120
 
 [tool.mypy]

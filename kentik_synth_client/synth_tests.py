@@ -126,7 +126,7 @@ class HealthSettings(_ConfigElement):
     latencyCritical: int = 0
     latencyWarning: int = 0
     latencyCriticalStddev: int = 0
-    latencyWarningStddev: int =0
+    latencyWarningStddev: int = 0
     packetLossCritical: int = 0
     packetLossWarning: int = 0
     jitterCritical: int = 0
@@ -206,10 +206,7 @@ class SynTest(_ConfigElement):
 
     @property
     def max_period(self) -> int:
-        return max(
-            [self.settings.period]
-            + [self.settings.__getattribute__(t).period for t in self.configured_tasks]
-        )
+        return max([self.settings.period] + [self.settings.__getattribute__(t).period for t in self.configured_tasks])
 
     @property
     def configured_tasks(self) -> Set[str]:
