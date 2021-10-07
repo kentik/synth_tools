@@ -6,7 +6,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from time import sleep
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import typer
 
@@ -24,7 +24,7 @@ log = logging.getLogger()
 
 def one_shot(
     client: KentikSynthClient, test: SynTest, wait_factor: int = 3, retries: int = 3, output: Optional[Path] = None
-) -> bool:
+) -> Optional[dict]:
     def delete_test(tst: SynTest):
         log.debug("Deleting test '%s' (id: %s)", tst.name, tst.id)
         try:
@@ -39,7 +39,7 @@ def one_shot(
             t = client.create_test(test)
         except KentikAPIRequestError as ex:
             log.error("Failed to create test '%s' (%s)", test.name, ex)
-            return False
+            return None
         log.info("Created test '%s' (id: %s)", t.name, t.id)
     else:
         t = test
@@ -51,7 +51,7 @@ def one_shot(
             log.error("Failed to activate test '%s' (id: %s) (%s)", t.name, t.id, ex)
             if create_test:
                 delete_test(t)
-            return False
+            return None
 
     wait_time = max(0, t.max_period * wait_factor - int((datetime.now(tz=timezone.utc) - t.edate).total_seconds()))
     start = datetime.now(tz=timezone.utc)
@@ -94,7 +94,7 @@ def one_shot(
     if create_test:
         delete_test(t)
 
-    return ret
+    return health[0] if ret else None
 
 
 def main(
