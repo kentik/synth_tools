@@ -125,12 +125,18 @@ class DefaultDNSValidCodes(_DefaultList):
 class HealthSettings(_ConfigElement):
     latencyCritical: int = 0
     latencyWarning: int = 0
+    latencyCriticalStddev: int = 0
+    latencyWarningStddev: int =0
     packetLossCritical: int = 0
     packetLossWarning: int = 0
     jitterCritical: int = 0
     jitterWarning: int = 0
+    jitterCriticalStddev: int = 0
+    jitterWarningStddev: int = 0
     httpLatencyCritical: int = 0
     httpLatencyWarning: int = 0
+    httpLatencyCriticalStddev: int = 0
+    httpLatencyWarningStddev: int = 0
     httpValidCodes: List[int] = field(default_factory=list)
     dnsValidCodes: List[int] = field(default_factory=list)
 
@@ -202,7 +208,7 @@ class SynTest(_ConfigElement):
     def max_period(self) -> int:
         return max(
             [self.settings.period]
-            + [self.settings.__getattribute__(t).period for t in self.settings.tasks if hasattr(self.settings, t)]
+            + [self.settings.__getattribute__(t).period for t in self.configured_tasks]
         )
 
     @property
@@ -214,6 +220,9 @@ class SynTest(_ConfigElement):
             and hasattr(f.type, "_name")
             and self.settings.__getattribute__(f.name)._name in self.settings.tasks
         )
+
+    def undeploy(self):
+        self._id = "0"
 
     def to_dict(self) -> dict:
         return {"test": super(SynTest, self).to_dict()}

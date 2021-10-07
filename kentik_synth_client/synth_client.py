@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
@@ -64,6 +64,9 @@ class KentikSynthClient:
             test_id = test
         return SynTest.test_from_dict(self._transport.req("TestGet", id=test_id))
 
+    def test_raw(self, test_id: str) -> Any:
+        return self._transport.req("TestGet", id=test_id)
+
     def create_test(self, test: SynTest) -> SynTest:
         return SynTest.test_from_dict(self._transport.req("TestCreate", body=test.to_dict()))
 
@@ -79,7 +82,9 @@ class KentikSynthClient:
             test_id = test.id
         else:
             test_id = test
-        return self._transport.req("TestDelete", id=test_id)
+        self._transport.req("TestDelete", id=test_id)
+        if isinstance(test, SynTest):
+            test.undeploy()
 
     def set_test_status(self, test_id: str, status: TestStatus) -> dict:
         return self._transport.req("TestStatusUpdate", id=test_id, body=dict(id=test_id, status=status.value))
@@ -104,6 +109,17 @@ class KentikSynthClient:
                 taskIds=task_ids if task_ids else [],
             ),
         )
+
+    def results(
+        self, test: SynTest, start: Optional[datetime] = None, end: Optional[datetime] = None, **kwargs
+    ) -> List[dict]:
+        if not test.deployed:
+            raise RuntimeError(f"Test '{test.name}[id: {test.id}] is not deployed yet")
+        if not end:
+            end = datetime.now(tz=timezone.utc)
+        if not start:
+            start = end - timedelta(seconds=3 * test.max_period)
+        return self.health([test.id], start=start, end=end, **kwargs)
 
     def trace(
         self,

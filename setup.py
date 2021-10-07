@@ -40,15 +40,17 @@ def rm_all(directory, remove_dir=False):
 class FetchGRPCCode(Command):
     """Command copying generate Python gRPC code from source repo."""
 
-    description = "Import .proto files from source repo and build Python stubs"
+    description = "Copy generated Python stubs from source repo"
     user_options = [
         ("repo=", None, "Source repository"),
-        ("python-path=", None, "Path to generated Python code within the source repo"),
+        ("src-path=", None, "Path to generated Python code within the source repo"),
+        ("dst-path=", None, "Destination path in the local source tree")
     ]
 
     def initialize_options(self):
         self.repo = "https://github.com/kentik/api-schema-public.git"
-        self.python_path = "gen/python"
+        self.src_path = "gen/python"
+        self.dst_path = HERE.joinpath("generated").as_posix()
 
     def finalize_options(self):
         pass
@@ -57,15 +59,15 @@ class FetchGRPCCode(Command):
     def run(self):
         import git
 
-        # create work directory, if it does not exist
-        dst = HERE.joinpath("generated")
+        # create destination directory, if it does not exist
+        dst = Path(self.dst_path)
         dst.mkdir(parents=True, exist_ok=True)
-        # cleanup the work directory
+        # cleanup destination directory
         rm_all(dst)
-        # checkout source repo and copy proto files to work directory
+        # checkout source repo and copy stubs
         with TemporaryDirectory() as tmp:
             git.Repo.clone_from(self.repo, tmp)
-            Path(tmp).joinpath(self.python_path).rename(dst)
+            Path(tmp).joinpath(self.src_path).rename(dst)
 
 
 # noinspection PyAttributeOutsideInit
@@ -108,7 +110,7 @@ setup(
     install_requires=["kentik-api>=0.3.0"],
     setup_requires=["pytest-runner", "setuptools_scm", "wheel", "grpcio-tools", "gitpython"],
     tests_require=["httpretty", "pytest", "mypy"],
-    cmdclass={"mypy": MypyCmd, "grpc": FetchGRPCCode},
+    cmdclass={"mypy": MypyCmd, "grpc_stubs": FetchGRPCCode},
     classifiers=[
         "License :: OSI Approved :: Apache Software License",
     ],
