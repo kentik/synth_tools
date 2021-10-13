@@ -1,0 +1,34 @@
+type: grid
+period: 300
+#ping:
+#  timeout: 3000 # milliseconds
+#  protocol: icmp
+#trace:
+#  timeout: 22500 # milliseconds
+#  protocol: icmp
+#  port: 0
+#  limit: 30
+targets:
+  devices:
+#    - device_name: regex(.*_iad1_.*)
+    - site.site_name: Ashburn DC3
+    - match_any:
+        - label: edge router
+        - label: gateway
+        - label: bastions
+    - device_type: router
+#  interface_addresses:
+#    family: ipv4
+#    public_only: True
+  sending_ips:
+    family: any
+    public_only: True
+  snmp_ip:
+    family: any
+    public_only: True
+
+agents:
+  - agentImpl: IMPLEMENT_TYPE_RUST
+  - one_of_each:
+     asn: [15169, 7224, 16509, 36351]
+     country: [US, AU, BR]
