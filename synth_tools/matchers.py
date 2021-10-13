@@ -53,7 +53,9 @@ class PropertyMatcher(Matcher):
             elif k in obj:
                 obj = obj[k]
             else:
-                log.warning("%s: object: '%s' does not have property '%s'", self.__class__.__name__, str(data), self.key)
+                log.warning(
+                    "%s: object: '%s' does not have property '%s'", self.__class__.__name__, str(data), self.key
+                )
                 log.debug("%s: ret '%s'", self.__class__.__name__, False)
                 return False
         if type(obj) == str and self.is_regex:
