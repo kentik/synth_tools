@@ -10,18 +10,18 @@ def dict_compare(left: dict, right: dict, path: str = "") -> List[str]:
     a_keys = set(left.keys())
     b_keys = set(right.keys())
     for k in a_keys.difference(right.keys()):
-        diffs.append(f"{path}: {k} not in right")
+        diffs.append((path, "<missing in left>"))
     for k in b_keys.difference(left.keys()):
-        diffs.append(f"{path}: {k} not in left")
+        diffs.append((path, "<missing in right>"))
     for k, vl, vr in [(_k, _v, right[_k]) for _k, _v in left.items() if _k in right]:
         if not isinstance(vl, type(vr)) and not isinstance(vr, type(vl)):
-            diffs.append(f"{path}.{k}: incompatible types (left: {type(vl)} right: {type(vr)})")
+            diffs.append((f"{path}.{k}", f"incompatible types (left: {type(vl)} right: {type(vr)})"))
         else:
             if isinstance(vl, dict):
                 diffs.extend(dict_compare(vl, vr, f"{path}.{k}"))
             else:
                 if vl != vr:
-                    diffs.append(f"{path}.{k}: different value (left: {vl} right: {vr})")
+                    diffs.append((f"{path}.{k}", f"different value (left: {vl} right: {vr})"))
     return diffs
 
 

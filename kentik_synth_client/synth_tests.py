@@ -256,8 +256,9 @@ class SynTest(_ConfigElement):
 
     def set_period(self, period_seconds: int):
         self.settings.period = period_seconds
-        for t in self.configured_tasks:
-            self.settings.__getattribute__(t).period = int(period_seconds)
+        for f in fields(self.settings):
+            if hasattr(f.type, "period"):
+                self.settings.__getattribute__(f.name).period = int(period_seconds)
 
     def set_timeout(self, timeout_seconds: float, tasks: Optional[List[str]] = None):
         if not tasks:

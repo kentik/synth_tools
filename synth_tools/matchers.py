@@ -6,7 +6,7 @@ from enum import Enum
 from itertools import product
 from typing import Any, Dict, List
 
-log = logging.getLogger("matcher")
+log = logging.getLogger("matchers")
 
 
 class Matcher(ABC):

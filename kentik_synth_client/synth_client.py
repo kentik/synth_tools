@@ -111,14 +111,19 @@ class KentikSynthClient:
         )
 
     def results(
-        self, test: SynTest, start: Optional[datetime] = None, end: Optional[datetime] = None, **kwargs
+        self,
+        test: SynTest,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        periods: int = 3,
+        **kwargs,
     ) -> List[dict]:
         if not test.deployed:
             raise RuntimeError(f"Test '{test.name}[id: {test.id}] is not deployed yet")
         if not end:
             end = datetime.now(tz=timezone.utc)
         if not start:
-            start = end - timedelta(seconds=3 * test.max_period)
+            start = end - timedelta(seconds=periods * test.max_period)
         return self.health([test.id], start=start, end=end, **kwargs)
 
     def trace(

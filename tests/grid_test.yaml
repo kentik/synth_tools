@@ -1,13 +1,33 @@
-type: network_grid
-period: 300
-#ping:
-#  timeout: 3000 # milliseconds
-#  protocol: icmp
-#trace:
-#  timeout: 22500 # milliseconds
-#  protocol: icmp
-#  port: 0
-#  limit: 30
+test:
+  type: network_grid # ip, hostname, dns, dns_grid, url, application_mesh, page_load
+  period: 300
+  #ping:
+  #  timeout: 3000 # milliseconds
+  #  protocol: icmp
+  #  port: 0
+  #trace:
+  #  timeout: 22500 # milliseconds
+  #  protocol: icmp
+  #  port: 0
+  #  limit: 30
+  #healthSettings:
+  #  latencyCritical: 0
+  #  latencyWarning: 0
+  #  latencyCriticalStddev: 3
+  #  latencyWarningStddev: 1
+  #  packetLossCritical: 50
+  #  packetLossWarning: 0
+  #  jitterCritical: 0
+  #  jitterWarning: 0
+  #  jitterCriticalStddev: 3
+  #  jitterWarningStddev: 1
+  #  httpLatencyCritical: 0
+  #  httpLatencyWarning: 0
+  #  httpLatencyCriticalStddev: 3
+  #  httpLatencyWarningStddev: 1
+  #  httpValidCodes: []
+  #  dnsValidCodes: []
+
 targets:
   devices:
     - site.site_name: Ashburn DC3
