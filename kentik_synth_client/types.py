@@ -58,3 +58,14 @@ class FlowTestType(SerializableEnum):
 class DirectionType(SerializableEnum):
     dst = "dst"
     src = "src"
+
+
+class DNSRecordType(SerializableEnum):
+    A = "DNS_RECORD_A"
+    AAAA = "DNS_RECORD_AAAA"
+    CNAME = "DNS_RECORD_CNAME"
+    DNAME = "DNS_RECORD_DNAME"
+    NS = "DNS_RECORD_NS"
+    MX = "DNS_RECORD_MX"
+    PTR = "DNS_RECORD_PTR"
+    SOA = "DNS_RECORD_SOA"

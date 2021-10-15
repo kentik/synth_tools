@@ -433,12 +433,21 @@ class DNSGridTest(SynTest):
 
     @classmethod
     def create(
-        cls: Type[DNSGridTestType], name: str, targets: List[str], agent_ids: List[str], servers: List[str]
+        cls: Type[DNSGridTestType],
+        name: str,
+        targets: List[str],
+        agent_ids: List[str],
+        servers: List[str],
+        record_type: DNSRecordType = DNSRecordType.A,
     ) -> DNSGridTestType:
         return cls(
             name=name,
             settings=DNSGridTestSettings(
-                agentIds=agent_ids, dnsGrid=dict(targets=targets), servers=servers, tasks=["dns"], port=53
+                agentIds=agent_ids,
+                dnsGrid=dict(targets=targets, type=record_type),
+                servers=servers,
+                tasks=["dns"],
+                port=53,
             ),
         )
 
@@ -461,11 +470,18 @@ class DNSTest(SynTest):
     settings: DNSTestSettings = field(default_factory=DNSTestSettings)
 
     @classmethod
-    def create(cls: Type[DNSTestType], name: str, target: str, agent_ids: List[str], servers: List[str]) -> DNSTestType:
+    def create(
+        cls: Type[DNSTestType],
+        name: str,
+        target: str,
+        agent_ids: List[str],
+        servers: List[str],
+        record_type: DNSRecordType = DNSRecordType.A,
+    ) -> DNSTestType:
         return cls(
             name=name,
             settings=DNSTestSettings(
-                agentIds=agent_ids, dns=dict(target=target), servers=servers, tasks=["dns"], port=53
+                agentIds=agent_ids, dns=dict(target=target, type=record_type), servers=servers, tasks=["dns"], port=53
             ),
         )
 

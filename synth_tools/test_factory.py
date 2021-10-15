@@ -1,8 +1,8 @@
 import logging
 from dataclasses import dataclass
 from ipaddress import ip_address
+from typing import Callable, Dict, List, Set, Union
 from urllib.parse import urlparse
-from typing import Callable, Dict, Union, List, Set
 
 from kentik_api.public import Device, Interface
 
@@ -201,6 +201,7 @@ def make_dns_test(
     servers = cfg.get("servers")
     if not servers:
         fail(f"{cfg['type']} requires 'servers' parameter")
+    record_type = DNSRecordType(cfg.get("record_type", "DNS_RECORD_A"))
     return DNSTest.create(name=name, target=targets[0], agent_ids=agents, servers=servers)
 
 
@@ -210,7 +211,8 @@ def make_dns_grid_test(
     servers = cfg.get("servers")
     if not servers:
         fail(f"{cfg['type']} requires 'servers' parameter")
-    return DNSGridTest.create(name=name, targets=targets, agent_ids=agents, servers=servers)
+    record_type = DNSRecordType(cfg.get("record_type", "DNS_RECORD_A"))
+    return DNSGridTest.create(name=name, targets=targets, agent_ids=agents, servers=servers, record_type=record_type)
 
 
 def make_hostname_test(
@@ -320,19 +322,26 @@ class TestFactory:
     }
 
     def create(self, api: APIs, default_name: str, cfg: dict, fail: Callable[[str], None] = _fail) -> SynTest:
-        missing = [k for k in ("test", "targets", "agents") if k not in cfg]
+        missing = [k for k in ("test", "agents") if k not in cfg]
         if missing:
-            fail("Test configuration is missing mandatory sections: {}".format(", ".join(missing)))
+            fail("Mandatory sections missing in configuration: {}".format(", ".join(missing)))
         test_cfg = cfg["test"]
-        test_type = test_cfg.get("type", "network_grid")
+        test_type = test_cfg.get("type")
+        if not test_type:
+            fail("No 'test.type' in configuration")
         entry = self._MAP.get(test_type)
         if not entry:
             fail(f"Unsupported test type: {test_type} (supported types: {self._MAP.keys()})")
 
-        targets = entry.target_loader(api, cfg["targets"], fail)
-        if not targets and entry.requires_targets:
-            fail("No targets matched test configuration")
-        log.debug("TestFactory:create: targets: '%s'", ", ".join(targets))
+        if entry.requires_targets:
+            if "targets" not in cfg:
+                fail("Required 'targets' section is missing in configuration")
+            targets = entry.target_loader(api, cfg["targets"], fail)
+            if not targets:
+                fail("No targets matched test configuration")
+            log.debug("TestFactory:create: targets: '%s'", ", ".join(targets))
+        else:
+            targets = set()
 
         agent_ids = entry.agent_loader(api, cfg["agents"])
         if not agent_ids:

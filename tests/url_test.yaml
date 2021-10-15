@@ -10,22 +10,13 @@ test:
     timeout: 22500 # milliseconds
     protocol: icmp
   healthSettings:
-  #  latencyCritical: 0
-  #  latencyWarning: 0
-  #  latencyCriticalStddev: 3
-  #  latencyWarningStddev: 1
-  #  packetLossCritical: 50
-  #  packetLossWarning: 0
-  #  jitterCritical: 0
-  #  jitterWarning: 0
-  #  jitterCriticalStddev: 3
-  #  jitterWarningStddev: 1
-  #  httpLatencyCritical: 0
-  #  httpLatencyWarning: 0
-  #  httpLatencyCriticalStddev: 3
-  #  httpLatencyWarningStddev: 1
+    latencyCriticalStddev: 3
+    latencyWarningStddev: 1
+    packetLossCritical: 50
+    packetLossWarning: 20
+    httpLatencyCriticalStddev: 3
+    httpLatencyWarningStddev: 1
     httpValidCodes: [200, 301]
-  #  dnsValidCodes: []
   headers:
     user-agent: kentik
 
