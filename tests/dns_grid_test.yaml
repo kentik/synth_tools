@@ -12,8 +12,4 @@ targets:
   - pupik.m3a.net
 
 agents:
-  - agentImpl: IMPLEMENT_TYPE_RUST
-  - family: IP_FAMILY_DUAL
-  - one_of_each:
-     asn: [15169, 16509]
-     country: [US, DE]
+  - name: regex(.*-west-.*)

@@ -4,7 +4,7 @@ import logging
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import typer
 
@@ -13,6 +13,7 @@ from kentik_api import KentikAPI
 
 from kentik_synth_client import KentikSynthClient, SynTest, TestStatus
 from synth_tools.core import APIs, load_test, run_one_shot
+from synth_tools.matchers import AllMatcher
 
 app = typer.Typer()
 tests_app = typer.Typer()
@@ -31,13 +32,16 @@ def fail(msg: str) -> None:
     raise typer.Exit(1)
 
 
-def print_dict(d: dict, indent_level=0) -> None:
+def print_dict(d: dict, indent_level=0, attr_list: Optional[List[str]] = None) -> None:
     indent = "  " * indent_level
+    match_attrs = [a.split(".")[0] for a in attr_list]
     for k, v in d.items():
+        if match_attrs and k not in match_attrs:
+            continue
         typer.echo(f"{indent}{k}: ", nl=False)
         if type(v) == dict:
             typer.echo("")
-            print_dict(v, indent_level + 1)
+            print_dict(v, indent_level + 1, attr_list=[a.split(".", maxsplit=1)[1] for a in attr_list if a.startswith(f"{k}.")])
         else:
             typer.echo(f"{v}")
 
@@ -91,18 +95,40 @@ def print_health(
                 typer.echo("  {}".format(", ".join(f"{k}: {v}" for k, v in e.items())))
 
 
-def print_test(test: SynTest, indent_level=0) -> None:
+INTERNAL_TEST_SETTINGS = (
+    "tasks",
+    "monitoringSettings",
+    "rollupLevel",
+)
+
+
+def print_test(test: SynTest, indent_level: int = 0, show_internal: bool = False, attributes: Optional[str] = None) -> None:
     d = test.to_dict()["test"]
     if not test.deployed:
         del d["status"]
-    print_dict(d, indent_level=indent_level)
+    if not show_internal:
+        del d["deviceId"]
+        for attr in INTERNAL_TEST_SETTINGS:
+            try:
+                del d["settings"][attr]
+            except KeyError:
+                log.debug("print_test: test: '%s' does not have internal attr '%s'", test.name, attr)
+    if attributes:
+        attr_list = attributes.split(",")
+    else:
+        attr_list = []
+    print_dict(d, indent_level=indent_level, attr_list=attr_list)
     typer.echo("")
 
 
-def print_agent(agent: dict, indent_level=0) -> None:
+def print_agent(agent: dict, indent_level=0, attributes: Optional[str] = None) -> None:
     a = agent.copy()
     del a["id"]
-    print_dict(a, indent_level=indent_level)
+    if attributes:
+        attr_list = attributes.split(",")
+    else:
+        attr_list = []
+    print_dict(a, indent_level=indent_level, attr_list=attr_list)
 
 
 @tests_app.command()
@@ -113,12 +139,16 @@ def one_shot(
     raw_out: str = typer.Option("", help="Path to file to store raw test results in JSON format"),
     failing: bool = typer.Option(False, help="Print only failing results"),
     delete: bool = typer.Option(True, help="Delete test after retrieving results"),
-    print_config: bool = typer.Option(False, help="Print complete test configuration"),
+    print_config: bool = typer.Option(False, help="Print test configuration"),
+    show_internal: bool = typer.Option(False, help="Show internal test attributes"),
     json_out: bool = typer.Option(False, "--json", help="Print output in JSON format"),
 ) -> None:
+    """
+    Create test, wait until it produces results and delete or disable it
+    """
     test = load_test(api, test_config, fail)
     if print_config:
-        print_test(test)
+        print_test(test, show_internal=show_internal)
     health = run_one_shot(api, test, wait_factor=wait_factor, retries=retries, delete=delete)
 
     if not health:
@@ -131,47 +161,102 @@ def one_shot(
 def create_test(
     test_config: Path = typer.Argument(..., help="Path to test config file"),
     dry_run: bool = typer.Option(False, help="Only construct and print test data"),
+    print_config: bool = typer.Option(False, help="Print test configuration"),
+    attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+    show_internal: bool = typer.Option(False, help="Show internal test attributes")
 ) -> None:
+    """
+    Create test
+    """
     test = load_test(api, test_config, fail)
     if dry_run:
-        print_test(test)
+        print_test(test, show_internal=show_internal, attributes=attributes)
     else:
         test = api.syn.create_test(test)
         typer.echo(f"Created new test: id {test.id}")
-        print_test(test)
+        if print_config:
+            print_test(test, show_internal=show_internal)
 
 
 @tests_app.command("delete")
 def delete_test(test_id: str = typer.Argument(..., help="ID of the test to delete")) -> None:
+    """
+    Delete test
+    """
     api.syn.delete_test(test_id)
     typer.echo(f"Deleted test: id: {test_id}")
 
 
 @tests_app.command("list")
-def list_tests(brief: bool = typer.Option(False, help="Print only id, name and type")) -> None:
+def list_tests(brief: bool = typer.Option(False, help="Print only id, name and type"),
+               attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+               show_internal: bool = typer.Option(False, help="Show internal test attributes")) -> None:
+    """
+    List all tests
+    """
     for t in api.syn.tests:
         if brief:
             typer.echo(f"id: {t.id} name: {t.name} type: {t.type.value}")
         else:
             typer.echo(f"id: {t.id}")
-            print_test(t, indent_level=1)
+            print_test(t, indent_level=1, show_internal=show_internal, attributes=attributes)
 
 
 @tests_app.command("get")
-def get_test(test_ids: List[str]) -> None:
+def get_test(test_ids: List[str],
+             attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+             show_internal: bool = typer.Option(False, help="Show internal test attributes")
+) -> None:
+    """
+    Print test configuration
+    """
     for i in test_ids:
         t = api.syn.test(i)
-        print_test(t)
+        print_test(t, show_internal=show_internal, attributes=attributes)
+
+
+def all_matcher_from_criteria(criteria: List[str]) -> AllMatcher:
+    matchers: List[Dict] = []
+    for c in criteria:
+        parts = c.split(":")
+        if len(parts) < 2:
+            fail(f"Invalid match spec: {c} (must have format: '<property>:<value>')")
+        matchers.append({parts[0]: parts[1]})
+    return AllMatcher(matchers)
+
+
+@tests_app.command("match")
+def match_test(criteria: List[str],
+               attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+               show_internal: bool = typer.Option(False, help="Show internal test attributes")
+               ) -> None:
+    """
+    Print configuration of test matching specified criteria
+    """
+    matcher = all_matcher_from_criteria(criteria)
+    matching = [t for t in api.syn.tests if matcher.match(t.to_dict()["test"])]
+    if not matching:
+        typer.echo("No test matches specified criteria")
+    else:
+        for t in matching:
+            typer.echo(f"id: {t.id}")
+            print_test(t, indent_level=1, show_internal=show_internal, attributes=attributes)
 
 
 @tests_app.command("pause")
 def pause_test(test_id: str) -> None:
+    """
+    Pause test execution
+    """
     api.syn.set_test_status(test_id, TestStatus.paused)
     typer.echo(f"test id: {test_id} has been paused")
 
 
 @tests_app.command("resume")
 def resume_test(test_id: str) -> None:
+    """
+    Resume test execution
+    """
     api.syn.set_test_status(test_id, TestStatus.active)
     typer.echo(f"test id: {test_id} has been resumed")
 
@@ -184,6 +269,10 @@ def get_test_health(
     failing: bool = typer.Option(False, help="Print only failing results"),
     periods: int = typer.Option(3, help="Number of test periods to request"),
 ) -> None:
+    """
+    Print test results and health status
+    """
+
     t = api.syn.test(test_id)
     health = api.syn.results(t, periods=periods)
 
@@ -194,20 +283,52 @@ def get_test_health(
 
 
 @agents_app.command("list")
-def list_agents() -> None:
+def list_agents(
+        brief: bool = typer.Option(False, help="Print only id, name, alias and type"),
+        attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+) -> None:
+    """
+    List all agents
+    """
     for a in api.syn.agents:
-        typer.echo(f"id: {a['id']}")
-        print_agent(a, indent_level=1)
-        typer.echo("")
+        if brief:
+            typer.echo(f"id: {a['id']} name: {a['name']} alias: {a['alias']} type: {a['type']}")
+        else:
+            typer.echo(f"id: {a['id']}")
+            print_agent(a, indent_level=1, attributes=attributes)
+            typer.echo("")
 
 
 @agents_app.command("get")
-def get_agent(agent_ids: List[str]) -> None:
+def get_agent(agent_ids: List[str],
+              attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+) -> None:
+    """
+    Print agent configuration
+    """
     for i in agent_ids:
         typer.echo(f"id: {i}")
         a = api.syn.agent(i)
-        print_agent(a, indent_level=1)
+        print_agent(a, indent_level=1, attributes=attributes)
         typer.echo("")
+
+
+@agents_app.command("match")
+def match_agent(criteria: List[str],
+                attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+                ) -> None:
+    """
+    Print configuration of agents matching specified criteria
+    """
+    matcher = all_matcher_from_criteria(criteria)
+    matching = [a for a in api.syn.agents if matcher.match(a)]
+    if not matching:
+        typer.echo("No agent matches specified criteria")
+    else:
+        for a in matching:
+            typer.echo(f"id: {a['id']}")
+            print_agent(a, indent_level=1, attributes=attributes)
+            typer.echo("")
 
 
 @app.callback()

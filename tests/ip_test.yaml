@@ -1,0 +1,14 @@
+test:
+  name: aws knocks on oci
+  type: ip
+  period: 600
+  ping:
+    timeout: 3000 # milliseconds
+    protocol: tcp
+    port: 22
+
+targets:
+  - 150.230.39.242
+
+agents:
+  - id: 606

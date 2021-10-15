@@ -47,7 +47,7 @@ class PropertyMatcher(Matcher):
         obj = data
         while key_path:
             k = key_path.pop(0)
-            log.debug("%s: matching k: '%s', value: '%s'", self.__class__.__name__, k, str(obj))
+            log.debug("%s: matching k: '%s', obj: '%s'", self.__class__.__name__, k, str(obj))
             if hasattr(obj, k):
                 obj = getattr(obj, k)
             elif k in obj:
@@ -64,7 +64,7 @@ class PropertyMatcher(Matcher):
         elif isinstance(obj, Enum):
             ret = obj.value == self.value
         else:
-            ret = obj == self.value
+            ret = str(obj) == str(self.value)
         log.debug("%s: ret %s", self.__class__.__name__, ret)
         return ret
 

@@ -270,20 +270,35 @@ def make_url_test(
 def set_common_test_params(test: SynTest, cfg: dict) -> None:
     if "family" in cfg:
         test.settings.family = IPFamily(cfg.get("family"))
-        log.debug("set_common_test_params: test: '%s' family: '%s'", test.name, cfg.get("family"))
-    if "tasks" in cfg:
-        test.settings.tasks = cfg.get("tasks")
-        log.debug("set_common_test_params: test: '%s' tasks: '%s'", test.name, cfg.get("tasks"))
+        log.debug("set_common_test_params: test: '%s' family: '%s'", test.name, test.settings.family)
     if "protocol" in cfg:
-        log.debug("set_common_test_params: test: '%s' protocol: '%s'", test.name, cfg.get("protocol"))
-        test.settings.protocol = Protocol(cfg.get("protocol"))
+        test.settings.protocol = Protocol(cfg["protocol"])
+        log.debug("set_common_test_params: test: '%s' protocol: '%s'", test.name, test.settings.protocol)
     if "port" in cfg:
-        log.debug("set_common_test_params: test: '%s' port: '%s'", test.name, cfg.get("port"))
-        test.settings.port = cfg.get("port")
+        test.settings.port = cfg["port"]
+        log.debug("set_common_test_params: test: '%s' port: '%s'", test.name, test.settings.port)
     if "ping" in cfg and type(cfg["ping"]) == dict:
         if "ping" in test.settings.tasks:
             test.settings.ping = PingTask.from_dict(cfg.get("ping"))
             log.debug("set_common_test_params: test: '%s' ping: '%s'", test.name, cfg.get("ping"))
+            if "protocol" in cfg["ping"]:
+                _g = test.settings.protocol
+                test.settings.protocol = Protocol(cfg["ping"]["protocol"])
+                log.debug(
+                    "set_common_test_params: test: '%s' ping.protocol: '%s' (overrides global: '%s')",
+                    test.name,
+                    test.settings.protocol,
+                    _g,
+                )
+            if "port" in cfg["ping"]:
+                _g = test.settings.port
+                test.settings.port = cfg["ping"]["port"]
+                log.debug(
+                    "set_common_test_params: test: '%s' ping.port: '%s'(overrides global: '%s')",
+                    test.name,
+                    test.settings.port,
+                    _g,
+                )
     if "trace" in cfg and type(cfg["trace"]) == dict:
         if "traceroute" in test.settings.tasks:
             log.debug("set_common_test_params: test: '%s' trace: '%s'", test.name, cfg.get("trace"))

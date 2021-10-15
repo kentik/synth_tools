@@ -20,7 +20,6 @@ targets:
 #    public_only: True
 
 agents:
-  - agentImpl: IMPLEMENT_TYPE_RUST
   - family: IP_FAMILY_DUAL
   - one_of_each:
      asn: [15169, 7224, 16509, 36351]
