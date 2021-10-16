@@ -1,5 +1,5 @@
 test:
-  name: photographymama
+  name: www.example.com
   type: url
   period: 600
   protocol: tcp
@@ -21,7 +21,7 @@ test:
     user-agent: kentik
 
 targets:
-  - http://www.photographymama.com
+  - https://www.example.com
 
 agents:
   - family: IP_FAMILY_DUAL

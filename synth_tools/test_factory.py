@@ -1,8 +1,9 @@
 import logging
 from dataclasses import dataclass
 from ipaddress import ip_address
-from typing import Callable, Dict, List, Set, Union
+from typing import (Callable, Dict, List, Set, Union)
 from urllib.parse import urlparse
+from validators import domain
 
 from kentik_api.public import Device, Interface
 
@@ -75,9 +76,22 @@ def interface_addresses(key: str, families: List[int], public_only=False) -> Cal
 
 
 def address_targets(api: APIs, cfg: Union[List, Dict], fail: Callable[[str], None] = _fail) -> Set[str]:
+    def is_valid_address(addr: str) -> bool:
+        try:
+            ip_address(addr)
+            return True
+        except ValueError:
+            log.debug("Invalid address: '%s'", addr)
+            return False
+        return False
+
     # support loading plain list addresses
     if type(cfg) == list:
-        return set(cfg)
+        addresses = set(cfg)
+        invalid = [a for a in addresses if not is_valid_address(a)]
+        if invalid:
+            fail("Invalid addresses in targets: {}".format(", ".join(invalid)))
+        return addresses
 
     address_selectors = {
         "interface_addresses": {"source": "interface", "generator": interface_addresses, "key": None},
@@ -144,10 +158,31 @@ def address_targets(api: APIs, cfg: Union[List, Dict], fail: Callable[[str], Non
     return targets
 
 
-def targets_list(_: APIs, cfg: Union[List, Dict], fail: Callable[[str], None] = _fail) -> Set[str]:
+def url_targets(_: APIs, cfg: Union[List, Dict], fail: Callable[[str], None] = _fail) -> Set[str]:
+    def valid_url(url: str) -> bool:
+        _u = urlparse(url)
+        if _u.scheme not in ("http", "https") or not domain(_u.netloc):
+            log.debug("invalid url: %s", _u)
+            return False
+        return True
+
     if type(cfg) != list:
-        fail("Invalid target specification: selected test type requires simple list of verbatim targets")
-    return set(cfg)
+        fail("Invalid target specification: spec must be a simple list strings")
+    urls = set(cfg)
+    invalid = [u for u in urls if not valid_url(u)]
+    if invalid:
+        fail("List contains invalid URLs: {}".format(", ".join(invalid)))
+    return urls
+
+
+def domain_targets(_: APIs, cfg: Union[List, Dict], fail: Callable[[str], None] = _fail) -> Set[str]:
+    if type(cfg) != list:
+        fail("Invalid target specification: spec must be a simple list strings")
+    names = set(cfg)
+    invalid = [n for n in names if not domain(n)]
+    if invalid:
+        fail("List contains invalid names: {}".format(", ".join(invalid)))
+    return names
 
 
 def dummy_loader(_: APIs, cfg: Union[List, Dict], fail: Callable[[str], None] = _fail) -> Set[str]:
@@ -229,14 +264,6 @@ def make_mesh_test(
     return MeshTest.create(name=name, agent_ids=agents)
 
 
-def validate_url(url: str) -> bool:
-    _u = urlparse(url)
-    if _u.scheme not in ("http", "https") or not _u.netloc:
-        log.debug("validate_url: invalid url: %s", _u)
-        return False
-    return True
-
-
 def get_optional_params(cfg: dict) -> dict:
     return {k: v for k, v in cfg.items() if k not in COMMON_TEST_PARAMS}
 
@@ -246,8 +273,6 @@ def make_page_load_test(
 ) -> SynTest:
     if len(targets) > 1:
         fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    if not validate_url(targets[0]):
-        fail(f"Invalid URL: {targets[0]}")
     optional_params = get_optional_params(cfg)
     log.debug("make_page_load_test: optional_params: '%s'", ", ".join(f"{k}:{v}" for k, v in optional_params.items()))
     return PageLoadTest.create(name=name, target=targets[0], agent_ids=agents, **optional_params)
@@ -258,8 +283,6 @@ def make_url_test(
 ) -> SynTest:
     if len(targets) > 1:
         fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    if not validate_url(targets[0]):
-        fail(f"Invalid URL: {targets[0]}")
     optional_params = get_optional_params(cfg)
     log.debug("make_url_test: optional_params: '%s'", ", ".join(f"{k}:{v}" for k, v in optional_params.items()))
     ping = "ping" in cfg
@@ -326,14 +349,14 @@ class TestFactory:
         ),
         "ip": TestEntry(create=make_ip_test, target_loader=address_targets, agent_loader=rust_agents),
         "agent": TestEntry(create=make_agent_test, target_loader=all_agents, agent_loader=rust_agents),
-        "dns": TestEntry(create=make_dns_test, target_loader=targets_list, agent_loader=rust_agents),
-        "dns_grid": TestEntry(create=make_dns_grid_test, target_loader=targets_list, agent_loader=rust_agents),
-        "hostname": TestEntry(create=make_hostname_test, target_loader=targets_list, agent_loader=rust_agents),
+        "dns": TestEntry(create=make_dns_test, target_loader=domain_targets, agent_loader=rust_agents),
+        "dns_grid": TestEntry(create=make_dns_grid_test, target_loader=domain_targets, agent_loader=rust_agents),
+        "hostname": TestEntry(create=make_hostname_test, target_loader=domain_targets, agent_loader=rust_agents),
         "mesh": TestEntry(
             create=make_mesh_test, target_loader=dummy_loader, agent_loader=rust_agents, requires_targets=False
         ),
-        "page_load": TestEntry(create=make_page_load_test, target_loader=targets_list, agent_loader=node_agents),
-        "url": TestEntry(create=make_url_test, target_loader=targets_list, agent_loader=rust_agents),
+        "page_load": TestEntry(create=make_page_load_test, target_loader=url_targets, agent_loader=node_agents),
+        "url": TestEntry(create=make_url_test, target_loader=url_targets, agent_loader=rust_agents),
     }
 
     def create(self, api: APIs, default_name: str, cfg: dict, fail: Callable[[str], None] = _fail) -> SynTest:
