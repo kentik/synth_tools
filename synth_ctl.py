@@ -8,11 +8,9 @@ from typing import Dict, List, Optional
 
 import typer
 
-# noinspection Mypy
-from kentik_api import KentikAPI
-
-from kentik_synth_client import KentikSynthClient, SynTest, TestStatus
-from synth_tools.core import APIs, load_test, run_one_shot
+from kentik_synth_client import SynTest, TestStatus
+from synth_tools.apis import APIs
+from synth_tools.core import (load_test, run_one_shot)
 from synth_tools.matchers import AllMatcher
 
 app = typer.Typer()

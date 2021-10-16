@@ -153,14 +153,14 @@ setup(
     url="https://github.com/kentik/synth_tools",
     license="Apache-2.0",
     include_package_data=True,
-    install_requires=["kentik-api>=0.3.0", "pyyaml", "typer", "validators"],
+    install_requires=["kentik-api>=0.3.0", "urllib3>=1.26.0", "pyyaml", "typer", "validators"],
     setup_requires=["pytest-runner", "setuptools_scm", "wheel", "grpcio-tools", "gitpython"],
     tests_require=["httpretty", "pytest", "mypy"],
     cmdclass={"mypy": MypyCmd, "grpc_stubs": FetchGRPCCode, "black": Black, "isort": Isort},
     classifiers=[
         "License :: OSI Approved :: Apache Software License",
     ],
-    scripts=["synth_tools/synth_ctl.py"],
+    scripts=["synth_ctl.py"],
     packages=PACKAGES,
     package_dir={pkg: os.path.join(*pkg.split(".")) for pkg in PACKAGES},
 )
