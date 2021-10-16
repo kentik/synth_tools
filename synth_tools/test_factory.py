@@ -1,11 +1,11 @@
 import logging
 from dataclasses import dataclass
 from ipaddress import ip_address
-from typing import (Callable, Dict, List, Set, Union)
+from typing import Callable, Dict, List, Set, Union
 from urllib.parse import urlparse
-from validators import domain
 
 from kentik_api.public import Device, Interface
+from validators import domain
 
 from kentik_synth_client.synth_tests import *
 from synth_tools.apis import APIs

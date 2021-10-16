@@ -41,7 +41,9 @@ def print_dict(d: dict, indent_level=0, attr_list: Optional[List[str]] = None) -
         typer.echo(f"{indent}{k}: ", nl=False)
         if type(v) == dict:
             typer.echo("")
-            print_dict(v, indent_level + 1, attr_list=[a.split(".", maxsplit=1)[1] for a in attr_list if a.startswith(f"{k}.")])
+            print_dict(
+                v, indent_level + 1, attr_list=[a.split(".", maxsplit=1)[1] for a in attr_list if a.startswith(f"{k}.")]
+            )
         else:
             typer.echo(f"{v}")
 
@@ -102,7 +104,9 @@ INTERNAL_TEST_SETTINGS = (
 )
 
 
-def print_test(test: SynTest, indent_level: int = 0, show_internal: bool = False, attributes: Optional[str] = None) -> None:
+def print_test(
+    test: SynTest, indent_level: int = 0, show_internal: bool = False, attributes: Optional[str] = None
+) -> None:
     d = test.to_dict()["test"]
     if not test.deployed:
         del d["status"]
@@ -163,7 +167,7 @@ def create_test(
     dry_run: bool = typer.Option(False, help="Only construct and print test data"),
     print_config: bool = typer.Option(False, help="Print test configuration"),
     attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
-    show_internal: bool = typer.Option(False, help="Show internal test attributes")
+    show_internal: bool = typer.Option(False, help="Show internal test attributes"),
 ) -> None:
     """
     Create test
@@ -188,9 +192,11 @@ def delete_test(test_id: str = typer.Argument(..., help="ID of the test to delet
 
 
 @tests_app.command("list")
-def list_tests(brief: bool = typer.Option(False, help="Print only id, name and type"),
-               attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
-               show_internal: bool = typer.Option(False, help="Show internal test attributes")) -> None:
+def list_tests(
+    brief: bool = typer.Option(False, help="Print only id, name and type"),
+    attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+    show_internal: bool = typer.Option(False, help="Show internal test attributes"),
+) -> None:
     """
     List all tests
     """
@@ -203,9 +209,10 @@ def list_tests(brief: bool = typer.Option(False, help="Print only id, name and t
 
 
 @tests_app.command("get")
-def get_test(test_ids: List[str],
-             attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
-             show_internal: bool = typer.Option(False, help="Show internal test attributes")
+def get_test(
+    test_ids: List[str],
+    attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+    show_internal: bool = typer.Option(False, help="Show internal test attributes"),
 ) -> None:
     """
     Print test configuration
@@ -226,10 +233,11 @@ def all_matcher_from_criteria(criteria: List[str]) -> AllMatcher:
 
 
 @tests_app.command("match")
-def match_test(criteria: List[str],
-               attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
-               show_internal: bool = typer.Option(False, help="Show internal test attributes")
-               ) -> None:
+def match_test(
+    criteria: List[str],
+    attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+    show_internal: bool = typer.Option(False, help="Show internal test attributes"),
+) -> None:
     """
     Print configuration of test matching specified criteria
     """
@@ -284,8 +292,8 @@ def get_test_health(
 
 @agents_app.command("list")
 def list_agents(
-        brief: bool = typer.Option(False, help="Print only id, name, alias and type"),
-        attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+    brief: bool = typer.Option(False, help="Print only id, name, alias and type"),
+    attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
 ) -> None:
     """
     List all agents
@@ -300,8 +308,9 @@ def list_agents(
 
 
 @agents_app.command("get")
-def get_agent(agent_ids: List[str],
-              attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+def get_agent(
+    agent_ids: List[str],
+    attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
 ) -> None:
     """
     Print agent configuration
@@ -314,9 +323,10 @@ def get_agent(agent_ids: List[str],
 
 
 @agents_app.command("match")
-def match_agent(criteria: List[str],
-                attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
-                ) -> None:
+def match_agent(
+    criteria: List[str],
+    attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+) -> None:
     """
     Print configuration of agents matching specified criteria
     """
