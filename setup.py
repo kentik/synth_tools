@@ -13,7 +13,7 @@ HERE = Path(__file__).parent
 # The text of the README file
 README = (HERE / "README.md").read_text()
 
-PACKAGES = ["kentik_synth_client"]
+PACKAGES = ["kentik_synth_client", "synth_tools"]
 
 
 def run_cmd(cmd, reporter) -> None:
