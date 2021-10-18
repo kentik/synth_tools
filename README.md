@@ -225,3 +225,95 @@ The `synth_ctl.py` tool current does not support:
 - creation of `flow` type tests
 - creation of `bgp` type tests
 - retrieval of test traceroute results (traces)
+
+## synth_ctl.py usage
+Top-level
+
+```
+❯ synth_ctl.py --profile default --help
+  Tool for manipulating Kentik synthetic tests
+
+Options:
+  --profile TEXT                  Credential profile for the monitoring
+                                  account  [required]
+  --target-profile TEXT           Credential profile for the target account
+                                  (default: same as profile)
+  -d, --debug                     Debug output
+  --proxy TEXT                    Proxy to use to connect to Kentik API
+  --install-completion [bash|zsh|fish|powershell|pwsh]
+                                  Install completion for the specified shell.
+  --show-completion [bash|zsh|fish|powershell|pwsh]
+                                  Show completion for the specified shell, to
+                                  copy it or customize the installation.
+  --help                          Show this message and exit.
+
+Commands:
+  agent
+  test
+```
+
+`test` command group
+```
+❯ synth_ctl.py --profile default test --help
+Usage: synth_ctl.py test [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  create    Create test
+  delete    Delete test
+  get       Print test configuration
+  list      List all tests
+  match     Print configuration of test matching specified criteria
+  one-shot  Create test, wait until it produces results and delete or...
+  pause     Pause test execution
+  results   Print test results and health status
+  resume    Resume test execution
+```
+
+`agent` command group
+```
+❯ synth_ctl.py --profile default agent --help
+Usage: synth_ctl.py agent [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  get    Print agent configuration
+  list   List all agents
+  match  Print configuration of agents matching specified criteria
+```
+
+There is also help for each command. Example:
+
+```
+❯ synth_ctl.py --profile default test one-shot --help
+Usage: synth_ctl.py test one-shot [OPTIONS] TEST_CONFIG
+
+  Create test, wait until it produces results and delete or disable it
+
+Arguments:
+  TEST_CONFIG  Path to test config file  [required]
+
+Options:
+  --wait-factor FLOAT             Multiplier for test period for computing
+                                  wait time for test results  [default: 1.0]
+  --retries INTEGER               Number retries waiting for test results
+                                  [default: 3]
+  --raw-out TEXT                  Path to file to store raw test results in
+                                  JSON format
+  --failing / --no-failing        Print only failing results  [default: no-
+                                  failing]
+  --delete / --no-delete          Delete test after retrieving results
+                                  [default: delete]
+  --print-config / --no-print-config
+                                  Print test configuration  [default: no-
+                                  print-config]
+  --show-internal / --no-show-internal
+                                  Show internal test attributes  [default: no-
+                                  show-internal]
+  --json                          Print output in JSON format
+  --help                          Show this message and exit.
+```
