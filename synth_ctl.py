@@ -10,7 +10,7 @@ import typer
 
 from kentik_synth_client import SynTest, TestStatus
 from synth_tools.apis import APIs
-from synth_tools.core import (load_test, run_one_shot)
+from synth_tools.core import load_test, run_one_shot
 from synth_tools.matchers import AllMatcher
 
 app = typer.Typer()

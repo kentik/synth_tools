@@ -34,7 +34,14 @@ def get_proxy(profile: str) -> Optional[str]:
 
 
 class APIs:
-    def __init__(self, mgmt_profile: str, syn_profile: str, proxy: Optional[str] = None, api_url: Optional[str] = None, fail: Callable[[str], None] = _fail) -> None:
+    def __init__(
+        self,
+        mgmt_profile: str,
+        syn_profile: str,
+        proxy: Optional[str] = None,
+        api_url: Optional[str] = None,
+        fail: Callable[[str], None] = _fail,
+    ) -> None:
         self.mgmt_profile = mgmt_profile
         self.syn_profile = syn_profile
         self.proxy = proxy
@@ -90,4 +97,3 @@ class APIs:
             self._syn_api = KentikSynthClient(get_credentials(self.syn_profile), url=url, proxy=self.proxy)
             log.debug("API: syn_api: %s", self._syn_api)
         return self._syn_api
-

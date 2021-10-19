@@ -66,9 +66,7 @@ def interface_addresses(key: str, families: List[int], public_only=False) -> Cal
                 ifc.interface_description,
             )
         return [
-            str(a)
-            for a in candidates
-            if (not public_only or a.is_global) and (not families or a.version in families)
+            str(a) for a in candidates if (not public_only or a.is_global) and (not families or a.version in families)
         ]
 
     log.debug("interface_addresses: returning extractor for families: '%s', public_only: '%s'", families, public_only)
