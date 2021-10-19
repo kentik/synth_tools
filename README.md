@@ -358,3 +358,11 @@ Options:
   --json                          Print output in JSON format
   --help                          Show this message and exit.
 ```
+
+## Requirements and Installation
+
+The tool requires Python3. It is currently not published to PyPi, but it can be installed directly from Github using:
+
+```bash
+pip install git+https://github.com/kentik/synth_tools.git#egg=kentik-synth-tools
+```
