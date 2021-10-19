@@ -361,8 +361,34 @@ Options:
 
 ## Requirements and Installation
 
-The tool requires Python3. It is currently not published to PyPi, but it can be installed directly from Github using:
+The tool requires Python3. The lowest tested version is 3.7.3 and the newest 3.10.0.
+
+It is currently not published to PyPi, but it can be installed directly from Github using:
 
 ```bash
 pip install git+https://github.com/kentik/synth_tools.git#egg=kentik-synth-tools
+```
+
+It is highly recommended to use virtual environment, because the application has non-trivial dependencies.
+
+```bash
+mkdir kentik_synth_tools
+cd kentik_synth_tools
+python3 venv .venv
+source .venv/bin/activate
+pip3 install git+https://github.com/kentik/synth_tools.git#egg=kentik-synth-tools
+```
+
+The tool also requires authentication profile(s) for accessing the Kentik API.
+Those are by default stored in `.kentik` directory in $HOME (see also _Authentication_ section above)
+
+Example of creation of Kentik authentication profile:
+```bash
+mkdir $HOME/.kentik
+cat > $HOME/.kentik/default <<EOF
+{
+	"email": "<your_email>",
+	"api-key": "<your_Kentik_API_key"
+}
+EOF
 ```
