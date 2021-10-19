@@ -13,6 +13,4 @@ targets:
 
 agents:
   - family: IP_FAMILY_DUAL
-  - one_of_each:
-     asn: [14061]
-     country: [US, DE]
+  - one_of_each: { asn: [14061], country: [US, DE] }

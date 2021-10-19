@@ -181,12 +181,13 @@ def create_test(
 
 
 @tests_app.command("delete")
-def delete_test(test_id: str = typer.Argument(..., help="ID of the test to delete")) -> None:
+def delete_test(test_ids: List[str] = typer.Argument(..., help="ID of the test to delete")) -> None:
     """
     Delete test
     """
-    api.syn.delete_test(test_id)
-    typer.echo(f"Deleted test: id: {test_id}")
+    for i in test_ids:
+        api.syn.delete_test(i)
+        typer.echo(f"Deleted test: id: {i}")
 
 
 @tests_app.command("list")
@@ -220,29 +221,29 @@ def get_test(
         print_test(t, show_internal=show_internal, attributes=attributes)
 
 
-def all_matcher_from_criteria(criteria: List[str]) -> AllMatcher:
+def all_matcher_from_rules(rules: List[str]) -> AllMatcher:
     matchers: List[Dict] = []
-    for c in criteria:
-        parts = c.split(":")
+    for r in rules:
+        parts = r.split(":")
         if len(parts) < 2:
-            fail(f"Invalid match spec: {c} (must have format: '<property>:<value>')")
+            fail(f"Invalid match spec: {r} (must have format: '<property>:<value>')")
         matchers.append({parts[0]: parts[1]})
     return AllMatcher(matchers)
 
 
 @tests_app.command("match")
 def match_test(
-    criteria: List[str],
+    rules: List[str],
     attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
     show_internal: bool = typer.Option(False, help="Show internal test attributes"),
 ) -> None:
     """
-    Print configuration of test matching specified criteria
+    Print configuration of test matching specified rules
     """
-    matcher = all_matcher_from_criteria(criteria)
+    matcher = all_matcher_from_rules(rules)
     matching = [t for t in api.syn.tests if matcher.match(t.to_dict()["test"])]
     if not matching:
-        typer.echo("No test matches specified criteria")
+        typer.echo("No test matches specified rules")
     else:
         for t in matching:
             typer.echo(f"id: {t.id}")
@@ -322,16 +323,16 @@ def get_agent(
 
 @agents_app.command("match")
 def match_agent(
-    criteria: List[str],
+    rules: List[str],
     attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
 ) -> None:
     """
-    Print configuration of agents matching specified criteria
+    Print configuration of agents matching specified rules
     """
-    matcher = all_matcher_from_criteria(criteria)
+    matcher = all_matcher_from_rules(rules)
     matching = [a for a in api.syn.agents if matcher.match(a)]
     if not matching:
-        typer.echo("No agent matches specified criteria")
+        typer.echo("No agent matches specified rules")
     else:
         for a in matching:
             typer.echo(f"id: {a['id']}")
@@ -341,12 +342,13 @@ def match_agent(
 
 @app.callback()
 def main(
-    profile: str = typer.Option(..., help="Credential profile for the monitoring account"),
+    profile: str = typer.Option(None, help="Credential profile for the monitoring account [required]"),
     target_profile: Optional[str] = typer.Option(
         None, help="Credential profile for the target account (default: same as profile)"
     ),
     debug: bool = typer.Option(False, "-d", "--debug", help="Debug output"),
     proxy: Optional[str] = typer.Option(None, "--proxy", help="Proxy to use to connect to Kentik API"),
+    api_url: Optional[str] = typer.Option(None, "--api_url", help="Base URL for Kentik API (default:  api.kentik.com)"),
 ) -> None:
     """
     Tool for manipulating Kentik synthetic tests
@@ -356,13 +358,10 @@ def main(
     if debug:
         log.setLevel(logging.DEBUG)
         log.debug("Debug output enabled")
-    if proxy:
-        log.debug("Using proxy: %s", proxy)
-    log.debug("Monitoring credential profile: %s", profile)
     if target_profile is None:
         target_profile = profile
 
-    api = APIs(mgmt_profile=target_profile, syn_profile=profile, proxy=proxy)
+    api = APIs(mgmt_profile=target_profile, syn_profile=profile, api_url=api_url, proxy=proxy, fail=fail)
 
 
 if __name__ == "__main__":

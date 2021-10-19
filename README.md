@@ -20,65 +20,79 @@ The `synth_ctl.py` tool supports manipulation of Kentik synthetic tests and agen
 - temporary execution of tests
 - retrieval of test results and health status
 
-See also: `synth_ctl --profile <your_profile> test --help`
-
-_Note: The authentication profile (`--profile` option) unfortunately must be specified when requesting command group specific usage information.
-This is a limitation of the framework used for implementation of the tool._
+See also: `synth_ctl test --help`
 
 ### Operations supported for synthetic agents:
 - listing and display of agent configuration
-- matching of agents based on criteria
+- matching of agents based on expression
 
-See also: `synth_ctl --profile <your_profile> agent --help`
+See also: `synth_ctl agent --help`
 
 ### Test configuration file
 
-Each test configuration file defines configuration for 1 test. The test configuration file use `YAML` syntax.
-The configuration file has 3 sections:
-
-  | name | purpose | format |
-  | :---------| :------| :----- |
-  | test | contains test attributes other than targets and agents | dictionary |
-  | agents | Criteria for matching agents to use for the test | list of dictionaries |
-  | targets | Criteria for matching targets or direct list of targets | dictionary or list |
+Each configuration file defines configuration for a single test.
+The test configuration file uses `YAML` syntax and has 3 sections (dictionaries):
 
 #### test section
 
+This section specifies test attributes other than list of targets and agents.
+
 _Common test attributes:_
 
-  | name | purpose | required | possible values |
-  | :---------| :------| :----- | :------|
-  | type | test type | YES | ip, hostname, network_grid, dns, dns_grid, url, page-load, mesh |
-  | name | name of the test | NO | any printable string |
-  | period | test execution period | NO | integer (default: 60 seconds) |
-  | family | IP address family to use for tests selecting target address via DNS resolution | NO | IP_FAMILY_DUAL (default), IP_FAMILY_V4, IP_FAMILY_V6 |
-  | healthSettings | definition of thresholds for establishing test health | NO| dictionary (default: no thresholds) |
+  | name           | purpose                                                                       | required | possible values                                                 |
+  | :--------------| :-----------------------------------------------------------------------------| :--------| :---------------------------------------------------------------|
+  | type           | test type                                                                     | YES      | ip, hostname, network_grid, dns, dns_grid, url, page-load, mesh |
+  | name           | name of the test                                                              | NO       | any printable string                                            |
+  | period         | test execution period                                                         | NO       | integer (default: 60 seconds)                                   |
+  | family         | IP address family to use for tests selecting target address via DNS resolution| NO       | IP_FAMILY_DUAL (default), IP_FAMILY_V4, IP_FAMILY_V6            |
+  | healthSettings | definition of thresholds for establishing test health                         | NO       | _see bellow_ (default: no thresholds)                           |
+
+_Health settings attributes_
+```
+    latencyCritical: 0
+    latencyWarning: 0
+    latencyCriticalStddev: 3
+    latencyWarningStddev: 1
+    packetLossCritical: 50
+    packetLossWarning: 0
+    jitterCritical: 0
+    jitterWarning: 0
+    jitterCriticalStddev: 3
+    jitterWarningStddev: 1
+    httpLatencyCritical: 0
+    httpLatencyWarning: 0
+    httpLatencyCriticalStddev: 3
+    httpLatencyWarningStddev: 1
+    httpValidCodes: []
+    dnsValidCodes: []
+```
 
 _Test specific attributes:_
-<TDB>
+<br>`<Coming soon>`
 
 #### targets section
 
-The `targets` section allows to specify either direct list of targets, or criteria for selecting targets. Content differs by test type.
-Following table shows content of targets section for individual tests
+The `targets` section allows to specify either direct list of targets, or set of rules for selecting targets.
+At the moment only tests targeting IP addresses or agents support specification via rules. 
+Supported format of the `targets` section for individual test types:
  
-  | test type        | targets section format |
-  | :----------------| :----------------------|
-  | ip, network_grid | list of IP addresses or address selection criteria (see bellow) |
-  | hostname, dns, dns_grid | list of valid DNS host/domain names |
-  | url, page_load   | list of URLs |
-  | agent            | list of agent ids or agent selection criteria (see bellow) |
+  | test type               | targets section format                                          |
+  | :-----------------------| :---------------------------------------------------------------|
+  | ip, network_grid        | list of IP addresses or address selection criteria (see bellow) |
+  | hostname, dns, dns_grid | list of valid DNS host/domain names                             |
+  | url, page_load          | list of URLs                                                    |
+  | agent                   | list of agent ids or agent selection rules (see bellow)         |
 
-**Address selection criteria**
+**Address selection rules**
 
-The tool allows construct list of addresses by querying `device` and `interface` configuration in Kentik and selecting
-addresses based on specified criteria.
+List of target addresses can be constructed by querying `device` and `interface` configuration in Kentik and selecting
+addresses based on set of rules.
 
-Format of the `targets` section for address matching:
+Format of the `targets` section for address selection:
 
 ```
 devices: # required
-  <list of matching criteria>
+  <list of rules>
 interface_addresses: # optional
   <address properties>
 sending_ips: # optional
@@ -87,35 +101,9 @@ snmp_ip: # optional
    <address properties> 
 ```
 
-The selection algorithm first retrieves list of devices from Kentik API and applies criteria in the `devices` list. All criteria
-in the list must match in order for a device to be selected.
-
-_Available matching criteria:_
-
-  | type                     | evaluation                                                    | format                                                                           | example                                                                              |
-  | :------------------------| :-------------------------------------------------------------| :--------------------------------------------------------------------------------| :------------------------------------------------------------------------------------|
-  | direct attribute match   | tests value of specified attribute                            |  `attribute`: `value`                                                            | device_type: router                                                                  |
-  | regular expression match | matches value of specified attribute using regular expression |`attribute`: regex(`regular expression`)                                          | device_name: regex(.\*-iad1-.\*)                                                     |
-  | match any (OR operator)  | matches if at least one criterium in the list matches         | match_any: `list of criteria`                                                    | match_any: <br>  - label: gateway<br>  - label: edge router                          |
-  | match all (AND operator) | matches if all criteria in the list match                     | match_all: `list of criteria`                                                    | match_all: <br>  - label: gateway<br>  - site.site_name: Ashburn DC3                 |
-  | one_of_each              | produces set of candidate matches and matches 1 object to each| one_of_each:<br>`attribute1`: `list of values`<br>`attribute2`: `list of values` | one_of_each:<br>site.site_name: \[siteA, siteB\]<br>device_type: \[router, gateway\] |
-
-The `match_all` and `match_any` operators can be nested allowing to construct complex expressions. Example of matching of `router`
-type devices in `siteA` and `gateway` devices in `siteB`
-
-```yaml
-devices:
-  - match_any:
-    - match_all:
-      - site.site_name: siteA
-      - device_type: router
-    - match_all
-      - site.site_name: siteB
-      - device_type: gateway
-```
-Note: the top list in the `devices` section is actually consumed by an implied `match_all` operator.
-
-(see `agents` section for example usage of the `one_of_each` operator)
+The selection algorithm retrieves list of devices from Kentik API and applies rules in the `devices` list. All rules
+in the list must match in order for a device to be selected. See section `Device and agent matching rules` for available
+rules.
 
 If the `interface_addresses` section is present, list of all interfaces is collected for each matched device. Candidate
 addresses are extracted from values of the `ip_address` and `secondary_ips` interface attributes. 
@@ -127,28 +115,82 @@ At least one of `interface_addresses`, `sending_ips` or `snmp_ip` sections must 
 extracted address lists are combined and de-duplicated. Available matching criteria are as shown in the _Available matching criteria_
 in the `targets` section above.
 
+_Address properties_
+
+  | name   | purpose                                                                      | required | possible values
+  | :------| :--------------------------------------------------------------------------- | :--------| :-----------------------------------------------------|
+  | family | IP address family to match                                                   | NO       | IP_FAMILY_DUAL (default), IP_FAMILY_V4, IP_FAMILY_V6  |
+  | public | Exclude link-local and multicast and addresses in iana-ipv4-special-registry | NO       | True, False                                           |
+
+#### Optional specification of maximum number of targets
+
+Maximum number of targets can be specified using `limit: <N>` directive at the top level.
+
+Example:
+```yaml
+targets:
+  limit: 10
+  ...
+```
 #### agents section
 
-This section allows to specify selection criteria for agents to used to run the test. The content is list of criteria
-for matching agents configuration. Selection criteria are as shown in the _Available matching criteria:_ table in the `targets` section.
+This section specifies list of rules for selecting agents for the test. All rules in the list must match in order for an
+agent to be selected. Rule syntax is described in the `Device and Agent matching rules` section bellow.
+
+### Device and Agent matching rules
+
+_Available matching rules :_
+
+  | type                     | evaluation                                                    | format                                                                           | example                                                                              |
+  | :------------------------| :-------------------------------------------------------------| :--------------------------------------------------------------------------------| :------------------------------------------------------------------------------------|
+  | direct attribute match   | tests value of specified attribute                            |`attribute`: `value`                                                              | device_type: router                                                                  |
+  | regular expression match | matches value of specified attribute using regular expression |`attribute`: regex(`regular expression`)                                          | device_name: regex(.\*-iad1-.\*)                                                     |
+  | match any (logical OR)   | matches if at least one rule in the list matches              | any: `list of rules`                                                       | any: <br>  - label: gateway<br>  - label: edge router                          |
+  | match all (logical AND)  | matches if all rules in the list match                        | all: `list of rules`                                                       | all: <br>  - label: gateway<br>  - site.site_name: Ashburn DC3                 |
+  | one_of_each              | produces set of candidate matches and matches 1 object to each| one_of_each:<br>`attribute1`: `list of values`<br>`attribute2`: `list of values` | one_of_each:<br>site.site_name: \[siteA, siteB\]<br>device_type: \[router, gateway\] |
+
+The `all` and `any` operators can be nested allowing to construct complex expressions. Example of matching `router`
+type devices in `siteA` and `gateway` devices in `siteB`
+
+```yaml
+devices:
+  - any:
+    - all:
+      - site.site_name: siteA
+      - device_type: router
+    - all:
+      - site.site_name: siteB
+      - device_type: gateway
+```
 
 Example of specifying list of agents by `id`:
 
 ```yaml
 agents:
-  - match_any:
-    - id: ID1
-    - id: ID2
+  - any: [ id: ID1, id: ID2 ]
 ```
  
 Example of selecting 1 agent in each specified ASN and country:
 ```yaml
 agents:
-  - one_of_each:
-    asn: [1234, 5678]
-    country: [US, CZ]
+  - one_of_each: { asn: [1234, 5678], country: [US, CZ] }
 ```
-The above example will select at most 1 agent with `asn: 1234` and `country: US` (and other combinations of `asn` and `country` values) even if multiple agents match the criteria.
+The above example will select at most 1 agent with `asn: 1234` and `country: US` (and other combinations of `asn` and `country` values)
+even if multiple agents with matching `asn` and `country` attribute are available.
+_Note_: list of agents generated by the `one_of_each` rule may differ across invocations, because it depends on the order
+in which agents are returned by the API.
+
+#### Optional specification of maximum number of matches
+
+Maximum number of matching entries can be specified using `=limit: <N>` directive in the top level list.
+
+Example selecting 1 private agent in USA or France:
+```yaml
+agents:
+  - =limit: 1
+  - type: private
+  - any: [ country: US, country: FR ]
+```
 
 ### Example test configurations
 
@@ -163,7 +205,7 @@ test:
 targets:
   devices:
     - site.site_name: Ashburn DC3
-    - match_any:
+    - any:
         - label: edge router
         - label: gateway
         - label: bastions
@@ -173,9 +215,7 @@ targets:
     
 agents:
   - family: IP_FAMILY_DUAL
-  - one_of_each:
-     asn: [15169, 7224, 16509, 36351]
-     country: [US, AU, BR]
+  - one_of_each: { asn: [15169, 7224, 16509, 36351], country: [US, AU, BR] }
 ```
 - `dns_grid` test with direct specification of targets and selection of agents based on regular expression match on name
 ```yaml
@@ -222,6 +262,7 @@ as specified in the [Proxies](https://2.python-requests.org/en/master/user/advan
 ## Limitations / future development
 
 The `synth_ctl.py` tool current does not support:
+- modification of deployed tests (PATCH operation)
 - creation of `flow` type tests
 - creation of `bgp` type tests
 - retrieval of test traceroute results (traces)
@@ -230,7 +271,7 @@ The `synth_ctl.py` tool current does not support:
 Top-level
 
 ```
-❯ synth_ctl.py --profile default --help
+> synth_ctl.py --help
   Tool for manipulating Kentik synthetic tests
 
 Options:
@@ -254,7 +295,7 @@ Commands:
 
 `test` command group
 ```
-❯ synth_ctl.py --profile default test --help
+> synth_ctl.py test --help
 Usage: synth_ctl.py test [OPTIONS] COMMAND [ARGS]...
 
 Options:
@@ -265,8 +306,8 @@ Commands:
   delete    Delete test
   get       Print test configuration
   list      List all tests
-  match     Print configuration of test matching specified criteria
-  one-shot  Create test, wait until it produces results and delete or...
+  match     Print configuration of tests matching specified rules
+  one-shot  Create test, wait until it produces results and delete or disable it
   pause     Pause test execution
   results   Print test results and health status
   resume    Resume test execution
@@ -274,7 +315,7 @@ Commands:
 
 `agent` command group
 ```
-❯ synth_ctl.py --profile default agent --help
+> synth_ctl.py agent --help
 Usage: synth_ctl.py agent [OPTIONS] COMMAND [ARGS]...
 
 Options:
@@ -283,13 +324,13 @@ Options:
 Commands:
   get    Print agent configuration
   list   List all agents
-  match  Print configuration of agents matching specified criteria
+  match  Print configuration of agents matching specified rules
 ```
 
-There is also help for each command. Example:
+Help is also available for individual commands. Example:
 
 ```
-❯ synth_ctl.py --profile default test one-shot --help
+> synth_ctl.py test one-shot --help
 Usage: synth_ctl.py test one-shot [OPTIONS] TEST_CONFIG
 
   Create test, wait until it produces results and delete or disable it

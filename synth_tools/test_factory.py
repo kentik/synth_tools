@@ -31,7 +31,7 @@ def device_addresses(key: str, families: List[int], public_only=False) -> Callab
             candidates.add(ip_address(val))
         if not candidates:
             log.debug("device_addresses: device id: '%s' ('%s') has no addresses", device.id, device.device_name)
-        return [str(a) for a in candidates if (not public_only or not a.is_private) and a.version in families]
+        return [str(a) for a in candidates if (not public_only or a.is_global) and a.version in families]
 
     log.debug(
         "device_addresses: returning extractor for key: '%s', families: '%s', public_only: '%s'",
@@ -68,7 +68,7 @@ def interface_addresses(key: str, families: List[int], public_only=False) -> Cal
         return [
             str(a)
             for a in candidates
-            if (not public_only or not a.is_private) and (not families or a.version in families)
+            if (not public_only or a.is_global) and (not families or a.version in families)
         ]
 
     log.debug("interface_addresses: returning extractor for families: '%s', public_only: '%s'", families, public_only)
@@ -76,6 +76,9 @@ def interface_addresses(key: str, families: List[int], public_only=False) -> Cal
 
 
 def address_targets(api: APIs, cfg: Union[List, Dict], fail: Callable[[str], None] = _fail) -> Set[str]:
+    max_targets: Optional[int] = None
+    targets = set()
+
     def is_valid_address(addr: str) -> bool:
         try:
             ip_address(addr)
@@ -83,7 +86,14 @@ def address_targets(api: APIs, cfg: Union[List, Dict], fail: Callable[[str], Non
         except ValueError:
             log.debug("Invalid address: '%s'", addr)
             return False
-        return False
+
+    def add_target(a) -> bool:
+        if max_targets is None or len(targets) < max_targets:
+            targets.add(a)
+            return True
+        else:
+            log.debug("address_targets: target_limit ('%d') reached", max_targets)
+            return False
 
     # support loading plain list addresses
     if type(cfg) == list:
@@ -104,16 +114,18 @@ def address_targets(api: APIs, cfg: Union[List, Dict], fail: Callable[[str], Non
                 ", ".join(address_selectors.keys())
             )
         )
+    if "limit" in cfg:
+        max_targets = cfg["limit"]
     for selector, params in address_selectors.items():
         families = []
         if selector in cfg:
-            family = cfg[selector].get("family", "any")
+            family = IPFamily(cfg[selector].get("family", "IP_FAMILY_DUAL"))
             public_only = cfg[selector].get("public_only", False)
-            if family == "any":
+            if family == IPFamily.dual:
                 families = [4, 6]
-            elif family == "ipv4":
+            elif family == IPFamily.v4:
                 families = [4]
-            elif family == "ipv6":
+            elif family == IPFamily.v6:
                 families = [6]
             else:
                 fail(f"Invalid IP address family '{family}'in 'targets.interface_addresses'")
@@ -132,7 +144,6 @@ def address_targets(api: APIs, cfg: Union[List, Dict], fail: Callable[[str], Non
         log.warning("load_targets: no device matched")
     else:
         log.debug("load_targets: target_devices: '%s'", ", ".join([str(d) for d in target_devices]))
-    targets = set()
     device_address_extractors = [
         params["fn"]
         for selector, params in address_selectors.items()
@@ -148,13 +159,15 @@ def address_targets(api: APIs, cfg: Union[List, Dict], fail: Callable[[str], Non
     for d in target_devices:
         for func in device_address_extractors:
             for a in func(d):
-                targets.add(a)
-        if interface_address_extractors:
+                if not add_target(a):
+                    return targets
+        if (max_targets is None or len(targets) < max_targets) and interface_address_extractors:
             for i in api.mgmt.devices.interfaces.get_all(d.id):
                 if interface_matcher.match(i):
                     for func in interface_address_extractors:
                         for a in func(i):
-                            targets.add(a)
+                            if not add_target(a):
+                                return targets
     return targets
 
 
@@ -191,16 +204,19 @@ def dummy_loader(_: APIs, cfg: Union[List, Dict], fail: Callable[[str], None] = 
 
 
 def all_agents(api: APIs, cfg: List[Dict]) -> List[str]:
+    log.debug("all_agents: cfg: %s", cfg)
     agents_matcher = AllMatcher(cfg)
     return [a["id"] for a in api.syn.agents if agents_matcher.match(a)]
 
 
 def rust_agents(api: APIs, cfg: List[Dict]) -> List[str]:
+    log.debug("rust_agents: cfg: %s", cfg)
     agents_matcher = AllMatcher(cfg)
     return [a["id"] for a in api.syn.agents if a["agentImpl"] == "IMPLEMENT_TYPE_RUST" and agents_matcher.match(a)]
 
 
 def node_agents(api: APIs, cfg: List[Dict]) -> List[str]:
+    log.debug("node_agents: cfg: %s", cfg)
     agents_matcher = AllMatcher(cfg)
     return [a["id"] for a in api.syn.agents if a["agentImpl"] == "IMPLEMENT_TYPE_NODE" and agents_matcher.match(a)]
 

@@ -1,13 +1,10 @@
 test:
   name: www.example.com
-  type: url
+  type: page_load
   period: 600
   protocol: tcp
   ping:
     timeout: 3000 # milliseconds
-    protocol: icmp
-  trace:
-    timeout: 22500 # milliseconds
     protocol: icmp
   healthSettings:
     latencyCriticalStddev: 3
@@ -24,5 +21,5 @@ targets:
   - https://www.example.com
 
 agents:
-  - =limit: 2
-  - any: [ country: US, country: United States ]
+  - family: IP_FAMILY_V4
+  - one_of_each: { asn: [31898], country: [United States] }

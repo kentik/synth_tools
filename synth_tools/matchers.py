@@ -4,15 +4,15 @@ import sys
 from abc import ABC, abstractmethod
 from enum import Enum
 from itertools import product
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("matchers")
 
 
 class Matcher(ABC):
     SPECIAL = {
-        "match_all": "AllMatcher",
-        "match_any": "AnyMatcher",
+        "all": "AllMatcher",
+        "any": "AnyMatcher",
         "one_of_each": "OneOfEachMatcher",
     }
 
@@ -72,8 +72,14 @@ class PropertyMatcher(Matcher):
 class SetMatcher(Matcher):
     def __init__(self, data: List[Dict[str, Any]]):
         self.matchers = []
+        self.max_matches: Optional[int] = None
         for e in data:
             for k, v in e.items():
+                if k == "=limit":
+                    if self.max_matches is not None:
+                        log.warning("@max_matches: '%d' overrides '%d' (cfg: '%s')", v, self.max_matches, data)
+                    self.max_matches = v
+                    continue
                 if k in self.SPECIAL:
                     matcher = getattr(sys.modules[__name__], self.SPECIAL[k])(v)
                 else:
@@ -88,22 +94,32 @@ class SetMatcher(Matcher):
 
 class AllMatcher(SetMatcher):
     def match(self, data: object) -> bool:
+        if self.max_matches is not None and self.max_matches == 0:
+            return False
         for m in self.matchers:
             if not m.match(data):
                 log.debug("%s: ret '%s'", self.__class__.__name__, False)
                 return False
         log.debug("%s: ret '%s'", self.__class__.__name__, True)
+        if self.max_matches is not None:
+            self.max_matches -= 1
         return True
 
 
 class AnyMatcher(SetMatcher):
     def match(self, data: object) -> bool:
+        if self.max_matches is not None and self.max_matches == 0:
+            return False
         if not self.matchers:
             log.debug("%s: no matchers: ret '%s'", self.__class__.__name__, True)
+            if self.max_matches is not None:
+                self.max_matches -= 1
             return True
         for m in self.matchers:
             if m.match(data):
                 log.debug("%s: ret '%s'", self.__class__.__name__, True)
+                if self.max_matches is not None:
+                    self.max_matches -= 1
                 return True
         log.debug("%s: ret '%s'", self.__class__.__name__, False)
         return False
