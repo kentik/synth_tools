@@ -75,10 +75,11 @@ class MypyCmd(Command):
     """Custom command to run Mypy"""
 
     description = "run Mypy on all relevant code"
-    user_options = [("dirs=", None, "Directories to check with mypy")]
+    user_options = [("dirs=", None, "Directories to check with mypy"), ("types", None, "Install missing type stubs")]
 
     def initialize_options(self) -> None:
-        self.dirs = ["synth_tools"]
+        self.dirs = [HERE.as_posix()]
+        self.types = False
 
     def finalize_options(self):
         """Post-process options."""
@@ -88,6 +89,8 @@ class MypyCmd(Command):
     def run(self):
         """Run command"""
         cmd = ["mypy"]
+        if self.types:
+            cmd.append("--install-types")
         for d in self.dirs:
             cmd.append(d)
         run_cmd(cmd, self.announce)

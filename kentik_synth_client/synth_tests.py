@@ -249,15 +249,13 @@ class SynTest(_ConfigElement):
         if cls_type is None:
             raise RuntimeError(f"Unsupported test type: {d['type']}")
         if cls_type == cls:
-            log.warning(
-                "'%s' tests are not fully supported in the API. Test will have incomplete attributes", d["type"]
-            )
+            log.debug("'%s' tests are not fully supported in the API. Test will have incomplete attributes", d["type"])
         return cls_type.from_dict(d)
 
     def set_period(self, period_seconds: int):
         self.settings.period = period_seconds
         for f in fields(self.settings):
-            if hasattr(f.type, "period"):
+            if hasattr(f.type, "period") and self.settings.__getattribute__(f.name):
                 self.settings.__getattribute__(f.name).period = int(period_seconds)
 
     def set_timeout(self, timeout_seconds: float, tasks: Optional[List[str]] = None):
@@ -284,17 +282,6 @@ class PingTraceTestSettings(SynTestSettings):
 @dataclass
 class PingTraceTest(SynTest):
     settings: PingTraceTestSettings = field(default_factory=PingTraceTestSettings)
-
-    def set_period(self, period_seconds: int, task_names: Optional[List[str]] = None):
-        existing = self.configured_tasks
-        if task_names:
-            # sanity check
-            missing = set(task_names).difference(existing)
-            if missing:
-                log.warning("task(s) '%s' not presents in test '%s'", " ".join(missing), self.name)
-        for t in existing:
-            if not task_names or t in task_names:
-                self.settings.__getattribute__(t).period = int(period_seconds)
 
     def set_timeout(self, timeout_seconds: float, tasks: Optional[List[str]] = None):
         existing = self.configured_tasks
@@ -396,7 +383,7 @@ class FlowTest(PingTraceTest):
         name: str,
         target: str,
         agent_ids: List[str],
-        type: FlowTestType,
+        type: FlowTestSubType,
         direction: DirectionType,
         inet_direction: DirectionType,
         max_tasks: int = 5,
@@ -536,7 +523,7 @@ class UrlTest(SynTest):
 
 
 @dataclass
-class PageLoadTestSettings(SynTestSettings):
+class PageLoadTestSettings(PingTraceTestSettings):
     pageLoad: dict = field(default_factory=dict)
     http: HTTPTask = field(default_factory=HTTPTask)
 
@@ -545,7 +532,7 @@ PageLoadTestType = TypeVar("PageLoadTestType", bound="PageLoadTest")
 
 
 @dataclass
-class PageLoadTest(SynTest):
+class PageLoadTest(PingTraceTest):
     type: TestType = field(init=False, default=TestType.page_load)
     settings: PageLoadTestSettings = field(default_factory=PageLoadTestSettings)
 

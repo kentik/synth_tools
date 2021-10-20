@@ -1,0 +1,24 @@
+test:
+  type: network_grid
+  period: 300
+
+targets:
+  match:
+    devices:
+      - site.site_name: Ashburn DC3
+      - any:
+          - label: edge router
+          - label: gateway
+          - label: bastions
+    interface_addresses:
+      family: IP_FAMILY_V4
+      public_only: True
+    sending_ips:
+      public_only: True
+    snmp_ip:
+      public_only: True
+
+agents:
+  match:
+    - family: IP_FAMILY_DUAL
+    - one_of_each: { asn: [15169, 7224, 16509, 36351], country: [US, AU, BR] }

@@ -46,7 +46,7 @@ class Protocol(SerializableEnum):
     tcp = "tcp"
 
 
-class FlowTestType(SerializableEnum):
+class FlowTestSubType(SerializableEnum):
     none = ""
     asn = "asn"
     cdn = "cdn"

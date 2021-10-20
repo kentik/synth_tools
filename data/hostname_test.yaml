@@ -9,8 +9,10 @@ test:
     protocol: icmp
 
 targets:
-  - www.example.com
+  use:
+    - www.example.com
 
 agents:
-  - family: IP_FAMILY_DUAL
-  - one_of_each: { asn: [14061], country: [US, DE] }
+  match:
+    - family: IP_FAMILY_DUAL
+    - one_of_each: { asn: [14061], country: [US, DE] }

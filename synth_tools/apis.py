@@ -16,23 +16,6 @@ def _fail(msg: str) -> None:
     raise RuntimeError(msg)
 
 
-def _load_profile(profile: str) -> dict:
-    home = os.environ.get("KTAPI_HOME", os.environ.get("HOME", "."))
-    cfg_file = os.environ.get("KTAPI_CFG_FILE", os.path.join(home, ".kentik", profile))
-    cfg = load_credential_profile(cfg_file)
-    if cfg is None:
-        raise RuntimeError(f"Failed to load profile file '{cfg_file}'")
-    return cfg
-
-
-def get_url(profile: str) -> Optional[str]:
-    return os.environ.get("KTAPI_URL", _load_profile(profile).get("url"))
-
-
-def get_proxy(profile: str) -> Optional[str]:
-    return os.environ.get("KTAPI_PROXY", _load_profile(profile).get("proxy"))
-
-
 class APIs:
     def __init__(
         self,
@@ -53,6 +36,20 @@ class APIs:
         log.debug("API: syn profile: %s", self.syn_profile)
         log.debug("API: proxy: %s", self.proxy)
 
+    def _load_profile(self, profile: str) -> dict:
+        home = os.environ.get("KTAPI_HOME", os.environ.get("HOME", "."))
+        cfg_file = os.environ.get("KTAPI_CFG_FILE", os.path.join(home, ".kentik", profile))
+        cfg = load_credential_profile(cfg_file)
+        if cfg is None:
+            self._fail(f"Failed to load profile file '{cfg_file}'")
+        return cfg
+
+    def _get_url(self, profile: str) -> Optional[str]:
+        return os.environ.get("KTAPI_URL", self._load_profile(profile).get("url"))
+
+    def _get_proxy(self, profile: str) -> Optional[str]:
+        return os.environ.get("KTAPI_PROXY", self._load_profile(profile).get("proxy"))
+
     @property
     def mgmt(self):
         if not self._mgmt_api:
@@ -61,9 +58,9 @@ class APIs:
             if self.proxy:
                 proxy = self.proxy
             else:
-                proxy = get_proxy(self.mgmt_profile)
+                proxy = self._get_proxy(self.mgmt_profile)
             if not self.api_url:
-                url = get_url(self.mgmt_profile)
+                url = self._get_url(self.mgmt_profile)
             else:
                 url = self.api_url
             # KentikAPI expects URL to include path, e.g. https://api.ou1.kentik.com/api/v5
@@ -87,13 +84,13 @@ class APIs:
             if self.proxy:
                 proxy = self.proxy
             else:
-                proxy = get_proxy(self.syn_profile)
+                proxy = self._get_proxy(self.syn_profile)
             if not self.api_url:
-                url = get_url(self.syn_profile)
+                url = self._get_url(self.syn_profile)
             else:
                 url = self.api_url
             log.debug("API: syn_api URL: %s", url)
             log.debug("API: syn_api proxy: %s", proxy)
-            self._syn_api = KentikSynthClient(get_credentials(self.syn_profile), url=url, proxy=self.proxy)
+            self._syn_api = KentikSynthClient(get_credentials(self.syn_profile), url=url, proxy=proxy)
             log.debug("API: syn_api: %s", self._syn_api)
         return self._syn_api

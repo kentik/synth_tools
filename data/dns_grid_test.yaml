@@ -8,9 +8,12 @@ test:
     dnsValidCodes: [0]
 
 targets:
-  - www.example.com
-  - api.kentik.com
+  use:
+    - www.example.com
+    - api.kentik.com
 
 agents:
-  - name: regex(.*-west-.*)
-  - type: global
+  min_matches: 3
+  match:
+    - name: regex(.*-west-.*)
+    - type: global

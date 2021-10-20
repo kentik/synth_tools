@@ -1,6 +1,5 @@
 test:
-  name: www.example.com
-  type: url
+  type: page_load
   period: 600
   protocol: tcp
   ping:
@@ -21,8 +20,12 @@ test:
     user-agent: kentik
 
 targets:
-  - https://www.example.com
+  use:
+    - https://www.example.com
 
 agents:
-  - =limit: 2
-  - any: [ country: US, country: United States ]
+  match:
+    - any:
+      - family: IP_FAMILY_V4
+      - family: IP_FAMILY_DUAL
+    - one_of_each: { asn: [31898, 16509], country: [United States, US] }

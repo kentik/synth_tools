@@ -1,15 +1,30 @@
 import logging
 from dataclasses import dataclass
 from ipaddress import ip_address
-from typing import Callable, Dict, List, Set, Union
+from typing import Any, Callable, Dict, List, Optional, Set
 from urllib.parse import urlparse
 
 from kentik_api.public import Device, Interface
 from validators import domain
 
-from kentik_synth_client.synth_tests import *
+from kentik_synth_client.synth_tests import (
+    AgentTest,
+    DNSGridTest,
+    DNSTest,
+    HealthSettings,
+    HostnameTest,
+    IPTest,
+    MeshTest,
+    NetworkGridTest,
+    PageLoadTest,
+    PingTask,
+    SynTest,
+    TraceTask,
+    UrlTest,
+)
+from kentik_synth_client.types import *
 from synth_tools.apis import APIs
-from synth_tools.matchers import *
+from synth_tools.matchers import AllMatcher
 
 log = logging.getLogger("test_factory")
 
@@ -18,7 +33,28 @@ def _fail(msg: str) -> None:
     raise RuntimeError(msg)
 
 
-def device_addresses(key: str, families: List[int], public_only=False) -> Callable[[Device], List[str]]:
+def _match_or_use(cfg: Dict[str, Any], section: str, fail: Callable[[str], None] = _fail):
+    if not (("use" in cfg) ^ ("match" in cfg)):
+        fail(f"Exactly one of 'use' or 'match' sections must be specified in '{section}'")
+
+
+def _use_list_only(cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> None:
+    if "match" in cfg:
+        fail("Test type does not support matching targets with rules")
+    if "use" not in cfg:
+        fail("Test type requires list of strings to be specified in the 'use' section")
+
+
+def _get_use_list(cfg: Dict[str, Any], section: str, fail: Callable[[str], None] = _fail) -> Set[str]:
+    if "use" not in cfg:
+        fail(f"'use' directive missing in '{section}' (cfg: {cfg}")
+    use_list = cfg["use"]
+    if type(use_list) != list:
+        fail("Invalid 'use' specification: must be a simple list")
+    return set(use_list)
+
+
+def device_addresses(key: str, families: List[int], public_only: bool = False) -> Callable[[Any], List[str]]:
     def extract_device_addresses(device: Device) -> List[str]:
         candidates = set()
         val = getattr(device, key)
@@ -43,7 +79,7 @@ def device_addresses(key: str, families: List[int], public_only=False) -> Callab
 
 
 # noinspection PyUnusedLocal
-def interface_addresses(key: str, families: List[int], public_only=False) -> Callable[[Interface], List[str]]:
+def interface_addresses(key: str, families: List[int], public_only: bool = False) -> Callable[[Any], List[str]]:
     def extract_interface_addresses(ifc: Interface) -> List[str]:
         candidates = set()
         if ifc.interface_ip:
@@ -73,9 +109,73 @@ def interface_addresses(key: str, families: List[int], public_only=False) -> Cal
     return extract_interface_addresses
 
 
-def address_targets(api: APIs, cfg: Union[List, Dict], fail: Callable[[str], None] = _fail) -> Set[str]:
-    max_targets: Optional[int] = None
-    targets = set()
+class AddressSelector:
+    @dataclass
+    class _AddressSelectorEntry:
+        key: str
+        source: str
+        generator: Callable[[str, List[int], bool], Callable[[Device], List[str]]]
+
+    _ADDRESS_SELECTORS = [
+        _AddressSelectorEntry(key="interface_addresses", source="interface", generator=interface_addresses),
+        _AddressSelectorEntry(key="sending_ips", source="device", generator=device_addresses),
+        _AddressSelectorEntry(key="device_snmp_ip", source="device", generator=device_addresses),
+    ]
+
+    def __init__(self, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail):
+        if all(e.key not in cfg for e in self._ADDRESS_SELECTORS):
+            fail(
+                "Address selection missing in 'targets' section. One of '{}' is required".format(
+                    ", ".join(e.key for e in self._ADDRESS_SELECTORS)
+                )
+            )
+        self._extractors: Dict[str, Any] = dict(device=[], interface=[])
+        for e in self._ADDRESS_SELECTORS:
+            if e.key in cfg:
+                try:
+                    family = IPFamily(cfg[e.key].get("family", "IP_FAMILY_DUAL"))
+                except ValueError as exc:
+                    family = IPFamily.unspecified
+                    fail(
+                        "{section}: {error}".format(error=str(exc).replace("IPFamily", "address family"), section=e.key)
+                    )
+
+                public_only = cfg[e.key].get("public_only", False)
+                if family == IPFamily.dual:
+                    families = [4, 6]
+                elif family == IPFamily.v4:
+                    families = [4]
+                elif family == IPFamily.v6:
+                    families = [6]
+                else:
+                    raise RuntimeError(f"Unsupported IPFamily: '{family}'")
+                self._extractors[e.source].append(e.generator(e.key, families, public_only))
+
+    @property
+    def has_device_extractors(self) -> bool:
+        return len(self._extractors["device"]) > 0
+
+    @property
+    def has_interface_extractors(self) -> bool:
+        return len(self._extractors["interface"]) > 0
+
+    def device_addresses(self, device: Device) -> List[str]:
+        addresses = []
+        for f in self._extractors["device"]:
+            addresses.extend(f(device))
+        return addresses
+
+    def interface_addresses(self, ifc: Interface) -> List[str]:
+        addresses = []
+        for f in self._extractors["interface"]:
+            addresses.extend(f(ifc))
+        return addresses
+
+
+def address_targets(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
+    max_targets: Optional[int] = cfg.get("max_matches")
+    min_targets: int = cfg.get("min_matches", 1)
+    targets: Set[str] = set()
 
     def is_valid_address(addr: str) -> bool:
         try:
@@ -93,83 +193,45 @@ def address_targets(api: APIs, cfg: Union[List, Dict], fail: Callable[[str], Non
             log.debug("address_targets: target_limit ('%d') reached", max_targets)
             return False
 
-    # support loading plain list addresses
-    if type(cfg) == list:
-        addresses = set(cfg)
+    _match_or_use(cfg, "targets", fail)
+
+    if "use" in cfg:
+        addresses = set(_get_use_list(cfg, "targets", fail))
         invalid = [a for a in addresses if not is_valid_address(a)]
         if invalid:
             fail("Invalid addresses in targets: {}".format(", ".join(invalid)))
         return addresses
 
-    address_selectors = {
-        "interface_addresses": {"source": "interface", "generator": interface_addresses, "key": None},
-        "sending_ips": {"source": "device", "generator": device_addresses, "key": "sending_ips"},
-        "snmp_ip": {"source": "device", "generator": device_addresses, "key": "device_snmp_ip"},
-    }
-    if all(k not in cfg for k in address_selectors):
-        fail(
-            "Address selection directive missing in 'targets' section. One of '{}' is required".format(
-                ", ".join(address_selectors.keys())
-            )
-        )
-    if "limit" in cfg:
-        max_targets = cfg["limit"]
-    for selector, params in address_selectors.items():
-        families = []
-        if selector in cfg:
-            family = IPFamily(cfg[selector].get("family", "IP_FAMILY_DUAL"))
-            public_only = cfg[selector].get("public_only", False)
-            if family == IPFamily.dual:
-                families = [4, 6]
-            elif family == IPFamily.v4:
-                families = [4]
-            elif family == IPFamily.v6:
-                families = [6]
-            else:
-                fail(f"Invalid IP address family '{family}'in 'targets.interface_addresses'")
-            params["fn"] = params["generator"](key=params["key"], families=families, public_only=public_only)
+    cfg = cfg["match"]
 
-    log.debug("load_targets: address_selectors: '%s'", address_selectors)
+    address_selector = AddressSelector(cfg, fail)
     device_matcher = AllMatcher(cfg.get("devices", []))
     log.debug("load_targets: device_matcher: '%s'", device_matcher)
     interface_matcher = AllMatcher(cfg.get("interfaces", []))
     log.debug("load_targets: interface_matcher: '%s'", interface_matcher)
-    target_devices = []
-    for d in api.mgmt.devices.get_all():
-        if device_matcher.match(d):
-            target_devices.append(d)
+
+    target_devices = [d for d in api.mgmt.devices.get_all() if device_matcher.match(d)]
     if not target_devices:
-        log.warning("load_targets: no device matched")
-    else:
-        log.debug("load_targets: target_devices: '%s'", ", ".join([str(d) for d in target_devices]))
-    device_address_extractors = [
-        params["fn"]
-        for selector, params in address_selectors.items()
-        if "fn" in params and params["source"] == "device"
-    ]
-    log.debug("load_targets: device_address_extractors: '%s'", device_address_extractors)
-    interface_address_extractors = [
-        params["fn"]
-        for selector, params in address_selectors.items()
-        if "fn" in params and params["source"] == "interface"
-    ]
-    log.debug("load_targets: interface_address_extractors: '%s'", interface_address_extractors)
+        fail("No device matched configuration")
+
+    log.debug("load_targets: target_devices: '%s'", ", ".join([str(d) for d in target_devices]))
     for d in target_devices:
-        for func in device_address_extractors:
-            for a in func(d):
-                if not add_target(a):
-                    return targets
-        if (max_targets is None or len(targets) < max_targets) and interface_address_extractors:
+        for a in address_selector.device_addresses(d):
+            if not add_target(a):
+                return targets
+        if (max_targets is None or len(targets) < max_targets) and address_selector.has_interface_extractors:
             for i in api.mgmt.devices.interfaces.get_all(d.id):
                 if interface_matcher.match(i):
-                    for func in interface_address_extractors:
-                        for a in func(i):
-                            if not add_target(a):
-                                return targets
+                    for a in address_selector.interface_addresses(i):
+                        if not add_target(a):
+                            return targets
+
+    if len(targets) < min_targets:
+        fail(f"Only {len(targets)} matched, {min_targets} required")
     return targets
 
 
-def url_targets(_: APIs, cfg: Union[List, Dict], fail: Callable[[str], None] = _fail) -> Set[str]:
+def url_targets(_: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
     def valid_url(url: str) -> bool:
         _u = urlparse(url)
         if _u.scheme not in ("http", "https") or not domain(_u.netloc):
@@ -177,57 +239,109 @@ def url_targets(_: APIs, cfg: Union[List, Dict], fail: Callable[[str], None] = _
             return False
         return True
 
-    if type(cfg) != list:
-        fail("Invalid target specification: spec must be a simple list strings")
-    urls = set(cfg)
+    _use_list_only(cfg, fail)
+    urls = set(_get_use_list(cfg, "targets", fail))
     invalid = [u for u in urls if not valid_url(u)]
     if invalid:
         fail("List contains invalid URLs: {}".format(", ".join(invalid)))
     return urls
 
 
-def domain_targets(_: APIs, cfg: Union[List, Dict], fail: Callable[[str], None] = _fail) -> Set[str]:
-    if type(cfg) != list:
-        fail("Invalid target specification: spec must be a simple list strings")
-    names = set(cfg)
+def domain_targets(_: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
+    _use_list_only(cfg, fail)
+    names = set(_get_use_list(cfg, "targets", fail))
     invalid = [n for n in names if not domain(n)]
     if invalid:
         fail("List contains invalid names: {}".format(", ".join(invalid)))
     return names
 
 
-def dummy_loader(_: APIs, cfg: Union[List, Dict], fail: Callable[[str], None] = _fail) -> Set[str]:
+# noinspection PyUnusedLocal
+def dummy_loader(_: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
     log.debug("dummy_loader: cfg: '%s'", cfg)
     return set()
 
 
-def all_agents(api: APIs, cfg: List[Dict]) -> List[str]:
-    log.debug("all_agents: cfg: %s", cfg)
-    agents_matcher = AllMatcher(cfg)
-    return [a["id"] for a in api.syn.agents if agents_matcher.match(a)]
+def _get_agents(api: APIs, cfg, agent_type: Optional[str] = None, fail: Callable[[str], None] = _fail) -> Set[str]:
+    _match_or_use(cfg, "agents", fail)
+    if "use" in cfg:
+        log.debug("_get_agents: use: %s", cfg["use"])
+        return _get_use_list(cfg, "agents", fail)
+
+    min_agents = cfg.get("min", 1)
+    max_agents = cfg.get("max")
+    cfg = cfg["match"]
+    log.debug("_get_agents: match: %s (min: %d, max: %s)", cfg, min_agents, max_agents)
+    agents_matcher = AllMatcher(cfg, max_matches=max_agents)
+    agents = set(
+        a["id"] for a in api.syn.agents if agents_matcher.match(a) and (not agent_type or a["agentImpl"] == agent_type)
+    )
+    if len(agents) < min_agents:
+        fail(f"Matched {len(agents)} agents, {min_agents} required")
+    return agents
 
 
-def rust_agents(api: APIs, cfg: List[Dict]) -> List[str]:
-    log.debug("rust_agents: cfg: %s", cfg)
-    agents_matcher = AllMatcher(cfg)
-    return [a["id"] for a in api.syn.agents if a["agentImpl"] == "IMPLEMENT_TYPE_RUST" and agents_matcher.match(a)]
+def all_agents(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
+    return _get_agents(api, cfg, fail=fail)
 
 
-def node_agents(api: APIs, cfg: List[Dict]) -> List[str]:
-    log.debug("node_agents: cfg: %s", cfg)
-    agents_matcher = AllMatcher(cfg)
-    return [a["id"] for a in api.syn.agents if a["agentImpl"] == "IMPLEMENT_TYPE_NODE" and agents_matcher.match(a)]
+def rust_agents(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
+    return _get_agents(api, cfg, "IMPLEMENT_TYPE_RUST", fail=fail)
+
+
+def node_agents(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
+    return _get_agents(api, cfg, "IMPLEMENT_TYPE_NODE", fail=fail)
 
 
 COMMON_TEST_PARAMS = ("name", "type", "period", "ping", "trace", "healthSettings", "protocol", "family", "port")
 
 
+def get_ping_task_params(cfg: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    _attribute_map = {"timeout": "expiry", "protocol": ""}
+    if not cfg:
+        return cfg
+    out = dict()
+    for k, v in cfg.items():
+        key = _attribute_map.get(k)
+        if key is not None:
+            if key:
+                out[key] = v
+                log.debug("get_ping_task_params: replacing key '%s' with '%s'", k, key)
+            else:
+                log.debug("get_ping_task_params: ignoring key '%s'", k)
+        else:
+            out[k] = v
+    return out
+
+
+def get_trace_task_params(cfg: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    _attribute_map = {
+        "timeout": "expiry",
+    }
+    if not cfg:
+        return cfg
+    out = dict()
+    for k, v in cfg.items():
+        key = _attribute_map.get(k)
+        if key is not None:
+            if key:
+                out[key] = v
+                log.debug("get_trace_task_params: replacing key '%s' with '%s'", k, key)
+            else:
+                log.debug("get_trace_task_params: ignoring key '%s'", k)
+        else:
+            out[k] = v
+    return out
+
+
+# noinspection PyUnusedLocal
 def make_network_grid_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
     return NetworkGridTest.create(name=name, targets=targets, agent_ids=agents)
 
 
+# noinspection PyUnusedLocal
 def make_ip_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
@@ -247,17 +361,17 @@ def make_dns_test(
 ) -> SynTest:
     if len(targets) > 1:
         fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    servers = cfg.get("servers")
+    servers = cfg.get("servers", [])
     if not servers:
         fail(f"{cfg['type']} requires 'servers' parameter")
     record_type = DNSRecordType(cfg.get("record_type", "DNS_RECORD_A"))
-    return DNSTest.create(name=name, target=targets[0], agent_ids=agents, servers=servers)
+    return DNSTest.create(name=name, target=targets[0], agent_ids=agents, servers=servers, record_type=record_type)
 
 
 def make_dns_grid_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
-    servers = cfg.get("servers")
+    servers = cfg.get("servers", [])
     if not servers:
         fail(f"{cfg['type']} requires 'servers' parameter")
     record_type = DNSRecordType(cfg.get("record_type", "DNS_RECORD_A"))
@@ -272,6 +386,7 @@ def make_hostname_test(
     return HostnameTest.create(name=name, target=targets[0], agent_ids=agents)
 
 
+# noinspection PyUnusedLocal
 def make_mesh_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
@@ -288,6 +403,15 @@ def make_page_load_test(
     if len(targets) > 1:
         fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
     optional_params = get_optional_params(cfg)
+    ping = "ping" in cfg
+    trace = "trace" in cfg
+    if ping ^ trace:
+        fail(
+            "Page_load tests requires both 'ping' and 'trace' to be specified or none ('{}' is missing)".format(
+                "ping" if trace else "trace"
+            )
+        )
+    log.debug("make_page_load_test: ping: '%s', trace: '%s'", ping, trace)
     log.debug("make_page_load_test: optional_params: '%s'", ", ".join(f"{k}:{v}" for k, v in optional_params.items()))
     return PageLoadTest.create(name=name, target=targets[0], agent_ids=agents, **optional_params)
 
@@ -298,13 +422,21 @@ def make_url_test(
     if len(targets) > 1:
         fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
     optional_params = get_optional_params(cfg)
-    log.debug("make_url_test: optional_params: '%s'", ", ".join(f"{k}:{v}" for k, v in optional_params.items()))
     ping = "ping" in cfg
     trace = "trace" in cfg
+    if ping ^ trace:
+        fail(
+            "URL tests requires both 'ping' and 'trace' to be specified or none ('{}' is missing)".format(
+                "ping" if trace else "trace"
+            )
+        )
+    log.debug("make_url_test: ping: '%s', trace: '%s'", ping, trace)
+    log.debug("make_url_test: optional_params: '%s'", ", ".join(f"{k}:{v}" for k, v in optional_params.items()))
     return UrlTest.create(name=name, target=targets[0], agent_ids=agents, ping=ping, trace=trace, **optional_params)
 
 
-def set_common_test_params(test: SynTest, cfg: dict) -> None:
+# noinspection PyUnusedLocal
+def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None] = _fail) -> None:
     if "family" in cfg:
         test.settings.family = IPFamily(cfg.get("family"))
         log.debug("set_common_test_params: test: '%s' family: '%s'", test.name, test.settings.family)
@@ -316,33 +448,41 @@ def set_common_test_params(test: SynTest, cfg: dict) -> None:
         log.debug("set_common_test_params: test: '%s' port: '%s'", test.name, test.settings.port)
     if "ping" in cfg and type(cfg["ping"]) == dict:
         if "ping" in test.settings.tasks:
-            test.settings.ping = PingTask.from_dict(cfg.get("ping"))
+            if not hasattr(test.settings, "ping"):
+                fail(f"'{test.type.value}' test does not support 'ping'")
+            test.settings.ping = PingTask.from_dict(get_ping_task_params(cfg["ping"]))  # type: ignore
             log.debug("set_common_test_params: test: '%s' ping: '%s'", test.name, cfg.get("ping"))
             if "protocol" in cfg["ping"]:
-                _g = test.settings.protocol
+                _global_proto = test.settings.protocol
                 test.settings.protocol = Protocol(cfg["ping"]["protocol"])
                 log.debug(
                     "set_common_test_params: test: '%s' ping.protocol: '%s' (overrides global: '%s')",
                     test.name,
                     test.settings.protocol,
-                    _g,
+                    _global_proto,
                 )
             if "port" in cfg["ping"]:
-                _g = test.settings.port
+                _global_port = test.settings.port
                 test.settings.port = cfg["ping"]["port"]
                 log.debug(
                     "set_common_test_params: test: '%s' ping.port: '%s'(overrides global: '%s')",
                     test.name,
                     test.settings.port,
-                    _g,
+                    _global_port,
                 )
+    # else:
+    #     test.settings.ping = None
     if "trace" in cfg and type(cfg["trace"]) == dict:
         if "traceroute" in test.settings.tasks:
             log.debug("set_common_test_params: test: '%s' trace: '%s'", test.name, cfg.get("trace"))
-            test.settings.trace = TraceTask.from_dict(cfg.get("trace"))
+            if not hasattr(test.settings, "trace"):
+                fail(f"'{test.type.value} does not support 'trace'")
+            test.settings.trace = TraceTask.from_dict(cfg["trace"])  # type: ignore
+    # else:
+    #     test.settings.trace = None
     if "healthSettings" in cfg:
         log.debug("set_common_test_params: test: '%s' healthSettings: '%s'", test.name, cfg.get("healthSettings"))
-        test.settings.healthSettings = HealthSettings.from_dict(cfg.get("healthSettings"))
+        test.settings.healthSettings = HealthSettings.from_dict(cfg["healthSettings"])
     if "period" in cfg:
         log.debug("set_common_test_params: test: '%s' period: '%s'", test.name, cfg.get("period"))
         test.set_period(cfg["period"])
@@ -350,27 +490,27 @@ def set_common_test_params(test: SynTest, cfg: dict) -> None:
 
 @dataclass
 class TestEntry:
-    create: Callable[[str, List[str], List[str], dict], SynTest]
-    target_loader: Callable[[APIs, Union[List, Dict], Callable[[str], None]], Set[str]]
-    agent_loader: Callable[[APIs, List[Dict], Callable[[str], None]], List[str]]
+    make_test: Callable[[str, List[str], List[str], dict, Callable[[str], None]], SynTest]
+    target_loader: Callable[[APIs, Dict[str, Any], Callable[[str], None]], Set[str]]
+    agent_loader: Callable[[APIs, Dict[str, Any], Callable[[str], None]], Set[str]]
     requires_targets: bool = True
 
 
 class TestFactory:
     _MAP: Dict[str, TestEntry] = {
         "network_grid": TestEntry(
-            create=make_network_grid_test, target_loader=address_targets, agent_loader=rust_agents
+            make_test=make_network_grid_test, target_loader=address_targets, agent_loader=rust_agents
         ),
-        "ip": TestEntry(create=make_ip_test, target_loader=address_targets, agent_loader=rust_agents),
-        "agent": TestEntry(create=make_agent_test, target_loader=all_agents, agent_loader=rust_agents),
-        "dns": TestEntry(create=make_dns_test, target_loader=domain_targets, agent_loader=rust_agents),
-        "dns_grid": TestEntry(create=make_dns_grid_test, target_loader=domain_targets, agent_loader=rust_agents),
-        "hostname": TestEntry(create=make_hostname_test, target_loader=domain_targets, agent_loader=rust_agents),
+        "ip": TestEntry(make_test=make_ip_test, target_loader=address_targets, agent_loader=rust_agents),
+        "agent": TestEntry(make_test=make_agent_test, target_loader=all_agents, agent_loader=rust_agents),
+        "dns": TestEntry(make_test=make_dns_test, target_loader=domain_targets, agent_loader=rust_agents),
+        "dns_grid": TestEntry(make_test=make_dns_grid_test, target_loader=domain_targets, agent_loader=rust_agents),
+        "hostname": TestEntry(make_test=make_hostname_test, target_loader=domain_targets, agent_loader=rust_agents),
         "mesh": TestEntry(
-            create=make_mesh_test, target_loader=dummy_loader, agent_loader=rust_agents, requires_targets=False
+            make_test=make_mesh_test, target_loader=dummy_loader, agent_loader=rust_agents, requires_targets=False
         ),
-        "page_load": TestEntry(create=make_page_load_test, target_loader=url_targets, agent_loader=node_agents),
-        "url": TestEntry(create=make_url_test, target_loader=url_targets, agent_loader=rust_agents),
+        "page_load": TestEntry(make_test=make_page_load_test, target_loader=url_targets, agent_loader=node_agents),
+        "url": TestEntry(make_test=make_url_test, target_loader=url_targets, agent_loader=rust_agents),
     }
 
     def create(self, api: APIs, default_name: str, cfg: dict, fail: Callable[[str], None] = _fail) -> SynTest:
@@ -384,6 +524,7 @@ class TestFactory:
         entry = self._MAP.get(test_type)
         if not entry:
             fail(f"Unsupported test type: {test_type} (supported types: {self._MAP.keys()})")
+            raise RuntimeError("Never reached")  # just to make mypy happy :-/
 
         if entry.requires_targets:
             if "targets" not in cfg:
@@ -393,14 +534,16 @@ class TestFactory:
                 fail("No targets matched test configuration")
             log.debug("TestFactory:create: targets: '%s'", ", ".join(targets))
         else:
+            if "targets" in cfg:
+                log.warning("'targets' section is ignored for '%s' test", test_type)
             targets = set()
 
-        agent_ids = entry.agent_loader(api, cfg["agents"])
+        agent_ids = entry.agent_loader(api, cfg["agents"], fail)
         if not agent_ids:
             fail("No agents matched configuration")
-        log.debug("TestFactory:create: agent_ids: '%s'", ", ".join(agent_ids))
+        log.debug("TestFactory:create: agent_ids: '%s'", ", ".join([str(a) for a in agent_ids]))
 
         name = test_cfg.get("name", default_name)
-        test = entry.create(name, list(targets), agent_ids, test_cfg)
+        test = entry.make_test(name, list(targets), list(agent_ids), test_cfg, fail)
         set_common_test_params(test, test_cfg)
         return test

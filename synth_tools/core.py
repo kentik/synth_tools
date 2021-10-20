@@ -4,7 +4,7 @@ import string
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from time import sleep
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Callable, Optional
 
 import yaml
 
@@ -31,8 +31,8 @@ def run_one_shot(
         try:
             api.syn.delete_test(tst.id)
             log.info("Deleted test %s' (id: %s)", tst.name, tst.id)
-        except KentikAPIRequestError as ex:
-            log.error("Failed to delete test '%s' (id: %s) (%s)", tst.name, tst.id, ex)
+        except KentikAPIRequestError as exc:
+            log.error("Failed to delete test '%s' (id: %s) (%s)", tst.name, tst.id, exc)
 
     log.debug("creating test '%s'", test.name)
     try:

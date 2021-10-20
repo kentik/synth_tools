@@ -1,7 +1,7 @@
 # Tools supporting management of Kentik synthetic tests
 
 The synth_tools repo consists of 2 components:
-- `kentik_synth_client` which is a package containing (temporary) SDK supporting interaction with Kentik synthetic API
+- `kentik_synth_client` which is a package containing (temporary) Kentik synthetics SDK
 - `synth_ctl.py` command-line tool for manipulation of synthetic tests and agents
 
 `kentik_synth_client` is documented in separate [README](./kentik_synth_client/README.md).
@@ -72,23 +72,26 @@ _Test specific attributes:_
 
 #### targets section
 
-The `targets` section allows to specify either direct list of targets, or set of rules for selecting targets.
-At the moment only tests targeting IP addresses or agents support specification via rules. 
-Supported format of the `targets` section for individual test types:
+The `targets` section allows to specify direct list of targets (using the `use` sub-section), or set of selection rules
+ (using the `match` sub-section). Only one of `use` or `match` can be specified. 
+
+At the moment only tests targeting IP addresses or agents support `match`. 
+_Supported `targets` specification for individual test types_:
  
   | test type               | targets section format                                          |
   | :-----------------------| :---------------------------------------------------------------|
-  | ip, network_grid        | list of IP addresses or address selection criteria (see bellow) |
-  | hostname, dns, dns_grid | list of valid DNS host/domain names                             |
-  | url, page_load          | list of URLs                                                    |
-  | agent                   | list of agent ids or agent selection rules (see bellow)         |
+  | ip, network_grid        | `use: <list of addresses>` or `match: <address matching rules>` |
+  | hostname, dns, dns_grid | `use: <list of DNS names>`                                      |
+  | url, page_load          | `use: <list of URLs> `                                          |
+  | agent                   | `use: <list of agent_ids>` or `match: <agent matching rules>`   |
+  | mesh                    | None (`targets` section is ignored)                             |                                             
 
-**Address selection rules**
+**Address matching rules**
 
 List of target addresses can be constructed by querying `device` and `interface` configuration in Kentik and selecting
 addresses based on set of rules.
 
-Format of the `targets` section for address selection:
+Format of the `match` section for address selection:
 
 ```
 devices: # required
@@ -102,8 +105,8 @@ snmp_ip: # optional
 ```
 
 The selection algorithm retrieves list of devices from Kentik API and applies rules in the `devices` list. All rules
-in the list must match in order for a device to be selected. See section `Device and agent matching rules` for available
-rules.
+in the list must match in order for a device to be selected. See section _Device and agent matching rules_ for supported
+rule syntax.
 
 If the `interface_addresses` section is present, list of all interfaces is collected for each matched device. Candidate
 addresses are extracted from values of the `ip_address` and `secondary_ips` interface attributes. 
@@ -112,8 +115,7 @@ of each matched device.
 If the `snmp_ip` sections is present, value of the `snmp_ip` attribute of each matched devices is used.
 
 At least one of `interface_addresses`, `sending_ips` or `snmp_ip` sections must be present. If more than one is present
-extracted address lists are combined and de-duplicated. Available matching criteria are as shown in the _Available matching criteria_
-in the `targets` section above.
+extracted address lists are combined and de-duplicated. 
 
 _Address properties_
 
@@ -122,16 +124,6 @@ _Address properties_
   | family | IP address family to match                                                   | NO       | IP_FAMILY_DUAL (default), IP_FAMILY_V4, IP_FAMILY_V6  |
   | public | Exclude link-local and multicast and addresses in iana-ipv4-special-registry | NO       | True, False                                           |
 
-#### Optional specification of maximum number of targets
-
-Maximum number of targets can be specified using `limit: <N>` directive at the top level.
-
-Example:
-```yaml
-targets:
-  limit: 10
-  ...
-```
 #### agents section
 
 This section specifies list of rules for selecting agents for the test. All rules in the list must match in order for an
@@ -143,7 +135,7 @@ _Available matching rules :_
 
   | type                     | evaluation                                                    | format                                                                           | example                                                                              |
   | :------------------------| :-------------------------------------------------------------| :--------------------------------------------------------------------------------| :------------------------------------------------------------------------------------|
-  | direct attribute match   | tests value of specified attribute                            |`attribute`: `value`                                                              | device_type: router                                                                  |
+  | direct attribute match   | tests value of specified (device or agent) attribute          |`attribute`: `value`                                                              | device_type: router                                                                  |
   | regular expression match | matches value of specified attribute using regular expression |`attribute`: regex(`regular expression`)                                          | device_name: regex(.\*-iad1-.\*)                                                     |
   | match any (logical OR)   | matches if at least one rule in the list matches              | any: `list of rules`                                                       | any: <br>  - label: gateway<br>  - label: edge router                          |
   | match all (logical AND)  | matches if all rules in the list match                        | all: `list of rules`                                                       | all: <br>  - label: gateway<br>  - site.site_name: Ashburn DC3                 |
@@ -153,43 +145,48 @@ The `all` and `any` operators can be nested allowing to construct complex expres
 type devices in `siteA` and `gateway` devices in `siteB`
 
 ```yaml
-devices:
-  - any:
-    - all:
-      - site.site_name: siteA
-      - device_type: router
-    - all:
-      - site.site_name: siteB
-      - device_type: gateway
+targets:
+  match:
+    devices:
+      - any:
+        - all:
+          - site.site_name: siteA
+          - device_type: router
+        - all:
+          - site.site_name: siteB
+          - device_type: gateway
+      ...
 ```
 
-Example of specifying list of agents by `id`:
-
-```yaml
-agents:
-  - any: [ id: ID1, id: ID2 ]
-```
- 
 Example of selecting 1 agent in each specified ASN and country:
 ```yaml
 agents:
-  - one_of_each: { asn: [1234, 5678], country: [US, CZ] }
+  match:
+    - one_of_each: { asn: [1234, 5678], country: [US, CZ] }
+  ...
 ```
 The above example will select at most 1 agent with `asn: 1234` and `country: US` (and other combinations of `asn` and `country` values)
 even if multiple agents with matching `asn` and `country` attribute are available.
 _Note_: list of agents generated by the `one_of_each` rule may differ across invocations, because it depends on the order
-in which agents are returned by the API.
+in which agents are returned by the API which is undefined.
 
-#### Optional specification of maximum number of matches
+#### Optional specification of minimum and maximum number of matching targets
 
-Maximum number of matching entries can be specified using `=limit: <N>` directive in the top level list.
+Maximum and minimum number of matched targets of agents  can be specified using:
+`max_matches: <MAX>` or `min_matches: <MIN>` directives in corresponding `targets` or `agents` section.
+If less than `min_targets` matches test creation fails. If more than `max_matches` targets or agents match only
+first `max_matches` objects are used. At least 1 agent is required for any test (except for `mesh`).
 
-Example selecting 1 private agent in USA or France:
+Example:
 ```yaml
-agents:
-  - =limit: 1
-  - type: private
-  - any: [ country: US, country: FR ]
+targets:
+  min_matches: 2
+  max_matches: 10
+  match:
+    devices:
+      - name: regex(.*-fra1-.*)
+      - device_type: router
+    ...
 ```
 
 ### Example test configurations
@@ -203,19 +200,21 @@ test:
   period: 300
 
 targets:
-  devices:
-    - site.site_name: Ashburn DC3
-    - any:
-        - label: edge router
-        - label: gateway
-        - label: bastions
-  interface_addresses:
-    family: ipv4
-    public_only: True
+  match:
+    devices:
+      - site.site_name: Ashburn DC3
+      - any:
+          - label: edge router
+          - label: gateway
+          - label: bastions
+    interface_addresses:
+      family: ipv4
+      public_only: True
     
 agents:
-  - family: IP_FAMILY_DUAL
-  - one_of_each: { asn: [15169, 7224, 16509, 36351], country: [US, AU, BR] }
+  match:
+    - family: IP_FAMILY_DUAL
+    - one_of_each: { asn: [15169, 7224, 16509, 36351], country: [US, AU, BR] }
 ```
 - `dns_grid` test with direct specification of targets and selection of agents based on regular expression match on name
 ```yaml
@@ -229,14 +228,16 @@ test:
     dnsValidCodes: [0]
 
 targets:
-  - www.photographymama.com
-  - pupik.m3a.net
+  use:
+    - www.example.com
+    - www.kentik.com
 
 agents:
-  - name: regex(.*-west-.*)
+  match:
+    - name: regex(.*-west-.*)
 ```
 
-More examples are in the `tests` directory in the repo.
+More examples are in the `data` directory in the repo.
 
 ### Authentication
 The `synth_ctl` tool relies on `authentication profiles`. Authentication profile is a JSON file with the following format:
@@ -258,10 +259,34 @@ If no `--target-profile` is specified, profile specified via `--profile` is used
 
 The `--proxy` option allows to specify proxy to use for accessing Kentik APIs. The syntax of the `--proxy` values is
 as specified in the [Proxies](https://2.python-requests.org/en/master/user/advanced/#id10) definition for the Python `requests` modules
+Proxy URL can be also specified in the authentication profile. Example:
+```json
+{
+  "email": "<email address>",
+  "api-key": "<the API key>",
+  "proxy": "socks5://localhost:60000"
+}
+```
+### Accessing API in specific environment (other than Kentik US)
+
+The `--api-url` option allows specifying URL to use for access to Kentik management and synthetics APIs.
+Only "base" URL is required (example: https://api.kentik.eu) for both. API URL  can be also specified in the
+authentication profile.
+
+Example:
+
+```json
+{
+  "email": "<email address>",
+  "api-key": "<the API key>",
+  "url": "https://api.kentik.eu"
+}
+```
 
 ## Limitations / future development
 
 The `synth_ctl.py` tool current does not support:
+- modification of synthetic agents
 - modification of deployed tests (PATCH operation)
 - creation of `flow` type tests
 - creation of `bgp` type tests
@@ -271,16 +296,20 @@ The `synth_ctl.py` tool current does not support:
 Top-level
 
 ```
-> synth_ctl.py --help
+❯ synth_ctl.py --help
+Usage: synth_ctl.py [OPTIONS] COMMAND [ARGS]...
+
   Tool for manipulating Kentik synthetic tests
 
 Options:
-  --profile TEXT                  Credential profile for the monitoring
-                                  account  [required]
-  --target-profile TEXT           Credential profile for the target account
+  -p, --profile TEXT              Credential profile for the monitoring
+                                  account [required]
+  -t, --target-profile TEXT       Credential profile for the target account
                                   (default: same as profile)
   -d, --debug                     Debug output
   --proxy TEXT                    Proxy to use to connect to Kentik API
+  --api-url TEXT                  Base URL for Kentik API (default:
+                                  api.kentik.com)
   --install-completion [bash|zsh|fish|powershell|pwsh]
                                   Install completion for the specified shell.
   --show-completion [bash|zsh|fish|powershell|pwsh]
@@ -295,7 +324,7 @@ Commands:
 
 `test` command group
 ```
-> synth_ctl.py test --help
+❯ synth_ctl.py test --help
 Usage: synth_ctl.py test [OPTIONS] COMMAND [ARGS]...
 
 Options:
@@ -306,8 +335,8 @@ Commands:
   delete    Delete test
   get       Print test configuration
   list      List all tests
-  match     Print configuration of tests matching specified rules
-  one-shot  Create test, wait until it produces results and delete or disable it
+  match     Print configuration of test matching specified rules
+  one-shot  Create test, wait until it produces results and delete or...
   pause     Pause test execution
   results   Print test results and health status
   resume    Resume test execution
@@ -315,7 +344,7 @@ Commands:
 
 `agent` command group
 ```
-> synth_ctl.py agent --help
+❯ synth_ctl.py agent --help
 Usage: synth_ctl.py agent [OPTIONS] COMMAND [ARGS]...
 
 Options:
@@ -330,7 +359,7 @@ Commands:
 Help is also available for individual commands. Example:
 
 ```
-> synth_ctl.py test one-shot --help
+❯ synth_ctl.py test one-shot --help
 Usage: synth_ctl.py test one-shot [OPTIONS] TEST_CONFIG
 
   Create test, wait until it produces results and delete or disable it

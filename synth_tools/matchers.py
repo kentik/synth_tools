@@ -35,11 +35,11 @@ class PropertyMatcher(Matcher):
         else:
             self.value = value
 
-    def match(self, data: object) -> bool:
+    def match(self, data: Any) -> bool:
         # handle exceptions
         if self.key == "label" and hasattr(data, "has_label"):
             log.debug("%s: matching label: '%s', data: '%s'", self.__class__.__name__, self.value, str(data))
-            ret = data.has_label(self.value)
+            ret = data.has_label(self.value)  # type: ignore
             log.debug("%s: ret '%s'", self.__class__.__name__, ret)
             return ret
         log.debug("%s: matching key: '%s', data: '%s'", self.__class__.__name__, self.key, str(data))
@@ -50,8 +50,8 @@ class PropertyMatcher(Matcher):
             log.debug("%s: matching k: '%s', obj: '%s'", self.__class__.__name__, k, str(obj))
             if hasattr(obj, k):
                 obj = getattr(obj, k)
-            elif k in obj:
-                obj = obj[k]
+            elif k in obj:  # type: ignore
+                obj = obj[k]  # type: ignore
             else:
                 log.warning(
                     "%s: object: '%s' does not have property '%s'", self.__class__.__name__, str(data), self.key
@@ -70,22 +70,17 @@ class PropertyMatcher(Matcher):
 
 
 class SetMatcher(Matcher):
-    def __init__(self, data: List[Dict[str, Any]]):
+    def __init__(self, data: List[Dict[str, Any]], max_matches: Optional[int] = None):
         self.matchers = []
-        self.max_matches: Optional[int] = None
+        self.max_matches: Optional[int] = max_matches
         for e in data:
             for k, v in e.items():
-                if k == "=limit":
-                    if self.max_matches is not None:
-                        log.warning("@max_matches: '%d' overrides '%d' (cfg: '%s')", v, self.max_matches, data)
-                    self.max_matches = v
-                    continue
                 if k in self.SPECIAL:
                     matcher = getattr(sys.modules[__name__], self.SPECIAL[k])(v)
                 else:
                     matcher = PropertyMatcher(k, v)
                 self.matchers.append(matcher)
-        log.debug("%s: %d matchers", self.__class__.__name__, len(self.matchers))
+        log.debug("%s: %d matchers, max_matches: %s", self.__class__.__name__, len(self.matchers), self.max_matches)
 
     @abstractmethod
     def match(self, data: object) -> bool:
@@ -95,6 +90,7 @@ class SetMatcher(Matcher):
 class AllMatcher(SetMatcher):
     def match(self, data: object) -> bool:
         if self.max_matches is not None and self.max_matches == 0:
+            log.debug("%s: match limit reached", self.__class__.__name__)
             return False
         for m in self.matchers:
             if not m.match(data):
@@ -109,6 +105,7 @@ class AllMatcher(SetMatcher):
 class AnyMatcher(SetMatcher):
     def match(self, data: object) -> bool:
         if self.max_matches is not None and self.max_matches == 0:
+            log.debug("%s: match limit reached", self.__class__.__name__)
             return False
         if not self.matchers:
             log.debug("%s: no matchers: ret '%s'", self.__class__.__name__, True)
@@ -135,7 +132,7 @@ class OneOfEachMatcher(Matcher):
             ", ".join("|".join(str(e) for e in x) for x in self.match_set),
         )
 
-    def match(self, data: Dict[str, Any]) -> bool:
+    def match(self, data: Any) -> bool:
         if not self.match_set:
             return False
         m = tuple(data[k] for k in self.match_vector)

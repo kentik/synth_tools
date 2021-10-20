@@ -13,7 +13,7 @@ line_length = 120
 
 [tool.mypy]
 ignore_missing_imports = true
-exclude = "/generated/"
+exclude = "(generated|build)/"
 
 [[tool.mypy.overrides]]
 module = "/generated/*"

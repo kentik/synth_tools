@@ -19,7 +19,7 @@ app.add_typer(tests_app, name="test")
 agents_app = typer.Typer()
 app.add_typer(agents_app, name="agent")
 
-api = Optional[APIs]
+api: APIs
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
@@ -32,6 +32,8 @@ def fail(msg: str) -> None:
 
 def print_dict(d: dict, indent_level=0, attr_list: Optional[List[str]] = None) -> None:
     indent = "  " * indent_level
+    if attr_list is None:
+        attr_list = []
     match_attrs = [a.split(".")[0] for a in attr_list]
     for k, v in d.items():
         if match_attrs and k not in match_attrs:
@@ -95,11 +97,7 @@ def print_health(
                 typer.echo("  {}".format(", ".join(f"{k}: {v}" for k, v in e.items())))
 
 
-INTERNAL_TEST_SETTINGS = (
-    "tasks",
-    "monitoringSettings",
-    "rollupLevel",
-)
+INTERNAL_TEST_SETTINGS = ("tasks", "monitoringSettings", "rollupLevel", "ping.period", "trace.period", "http.period")
 
 
 def print_test(
@@ -111,16 +109,36 @@ def print_test(
     if not show_internal:
         del d["deviceId"]
         for attr in INTERNAL_TEST_SETTINGS:
-            try:
-                del d["settings"][attr]
-            except KeyError:
-                log.debug("print_test: test: '%s' does not have internal attr '%s'", test.name, attr)
+            keys = attr.split(".")
+            item = d["settings"]
+            while keys:
+                k = keys.pop(0)
+                if not keys:
+                    try:
+                        log.debug("print_test: deleting k: '%s' item: '%s' attr: '%s'", k, item, attr)
+                        del item[k]
+                    except KeyError:
+                        log.debug("print_test: test: '%s' does not have internal attr '%s'", test.name, attr)
+                        break
+                else:
+                    try:
+                        item = item[k]
+                        if not item:
+                            break
+                    except KeyError:
+                        log.debug("print_test: test: '%s' does not have internal attr '%s'", test.name, attr)
+                        break
+
     if attributes:
         attr_list = attributes.split(",")
     else:
         attr_list = []
     print_dict(d, indent_level=indent_level, attr_list=attr_list)
     typer.echo("")
+
+
+def print_test_brief(test: SynTest) -> None:
+    typer.echo(f"id: {test.id} name: {test.name} type: {test.type.value}")
 
 
 def print_agent(agent: dict, indent_level=0, attributes: Optional[str] = None) -> None:
@@ -131,6 +149,10 @@ def print_agent(agent: dict, indent_level=0, attributes: Optional[str] = None) -
     else:
         attr_list = []
     print_dict(a, indent_level=indent_level, attr_list=attr_list)
+
+
+def print_agent_brief(agent: dict) -> None:
+    typer.echo(f"id: {agent['id']} name: {agent['name']} alias: {agent['alias']} type: {agent['type']}")
 
 
 @tests_app.command()
@@ -155,8 +177,8 @@ def one_shot(
 
     if not health:
         fail("Test did not produce any health data")
-
-    print_health(health, raw_out=raw_out, failing_only=failing, json_out=json_out)
+    else:
+        print_health(health, raw_out=raw_out, failing_only=failing, json_out=json_out)
 
 
 @tests_app.command("create")
@@ -201,7 +223,7 @@ def list_tests(
     """
     for t in api.syn.tests:
         if brief:
-            typer.echo(f"id: {t.id} name: {t.name} type: {t.type.value}")
+            print_test_brief(t)
         else:
             typer.echo(f"id: {t.id}")
             print_test(t, indent_level=1, show_internal=show_internal, attributes=attributes)
@@ -234,6 +256,7 @@ def all_matcher_from_rules(rules: List[str]) -> AllMatcher:
 @tests_app.command("match")
 def match_test(
     rules: List[str],
+    brief: bool = typer.Option(False, help="Print only id, name and type"),
     attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
     show_internal: bool = typer.Option(False, help="Show internal test attributes"),
 ) -> None:
@@ -246,8 +269,11 @@ def match_test(
         typer.echo("No test matches specified rules")
     else:
         for t in matching:
-            typer.echo(f"id: {t.id}")
-            print_test(t, indent_level=1, show_internal=show_internal, attributes=attributes)
+            if brief:
+                print_test_brief(t)
+            else:
+                typer.echo(f"id: {t.id}")
+                print_test(t, indent_level=1, show_internal=show_internal, attributes=attributes)
 
 
 @tests_app.command("pause")
@@ -299,7 +325,7 @@ def list_agents(
     """
     for a in api.syn.agents:
         if brief:
-            typer.echo(f"id: {a['id']} name: {a['name']} alias: {a['alias']} type: {a['type']}")
+            print_agent_brief(a)
         else:
             typer.echo(f"id: {a['id']}")
             print_agent(a, indent_level=1, attributes=attributes)
@@ -324,6 +350,7 @@ def get_agent(
 @agents_app.command("match")
 def match_agent(
     rules: List[str],
+    brief: bool = typer.Option(False, help="Print only id, name and type"),
     attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
 ) -> None:
     """
@@ -335,20 +362,25 @@ def match_agent(
         typer.echo("No agent matches specified rules")
     else:
         for a in matching:
-            typer.echo(f"id: {a['id']}")
-            print_agent(a, indent_level=1, attributes=attributes)
-            typer.echo("")
+            if brief:
+                print_agent_brief(a)
+            else:
+                typer.echo(f"id: {a['id']}")
+                print_agent(a, indent_level=1, attributes=attributes)
+                typer.echo("")
 
 
 @app.callback()
 def main(
-    profile: str = typer.Option(None, help="Credential profile for the monitoring account [required]"),
+    profile: str = typer.Option(
+        None, "-p", "--profile", help="Credential profile for the monitoring account [required]"
+    ),
     target_profile: Optional[str] = typer.Option(
-        None, help="Credential profile for the target account (default: same as profile)"
+        None, "-t", "--target-profile", help="Credential profile for the target account (default: same as profile)"
     ),
     debug: bool = typer.Option(False, "-d", "--debug", help="Debug output"),
     proxy: Optional[str] = typer.Option(None, "--proxy", help="Proxy to use to connect to Kentik API"),
-    api_url: Optional[str] = typer.Option(None, "--api_url", help="Base URL for Kentik API (default:  api.kentik.com)"),
+    api_url: Optional[str] = typer.Option(None, "--api-url", help="Base URL for Kentik API (default:  api.kentik.com)"),
 ) -> None:
     """
     Tool for manipulating Kentik synthetic tests

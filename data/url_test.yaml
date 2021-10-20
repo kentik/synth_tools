@@ -1,10 +1,12 @@
 test:
-  name: www.example.com
-  type: page_load
+  type: url
   period: 600
   protocol: tcp
   ping:
     timeout: 3000 # milliseconds
+    protocol: icmp
+  trace:
+    timeout: 22500 # milliseconds
     protocol: icmp
   healthSettings:
     latencyCriticalStddev: 3
@@ -18,8 +20,10 @@ test:
     user-agent: kentik
 
 targets:
-  - https://www.example.com
+  use:
+    - https://www.example.com
 
 agents:
-  - family: IP_FAMILY_V4
-  - one_of_each: { asn: [31898], country: [United States] }
+  max_matches: 2
+  match:
+    - any: [ country: US, country: United States ]
