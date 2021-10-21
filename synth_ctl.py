@@ -406,10 +406,10 @@ def match_agent(
 @app.callback()
 def main(
     profile: str = typer.Option(
-        None,
+        "default",
         "-p",
         "--profile",
-        help="Credential profile for the monitoring account [required]",
+        help="Credential profile for the monitoring account",
     ),
     target_profile: Optional[str] = typer.Option(
         None,
