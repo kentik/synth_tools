@@ -115,13 +115,13 @@ INTERNAL_TEST_SETTINGS = (
 def print_test(
     test: SynTest,
     indent_level: int = 0,
-    show_internal: bool = False,
+    show_all: bool = False,
     attributes: Optional[str] = None,
 ) -> None:
     d = test.to_dict()["test"]
-    if not test.deployed:
-        del d["status"]
-    if not show_internal:
+    if not show_all:
+        if not test.deployed:
+            del d["status"]
         del d["deviceId"]
         for attr in INTERNAL_TEST_SETTINGS:
             keys = attr.split(".")
@@ -192,7 +192,7 @@ def one_shot(
     failing: bool = typer.Option(False, help="Print only failing results"),
     delete: bool = typer.Option(True, help="Delete test after retrieving results"),
     print_config: bool = typer.Option(False, help="Print test configuration"),
-    show_internal: bool = typer.Option(False, help="Show internal test attributes"),
+    show_all: bool = typer.Option(False, help="Show all test attributes"),
     json_out: bool = typer.Option(False, "--json", help="Print output in JSON format"),
 ) -> None:
     """
@@ -200,7 +200,7 @@ def one_shot(
     """
     test = load_test(api, test_config, fail)
     if print_config:
-        print_test(test, show_internal=show_internal)
+        print_test(test, show_all=show_all)
     health = run_one_shot(api, test, wait_factor=wait_factor, retries=retries, delete=delete)
 
     if not health:
@@ -215,19 +215,19 @@ def create_test(
     dry_run: bool = typer.Option(False, help="Only construct and print test data"),
     print_config: bool = typer.Option(False, help="Print test configuration"),
     attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
-    show_internal: bool = typer.Option(False, help="Show internal test attributes"),
+    show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
     Create test
     """
     test = load_test(api, test_config, fail)
     if dry_run:
-        print_test(test, show_internal=show_internal, attributes=attributes)
+        print_test(test, show_all=show_all, attributes=attributes)
     else:
         test = api.syn.create_test(test)
         typer.echo(f"Created new test: id {test.id}")
         if print_config:
-            print_test(test, show_internal=show_internal)
+            print_test(test, show_all=show_all)
 
 
 @tests_app.command("delete")
@@ -244,7 +244,7 @@ def delete_test(test_ids: List[str] = typer.Argument(..., help="ID of the test t
 def list_tests(
     brief: bool = typer.Option(False, help="Print only id, name and type"),
     attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
-    show_internal: bool = typer.Option(False, help="Show internal test attributes"),
+    show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
     List all tests
@@ -254,21 +254,21 @@ def list_tests(
             print_test_brief(t)
         else:
             typer.echo(f"id: {t.id}")
-            print_test(t, indent_level=1, show_internal=show_internal, attributes=attributes)
+            print_test(t, indent_level=1, show_all=show_all, attributes=attributes)
 
 
 @tests_app.command("get")
 def get_test(
     test_ids: List[str],
     attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
-    show_internal: bool = typer.Option(False, help="Show internal test attributes"),
+    show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
     Print test configuration
     """
     for i in test_ids:
         t = api.syn.test(i)
-        print_test(t, show_internal=show_internal, attributes=attributes)
+        print_test(t, show_all=show_all, attributes=attributes)
 
 
 def all_matcher_from_rules(rules: List[str]) -> AllMatcher:
@@ -286,7 +286,7 @@ def match_test(
     rules: List[str],
     brief: bool = typer.Option(False, help="Print only id, name and type"),
     attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
-    show_internal: bool = typer.Option(False, help="Show internal test attributes"),
+    show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
     Print configuration of test matching specified rules
@@ -304,7 +304,7 @@ def match_test(
                 print_test(
                     t,
                     indent_level=1,
-                    show_internal=show_internal,
+                    show_all=show_all,
                     attributes=attributes,
                 )
 

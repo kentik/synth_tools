@@ -494,6 +494,10 @@ def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None]
     if "period" in cfg:
         log.debug("set_common_test_params: test: '%s' period: '%s'", test.name, cfg.get("period"))
         test.set_period(cfg["period"])
+    if "status" in cfg:
+        log.debug("set_common_test_params: test: '%s' status: '%s'", test.name, cfg.get("status"))
+        log.warning("Test 'status' is ignored on creation. All tests are created in active state.")
+        test.status = TestStatus(cfg["status"])
 
 
 @dataclass
