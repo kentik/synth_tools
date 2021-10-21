@@ -45,12 +45,20 @@ def _use_list_only(cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> 
         fail("Test type requires list of strings to be specified in the 'use' section")
 
 
-def _get_use_list(cfg: Dict[str, Any], section: str, fail: Callable[[str], None] = _fail) -> Set[str]:
+def _get_use_list(
+    cfg: Dict[str, Any], section: str, cls: Optional[type] = None, fail: Callable[[str], None] = _fail
+) -> Set[str]:
     if "use" not in cfg:
         fail(f"'use' directive missing in '{section}' (cfg: {cfg}")
     use_list = cfg["use"]
     if type(use_list) != list:
         fail("Invalid 'use' specification: must be a simple list")
+    if cls:
+        try:
+            return set(cls(x) for x in use_list)
+        except ValueError as exc:
+            fail(f"Invalid value in 'use' list in '{section}': cannot convert to '{cls}': '{exc}'")
+
     return set(use_list)
 
 
@@ -196,7 +204,7 @@ def address_targets(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] 
     _match_or_use(cfg, "targets", fail)
 
     if "use" in cfg:
-        addresses = set(_get_use_list(cfg, "targets", fail))
+        addresses = set(_get_use_list(cfg, "targets", fail=fail))
         invalid = [a for a in addresses if not is_valid_address(a)]
         if invalid:
             fail("Invalid addresses in targets: {}".format(", ".join(invalid)))
@@ -240,7 +248,7 @@ def url_targets(_: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fai
         return True
 
     _use_list_only(cfg, fail)
-    urls = set(_get_use_list(cfg, "targets", fail))
+    urls = set(_get_use_list(cfg, "targets", fail=fail))
     invalid = [u for u in urls if not valid_url(u)]
     if invalid:
         fail("List contains invalid URLs: {}".format(", ".join(invalid)))
@@ -249,7 +257,7 @@ def url_targets(_: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fai
 
 def domain_targets(_: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
     _use_list_only(cfg, fail)
-    names = set(_get_use_list(cfg, "targets", fail))
+    names = set(_get_use_list(cfg, "targets", fail=fail))
     invalid = [n for n in names if not domain(n)]
     if invalid:
         fail("List contains invalid names: {}".format(", ".join(invalid)))
@@ -266,7 +274,7 @@ def _get_agents(api: APIs, cfg, agent_type: Optional[str] = None, fail: Callable
     _match_or_use(cfg, "agents", fail)
     if "use" in cfg:
         log.debug("_get_agents: use: %s", cfg["use"])
-        return _get_use_list(cfg, "agents", fail)
+        return _get_use_list(cfg, "agents", cls=str, fail=fail)
 
     min_agents = cfg.get("min", 1)
     max_agents = cfg.get("max")
