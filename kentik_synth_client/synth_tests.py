@@ -87,7 +87,7 @@ class TraceTask(_MonitoringTask):
     _name: str = "traceroute"
     count: int = 3
     protocol: Protocol = Protocol.icmp
-    port: int = 0
+    port: int = 33434
     expiry: int = 22500
     limit: int = 30
 
