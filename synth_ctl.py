@@ -42,14 +42,19 @@ def print_dict(d: dict, indent_level=0, attr_list: Optional[List[str]] = None) -
         if type(v) == dict:
             typer.echo("")
             print_dict(
-                v, indent_level + 1, attr_list=[a.split(".", maxsplit=1)[1] for a in attr_list if a.startswith(f"{k}.")]
+                v,
+                indent_level + 1,
+                attr_list=[a.split(".", maxsplit=1)[1] for a in attr_list if a.startswith(f"{k}.")],
             )
         else:
             typer.echo(f"{v}")
 
 
 def print_health(
-    health: dict, raw_out: Optional[str] = None, failing_only: bool = False, json_out: bool = False
+    health: dict,
+    raw_out: Optional[str] = None,
+    failing_only: bool = False,
+    json_out: bool = False,
 ) -> None:
     if not health:
         log.warning("No valid health data")
@@ -97,11 +102,21 @@ def print_health(
                 typer.echo("  {}".format(", ".join(f"{k}: {v}" for k, v in e.items())))
 
 
-INTERNAL_TEST_SETTINGS = ("tasks", "monitoringSettings", "rollupLevel", "ping.period", "trace.period", "http.period")
+INTERNAL_TEST_SETTINGS = (
+    "tasks",
+    "monitoringSettings",
+    "rollupLevel",
+    "ping.period",
+    "trace.period",
+    "http.period",
+)
 
 
 def print_test(
-    test: SynTest, indent_level: int = 0, show_internal: bool = False, attributes: Optional[str] = None
+    test: SynTest,
+    indent_level: int = 0,
+    show_internal: bool = False,
+    attributes: Optional[str] = None,
 ) -> None:
     d = test.to_dict()["test"]
     if not test.deployed:
@@ -115,10 +130,19 @@ def print_test(
                 k = keys.pop(0)
                 if not keys:
                     try:
-                        log.debug("print_test: deleting k: '%s' item: '%s' attr: '%s'", k, item, attr)
+                        log.debug(
+                            "print_test: deleting k: '%s' item: '%s' attr: '%s'",
+                            k,
+                            item,
+                            attr,
+                        )
                         del item[k]
                     except KeyError:
-                        log.debug("print_test: test: '%s' does not have internal attr '%s'", test.name, attr)
+                        log.debug(
+                            "print_test: test: '%s' does not have internal attr '%s'",
+                            test.name,
+                            attr,
+                        )
                         break
                 else:
                     try:
@@ -126,7 +150,11 @@ def print_test(
                         if not item:
                             break
                     except KeyError:
-                        log.debug("print_test: test: '%s' does not have internal attr '%s'", test.name, attr)
+                        log.debug(
+                            "print_test: test: '%s' does not have internal attr '%s'",
+                            test.name,
+                            attr,
+                        )
                         break
 
     if attributes:
@@ -273,7 +301,12 @@ def match_test(
                 print_test_brief(t)
             else:
                 typer.echo(f"id: {t.id}")
-                print_test(t, indent_level=1, show_internal=show_internal, attributes=attributes)
+                print_test(
+                    t,
+                    indent_level=1,
+                    show_internal=show_internal,
+                    attributes=attributes,
+                )
 
 
 @tests_app.command("pause")
@@ -373,10 +406,16 @@ def match_agent(
 @app.callback()
 def main(
     profile: str = typer.Option(
-        None, "-p", "--profile", help="Credential profile for the monitoring account [required]"
+        None,
+        "-p",
+        "--profile",
+        help="Credential profile for the monitoring account [required]",
     ),
     target_profile: Optional[str] = typer.Option(
-        None, "-t", "--target-profile", help="Credential profile for the target account (default: same as profile)"
+        None,
+        "-t",
+        "--target-profile",
+        help="Credential profile for the target account (default: same as profile)",
     ),
     debug: bool = typer.Option(False, "-d", "--debug", help="Debug output"),
     proxy: Optional[str] = typer.Option(None, "--proxy", help="Proxy to use to connect to Kentik API"),
@@ -393,7 +432,13 @@ def main(
     if target_profile is None:
         target_profile = profile
 
-    api = APIs(mgmt_profile=target_profile, syn_profile=profile, api_url=api_url, proxy=proxy, fail=fail)
+    api = APIs(
+        mgmt_profile=target_profile,
+        syn_profile=profile,
+        api_url=api_url,
+        proxy=proxy,
+        fail=fail,
+    )
 
 
 if __name__ == "__main__":

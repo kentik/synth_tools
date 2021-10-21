@@ -24,7 +24,11 @@ def random_string(str_size, allowed_chars=string.ascii_letters + string.digits):
 
 
 def run_one_shot(
-    api: APIs, test: SynTest, wait_factor: float = 1.0, retries: int = 3, delete: bool = True
+    api: APIs,
+    test: SynTest,
+    wait_factor: float = 1.0,
+    retries: int = 3,
+    delete: bool = True,
 ) -> Optional[dict]:
     def _delete_test(tst: SynTest):
         log.debug("Deleting test '%s' (id: %s)", tst.name, tst.id)
@@ -50,7 +54,10 @@ def run_one_shot(
             _delete_test(t)
             return None
 
-    wait_time = max(0.0, t.max_period * wait_factor - (datetime.now(tz=timezone.utc) - t.edate).total_seconds())
+    wait_time = max(
+        0.0,
+        t.max_period * wait_factor - (datetime.now(tz=timezone.utc) - t.edate).total_seconds(),
+    )
     start = datetime.now(tz=timezone.utc)
     while retries:
         if wait_time > 0:
@@ -59,7 +66,11 @@ def run_one_shot(
         wait_time = t.max_period
         now = datetime.now(tz=timezone.utc)
         try:
-            health = api.syn.health([t.id], start=now - timedelta(seconds=t.max_period * wait_factor), end=now)
+            health = api.syn.health(
+                [t.id],
+                start=now - timedelta(seconds=t.max_period * wait_factor),
+                end=now,
+            )
         except KentikAPIRequestError as ex:
             log.error("Failed to retrieve test health (%s). Retrying ...", ex)
             retries -= 1
@@ -77,7 +88,12 @@ def run_one_shot(
             )
             retries -= 1
             continue
-        log.debug("Test '%s' is %s at %s", t.id, health[0]["overallHealth"]["health"], health_ts.isoformat())
+        log.debug(
+            "Test '%s' is %s at %s",
+            t.id,
+            health[0]["overallHealth"]["health"],
+            health_ts.isoformat(),
+        )
         break
     else:
         log.fatal("Failed to get valid health data for test id: %s", t.id)
