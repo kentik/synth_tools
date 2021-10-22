@@ -165,10 +165,9 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'synthctl = synth_tools.cli:run',
+            'synth_ctl = synth_tools.cli:run',
         ],
     },
-    scripts=["synth_ctl.py"],
     packages=PACKAGES,
     package_dir={pkg: os.path.join(*pkg.split(".")) for pkg in PACKAGES},
 )
