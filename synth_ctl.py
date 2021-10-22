@@ -25,9 +25,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()
 
 
-def fail(msg: str) -> None:
-    typer.echo(f"FAILED: {msg}", err=True)
-    raise typer.Exit(1)
+
 
 
 def print_dict(d: dict, indent_level=0, attr_list: Optional[List[str]] = None) -> None:
