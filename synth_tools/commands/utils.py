@@ -96,6 +96,7 @@ INTERNAL_TEST_SETTINGS = (
     "http.period",
 )
 
+
 def print_test(
     test: SynTest,
     indent_level: int = 0,
