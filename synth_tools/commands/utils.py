@@ -1,5 +1,6 @@
 import json
 import sys
+from collections import defaultdict
 from typing import Optional, List, Dict
 
 import typer
