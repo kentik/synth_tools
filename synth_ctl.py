@@ -403,7 +403,7 @@ def match_agent(
                 typer.echo("")
 
 
-@app.callback()
+@app.callback(no_args_is_help=True)
 def main(
     profile: str = typer.Option(
         "default",

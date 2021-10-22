@@ -282,7 +282,7 @@ def _get_agents(api: APIs, cfg, agent_type: Optional[str] = None, fail: Callable
     log.debug("_get_agents: match: %s (min: %d, max: %s)", cfg, min_agents, max_agents)
     agents_matcher = AllMatcher(cfg, max_matches=max_agents)
     agents = set(
-        a["id"] for a in api.syn.agents if agents_matcher.match(a) and (not agent_type or a["agentImpl"] == agent_type)
+        a["id"] for a in api.syn.agents if (not agent_type or a["agentImpl"] == agent_type) and agents_matcher.match(a)
     )
     if len(agents) < min_agents:
         fail(f"Matched {len(agents)} agents, {min_agents} required")
@@ -290,14 +290,17 @@ def _get_agents(api: APIs, cfg, agent_type: Optional[str] = None, fail: Callable
 
 
 def all_agents(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
+    log.debug("all_agents: cfg '%s'", cfg)
     return _get_agents(api, cfg, fail=fail)
 
 
 def rust_agents(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
+    log.debug("rust_agents: cfg '%s'", cfg)
     return _get_agents(api, cfg, "IMPLEMENT_TYPE_RUST", fail=fail)
 
 
 def node_agents(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
+    log.debug("node_agents: cfg '%s'", cfg)
     return _get_agents(api, cfg, "IMPLEMENT_TYPE_NODE", fail=fail)
 
 
