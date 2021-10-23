@@ -2,15 +2,15 @@
 
 The synth_tools repo consists of 2 components:
 - `kentik_synth_client` which is a package containing (temporary) Kentik synthetics SDK
-- `synth_ctl.py` command-line tool for manipulation of synthetic tests and agents
+- `synth_ctl` command-line tool for manipulation of synthetic tests and agents
 
 `kentik_synth_client` is documented in separate [README](./kentik_synth_client/README.md).
 
 ## synth_ctl
 
-The `synth_ctl.py` tool supports manipulation of Kentik synthetic tests and agents.
+The `synth_ctl` tool supports manipulation of Kentik synthetic tests and agents.
 
-(see also `synth_ctl.py --help`)
+(see also `synth_ctl --help`)
 
 ### Operations supported for synthetic tests:
 - listing and display of test configuration
@@ -285,19 +285,19 @@ Example:
 
 ## Limitations / future development
 
-The `synth_ctl.py` tool current does not support:
+The `synth_ctl` tool current does not support:
 - modification of synthetic agents
 - modification of deployed tests (PATCH operation)
 - creation of `flow` type tests
 - creation of `bgp` type tests
 - retrieval of test traceroute results (traces)
 
-## synth_ctl.py usage
+## synth_ctl usage
 Top-level
 
 ```
-❯ synth_ctl.py --help
-Usage: synth_ctl.py [OPTIONS] COMMAND [ARGS]...
+❯ synth_ctl --help
+Usage: synth_ctl [OPTIONS] COMMAND [ARGS]...
 
   Tool for manipulating Kentik synthetic tests
 
@@ -324,8 +324,8 @@ Commands:
 
 `test` command group
 ```
-❯ synth_ctl.py test --help
-Usage: synth_ctl.py test [OPTIONS] COMMAND [ARGS]...
+❯ synth_ctl test --help
+Usage: synth_ctl test [OPTIONS] COMMAND [ARGS]...
 
 Options:
   --help  Show this message and exit.
@@ -344,8 +344,8 @@ Commands:
 
 `agent` command group
 ```
-❯ synth_ctl.py agent --help
-Usage: synth_ctl.py agent [OPTIONS] COMMAND [ARGS]...
+❯ synth_ctl agent --help
+Usage: synth_ctl agent [OPTIONS] COMMAND [ARGS]...
 
 Options:
   --help  Show this message and exit.
@@ -359,8 +359,8 @@ Commands:
 Help is also available for individual commands. Example:
 
 ```
-❯ synth_ctl.py test one-shot --help
-Usage: synth_ctl.py test one-shot [OPTIONS] TEST_CONFIG
+❯ synth_ctl test one-shot --help
+Usage: synth_ctl test one-shot [OPTIONS] TEST_CONFIG
 
   Create test, wait until it produces results and delete or disable it
 

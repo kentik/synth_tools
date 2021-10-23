@@ -13,7 +13,7 @@ HERE = Path(__file__).parent
 # The text of the README file
 README = (HERE / "README.md").read_text()
 
-PACKAGES = ["kentik_synth_client", "synth_tools"]
+PACKAGES = ["kentik_synth_client", "synth_tools", "synth_tools.commands"]
 
 
 def run_cmd(cmd, reporter) -> None:
@@ -163,7 +163,11 @@ setup(
     classifiers=[
         "License :: OSI Approved :: Apache Software License",
     ],
-    scripts=["synth_ctl.py"],
+    entry_points={
+        'console_scripts': [
+            'synth_ctl = synth_tools.cli:run',
+        ],
+    },
     packages=PACKAGES,
     package_dir={pkg: os.path.join(*pkg.split(".")) for pkg in PACKAGES},
 )
