@@ -3,7 +3,7 @@ from typing import List, Optional
 import typer
 
 from synth_tools.apis import APIs
-from synth_tools.commands.utils import all_matcher_from_rules, print_agent, print_agent_brief
+from synth_tools.commands.utils import all_matcher_from_rules, get_api, print_agent, print_agent_brief
 
 agents_app = typer.Typer()
 
@@ -17,7 +17,7 @@ def list_agents(
     """
     List all agents
     """
-    api = ctx.find_object(APIs)
+    api = get_api(ctx)
     for a in api.syn.agents:
         if brief:
             print_agent_brief(a)
@@ -36,7 +36,7 @@ def get_agent(
     """
     Print agent configuration
     """
-    api = ctx.find_object(APIs)
+    api = get_api(ctx)
     for i in agent_ids:
         typer.echo(f"id: {i}")
         a = api.syn.agent(i)
@@ -54,7 +54,7 @@ def match_agent(
     """
     Print configuration of agents matching specified rules
     """
-    api = ctx.find_object(APIs)
+    api = get_api(ctx)
     matcher = all_matcher_from_rules(rules)
     matching = [a for a in api.syn.agents if matcher.match(a)]
     if not matching:

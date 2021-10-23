@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 import typer
 
 from kentik_synth_client import SynTest
+from synth_tools.apis import APIs
 from synth_tools.commands import log
 from synth_tools.matchers import AllMatcher
 
@@ -13,6 +14,13 @@ from synth_tools.matchers import AllMatcher
 def fail(msg: str) -> None:
     typer.echo(f"FAILED: {msg}", err=True)
     raise typer.Exit(1)
+
+
+def get_api(ctx: typer.Context) -> APIs:
+    api = ctx.find_object(APIs)
+    if not api:
+        raise RuntimeError("Cannot find APIs in context")
+    return api
 
 
 def print_dict(d: dict, indent_level=0, attr_list: Optional[List[str]] = None) -> None:
