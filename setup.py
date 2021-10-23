@@ -157,8 +157,7 @@ setup(
     license="Apache-2.0",
     include_package_data=True,
     install_requires=["kentik-api>=0.3.0", "urllib3>=1.26.0", "pyyaml", "typer", "validators"],
-    setup_requires=["pytest-runner", "setuptools_scm", "wheel", "grpcio-tools", "gitpython"],
-    tests_require=["httpretty", "pytest", "mypy"],
+    tests_require=["pytest-runner", "httpretty", "pytest", "mypy"],
     cmdclass={"mypy": MypyCmd, "grpc_stubs": FetchGRPCCode, "black": Black, "isort": Isort},
     classifiers=[
         "License :: OSI Approved :: Apache Software License",
