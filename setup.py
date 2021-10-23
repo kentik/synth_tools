@@ -164,8 +164,8 @@ setup(
         "License :: OSI Approved :: Apache Software License",
     ],
     entry_points={
-        'console_scripts': [
-            'synth_ctl = synth_tools.cli:run',
+        "console_scripts": [
+            "synth_ctl = synth_tools.cli:run",
         ],
     },
     packages=PACKAGES,

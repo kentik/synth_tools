@@ -1,9 +1,9 @@
-from typing import Optional, List
+from typing import List, Optional
 
 import typer
 
 from synth_tools.apis import APIs
-from synth_tools.commands.utils import print_agent_brief, print_agent, all_matcher_from_rules
+from synth_tools.commands.utils import all_matcher_from_rules, print_agent, print_agent_brief
 
 agents_app = typer.Typer()
 

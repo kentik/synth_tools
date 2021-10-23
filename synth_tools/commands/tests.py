@@ -5,7 +5,7 @@ import typer
 
 from kentik_synth_client import TestStatus
 from synth_tools.apis import APIs
-from synth_tools.commands.utils import print_test, print_test_brief, fail, print_health, all_matcher_from_rules
+from synth_tools.commands.utils import all_matcher_from_rules, fail, print_health, print_test, print_test_brief
 from synth_tools.core import load_test, run_one_shot
 
 tests_app = typer.Typer()
