@@ -67,3 +67,63 @@ def match_agent(
                 typer.echo(f"id: {a['id']}")
                 print_agent(a, indent_level=1, attributes=attributes)
                 typer.echo("")
+
+
+@agents_app.command("activate")
+def activate_agent(
+    ctx: typer.Context,
+    agent_ids: List[str],
+) -> None:
+    """
+    Activate pending agent
+    """
+    api = get_api(ctx)
+    for i in agent_ids:
+        a = api.syn.agent(i)
+        if a["status"] != "AGENT_STATUS_WAIT":
+            typer.echo(f"id: {i} agent not pending (status: {a['status']})")
+        else:
+            a["status"] = "AGENT_STATUS_OK"
+            del a["name"]
+            a = api.syn.patch_agent(i, a, "agent.status")
+            if a["status"] != "AGENT_STATUS_OK":
+                typer.echo(f"id: {i} FAILED to activate (status: {a['status']}")
+            else:
+                typer.echo(f"id: {i} agent activated")
+
+
+@agents_app.command("deactivate")
+def deactivate_agent(
+    ctx: typer.Context,
+    agent_ids: List[str],
+) -> None:
+    """
+    Dectivate an active agent
+    """
+    api = get_api(ctx)
+    for i in agent_ids:
+        a = api.syn.agent(i)
+        if a["status"] != "AGENT_STATUS_OK":
+            typer.echo(f"id: {i} agent is not active (status: {a['status']})")
+        else:
+            a["status"] = "AGENT_STATUS_WAIT"
+            del a["name"]
+            a = api.syn.patch_agent(i, a, "agent.status")
+            if a["status"] != "AGENT_STATUS_WAIT":
+                typer.echo(f"id: {i} FAILED to deactivate (status: {a['status']}")
+            else:
+                typer.echo(f"id: {i} agent deactivated")
+
+
+@agents_app.command("delete")
+def delete_agent(
+    ctx: typer.Context,
+    agent_ids: List[str],
+) -> None:
+    """
+    Delete an agent
+    """
+    api = get_api(ctx)
+    for i in agent_ids:
+        api.syn.delete_agent(i)
+        typer.echo(f"Deleted agent: id: {i}")
