@@ -1,0 +1,40 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  tests:
+    name: "Python ${{ matrix.python-version }}"
+    runs-on: "ubuntu-latest"
+
+    strategy:
+      matrix:
+        python-version: ["3.7", "3.8", "3.9"]
+    
+    steps:
+      - uses: "actions/checkout@v2"
+      - uses: "actions/setup-python@v2"
+        with:
+          python-version: "${{ matrix.python-version }}"
+      - name: "Install dependencies"
+        run: |
+          set -xe
+          python -VV
+          python -m site
+          python -m pip install --upgrade -r requirements-dev.txt
+          python -m pip install --upgrade -r requirements.txt
+
+      - name: "Run isort/black for ${{ matrix.python-version }}"
+        run: |
+          set -xe
+          python setup.py isort
+          python setup.py black
+
+      - name: "Check for changes of lint tools for ${{ matrix.python-version }}"
+        if: success()
+        run: test ! -n "$(git status --porcelain)"
+
+      - name: "Show changes in generated artifacts if any for ${{ matrix.python-version }}"
+        if: failure()
+        run: git diff
+
+      - name: "Install package for for ${{ matrix.python-version }}"
+        run: python setup.py install
