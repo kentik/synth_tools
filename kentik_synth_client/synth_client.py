@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
-from .api_transport import KentikAPITransport
+from .api_transport import KentikAPITransport, KentikAPIRequestError
 from .api_transport_http import SynthHTTPTransport
 from .synth_tests import SynTest, TestStatus
 
@@ -40,8 +40,11 @@ class KentikSynthClient:
     def agents(self) -> List[Dict]:
         return self._transport.req("AgentsList")
 
-    def agent(self, agent_id: str) -> Dict:
-        return self._transport.req("AgentGet", id=agent_id)
+    def agent(self, agent_id: str) -> Optional[Dict]:
+        try:
+            return self._transport.req("AgentGet", id=agent_id)
+        except KentikAPIRequestError:
+            pass
 
     def patch_agent(self, agent_id: str, data: dict, modified: str) -> None:
         return self._transport.req("AgentPatch", id=agent_id, body=dict(agent=data, mask=modified))

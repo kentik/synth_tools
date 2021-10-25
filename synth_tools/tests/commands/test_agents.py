@@ -16,18 +16,24 @@ def fake_req(fixture_file):
 
 
 @pytest.mark.parametrize(
-    "cmd, status_code, expected_in_output, not_expected_in_output",
+    "cmd, status_code, expected_in_output, not_expected_in_output, requests",
     [
-        (["agent", "list"], 0, ["AGENT_STATUS_OK", "country:"], []),
-        (["agent", "list", "--brief"], 0, [], ["AGENT_STATUS_OK", "country:"]),
+        # Expects to see all fields of an agent in a successful list request
+        (["agent", "list"], 0, ["AGENT_STATUS_OK", "country:"], [], ["../fixtures/agents/get_agents.json"]),
+
+        # Expects to NOT print status and country fields in a list request with --brief flag
+        (["agent", "list", "--brief"], 0, [], ["AGENT_STATUS_OK", "country:"], ["../fixtures/agents/get_agents.json"]),
+
+        # Expects to print the id output for a successful request to an existent agent
+        (["agent", "get", "593"], 0, ["id: 593", ""], [], ["../fixtures/agents/get_agent.json"]),
+
+        # Expects to not print anything when attempting to retrieve an nonexistent agent
+        (["agent", "get", "999"], 0, [], ["id:"], ["../fixtures/empty_dict.json"])
     ],
 )
 @mock.patch.object(SynthHTTPTransport, "req")
-def test_get_agent(mocked_req, cmd, status_code, expected_in_output, not_expected_in_output):
-    mocked_req.side_effect = [
-        fake_req("../fixtures/agents/get_agents.json"),
-        fake_req("../fixtures/agents/get_agent.json"),
-    ]
+def test_agents(mocked_req, cmd, status_code, expected_in_output, not_expected_in_output, requests):
+    mocked_req.side_effect = [fake_req(r) for r in requests]
     result = CliRunner().invoke(app, cmd)
     assert result.exit_code == status_code
 

@@ -38,10 +38,11 @@ def get_agent(
     """
     api = ctx.find_object(APIs)
     for i in agent_ids:
-        typer.echo(f"id: {i}")
         a = api.syn.agent(i)
-        print_agent(a, indent_level=1, attributes=attributes)
-        typer.echo("")
+        if a:
+            typer.echo(f"id: {i}")
+            print_agent(a, indent_level=1, attributes=attributes)
+            typer.echo("")
 
 
 @agents_app.command("match")
