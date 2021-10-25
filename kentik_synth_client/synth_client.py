@@ -41,10 +41,7 @@ class KentikSynthClient:
         return self._transport.req("AgentsList")
 
     def agent(self, agent_id: str) -> Optional[Dict]:
-        try:
-            return self._transport.req("AgentGet", id=agent_id)
-        except KentikAPIRequestError:
-            pass
+        return self._transport.req("AgentGet", id=agent_id)
 
     def patch_agent(self, agent_id: str, data: dict, modified: str) -> None:
         return self._transport.req("AgentPatch", id=agent_id, body=dict(agent=data, mask=modified))
