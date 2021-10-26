@@ -23,8 +23,9 @@ def get_api(ctx: typer.Context) -> APIs:
     return api
 
 
-def print_dict(d: dict, indent_level=0, attr_list: Optional[List[str]] = None) -> None:
+def print_dict(d: dict, indent_level=0, attr_list: Optional[List[str]] = None) -> int:
     indent = "  " * indent_level
+    items = 0
     if attr_list is None:
         attr_list = []
     match_attrs = [a.split(".")[0] for a in attr_list]
@@ -34,13 +35,15 @@ def print_dict(d: dict, indent_level=0, attr_list: Optional[List[str]] = None) -
         typer.echo(f"{indent}{k}: ", nl=False)
         if type(v) == dict:
             typer.echo("")
-            print_dict(
+            items += print_dict(
                 v,
                 indent_level + 1,
                 attr_list=[a.split(".", maxsplit=1)[1] for a in attr_list if a.startswith(f"{k}.")],
             )
         else:
             typer.echo(f"{v}")
+            items += 1
+    return items
 
 
 def print_health(
@@ -154,8 +157,8 @@ def print_test(
         attr_list = attributes.split(",")
     else:
         attr_list = []
-    print_dict(d, indent_level=indent_level, attr_list=attr_list)
-    typer.echo("")
+    if print_dict(d, indent_level=indent_level, attr_list=attr_list):
+        typer.echo("")
 
 
 def print_test_brief(test: SynTest) -> None:
@@ -169,7 +172,8 @@ def print_agent(agent: dict, indent_level=0, attributes: Optional[str] = None) -
         attr_list = attributes.split(",")
     else:
         attr_list = []
-    print_dict(a, indent_level=indent_level, attr_list=attr_list)
+    if print_dict(a, indent_level=indent_level, attr_list=attr_list):
+        typer.echo("")
 
 
 def print_agent_brief(agent: dict) -> None:

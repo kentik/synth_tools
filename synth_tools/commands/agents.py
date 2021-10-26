@@ -2,7 +2,6 @@ from typing import List, Optional
 
 import typer
 
-from synth_tools.apis import APIs
 from synth_tools.commands.utils import all_matcher_from_rules, get_api, print_agent, print_agent_brief
 
 agents_app = typer.Typer()
@@ -24,14 +23,13 @@ def list_agents(
         else:
             typer.echo(f"id: {a['id']}")
             print_agent(a, indent_level=1, attributes=attributes)
-            typer.echo("")
 
 
 @agents_app.command("get")
 def get_agent(
     ctx: typer.Context,
     agent_ids: List[str],
-    attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+    fields: Optional[str] = typer.Option(None, "-f", help="Config attributes to print"),
 ) -> None:
     """
     Print agent configuration
@@ -40,8 +38,7 @@ def get_agent(
     for i in agent_ids:
         typer.echo(f"id: {i}")
         a = api.syn.agent(i)
-        print_agent(a, indent_level=1, attributes=attributes)
-        typer.echo("")
+        print_agent(a, indent_level=1, attributes=fields)
 
 
 @agents_app.command("match")
@@ -49,7 +46,7 @@ def match_agent(
     ctx: typer.Context,
     rules: List[str],
     brief: bool = typer.Option(False, help="Print only id, name and type"),
-    attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+    fields: Optional[str] = typer.Option(None, "-f", help="Config attributes to print"),
 ) -> None:
     """
     Print configuration of agents matching specified rules
@@ -65,8 +62,7 @@ def match_agent(
                 print_agent_brief(a)
             else:
                 typer.echo(f"id: {a['id']}")
-                print_agent(a, indent_level=1, attributes=attributes)
-                typer.echo("")
+                print_agent(a, indent_level=1, attributes=fields)
 
 
 @agents_app.command("activate")
