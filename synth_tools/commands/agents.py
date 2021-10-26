@@ -2,7 +2,8 @@ from typing import List, Optional
 
 import typer
 
-from synth_tools.commands.utils import all_matcher_from_rules, get_api, print_agent, print_agent_brief
+from kentik_synth_client import KentikAPIRequestError
+from synth_tools.commands.utils import all_matcher_from_rules, fail, get_api, print_agent, print_agent_brief
 
 agents_app = typer.Typer()
 
@@ -36,9 +37,16 @@ def get_agent(
     """
     api = get_api(ctx)
     for i in agent_ids:
+        try:
+            a = api.syn.agent(i)
+        except KentikAPIRequestError as e:
+            if e.response.status_code == 404:
+                fail(f"Agent {i} does not exist")
+            else:
+                fail(f"Got unexpected response from API:\n{e}")
+
         typer.echo(f"id: {i}")
-        a = api.syn.agent(i)
-        print_agent(a, indent_level=1, attributes=fields)
+        print_agent(a, indent_level=1, attributes=attributes)
 
 
 @agents_app.command("match")
