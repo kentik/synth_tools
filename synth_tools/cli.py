@@ -13,6 +13,15 @@ for name, command in commands_registry.items():
     app.add_typer(command, name=name)
 
 
+def version_callback(value: bool) -> None:
+    if value:
+        from pkg_resources import get_distribution
+
+        typer.echo(get_distribution("kentik-synth-tools"))
+        raise typer.Exit()
+
+
+# noinspection PyUnusedLocal
 @app.callback(no_args_is_help=True)
 def main(
     ctx: typer.Context,
@@ -31,6 +40,9 @@ def main(
     debug: bool = typer.Option(False, "-d", "--debug", help="Debug output"),
     proxy: Optional[str] = typer.Option(None, "--proxy", help="Proxy to use to connect to Kentik API"),
     api_url: Optional[str] = typer.Option(None, "--api-url", help="Base URL for Kentik API (default:  api.kentik.com)"),
+    version: Optional[bool] = typer.Option(
+        None, "--version", callback=version_callback, is_eager=True, help="Show version and exit"
+    ),
 ) -> None:
     """
     Tool for manipulating Kentik synthetic tests

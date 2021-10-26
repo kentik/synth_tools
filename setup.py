@@ -144,10 +144,6 @@ class Isort(Command):
 
 setup(
     name="kentik-synth-tools",
-    use_scm_version={
-        "root": ".",
-        "relative_to": __file__,
-    },
     description="Tools supporting management of Kentik synthetic tests",
     maintainer="Martin Machacek",
     maintainer_email="martin.machacek@kentik.com",
@@ -156,8 +152,8 @@ setup(
     url="https://github.com/kentik/synth_tools",
     license="Apache-2.0",
     include_package_data=True,
-    install_requires=["kentik-api>=0.3.0", "urllib3>=1.26.0", "pyyaml", "typer", "validators"],
-    tests_require=["pytest-runner", "httpretty", "pytest", "mypy"],
+    install_requires=["kentik-api>=0.3.1", "pyyaml", "typer", "validators"],
+    tests_require=["pytest-runner", "pytest", "mypy"],
     cmdclass={"mypy": MypyCmd, "grpc_stubs": FetchGRPCCode, "black": Black, "isort": Isort},
     classifiers=[
         "License :: OSI Approved :: Apache Software License",

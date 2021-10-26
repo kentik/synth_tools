@@ -4,8 +4,7 @@ from typing import List, Optional
 import typer
 
 from kentik_synth_client import TestStatus
-from synth_tools.apis import APIs
-from synth_tools.commands.utils import all_matcher_from_rules, fail, print_health, print_test, print_test_brief
+from synth_tools.commands.utils import all_matcher_from_rules, fail, get_api, print_health, print_test, print_test_brief
 from synth_tools.core import load_test, run_one_shot
 
 tests_app = typer.Typer()
@@ -27,7 +26,7 @@ def one_shot(
     """
     Create test, wait until it produces results and delete or disable it
     """
-    api = ctx.find_object(APIs)
+    api = get_api(ctx)
     test = load_test(api, test_config, fail)
     if print_config:
         print_test(test, show_all=show_all)
@@ -51,7 +50,7 @@ def create_test(
     """
     Create test
     """
-    api = ctx.find_object(APIs)
+    api = get_api(ctx)
     test = load_test(api, test_config, fail)
     if dry_run:
         print_test(test, show_all=show_all, attributes=attributes)
@@ -67,7 +66,7 @@ def delete_test(ctx: typer.Context, test_ids: List[str] = typer.Argument(..., he
     """
     Delete test
     """
-    api = ctx.find_object(APIs)
+    api = get_api(ctx)
     for i in test_ids:
         api.syn.delete_test(i)
         typer.echo(f"Deleted test: id: {i}")
@@ -83,7 +82,7 @@ def list_tests(
     """
     List all tests
     """
-    api = ctx.find_object(APIs)
+    api = get_api(ctx)
     for t in api.syn.tests:
         if brief:
             print_test_brief(t)
@@ -102,7 +101,7 @@ def get_test(
     """
     Print test configuration
     """
-    api = ctx.find_object(APIs)
+    api = get_api(ctx)
     for i in test_ids:
         t = api.syn.test(i)
         print_test(t, show_all=show_all, attributes=attributes)
@@ -119,7 +118,7 @@ def match_test(
     """
     Print configuration of test matching specified rules
     """
-    api = ctx.find_object(APIs)
+    api = get_api(ctx)
     matcher = all_matcher_from_rules(rules)
     matching = [t for t in api.syn.tests if matcher.match(t.to_dict()["test"])]
     if not matching:
@@ -143,7 +142,7 @@ def pause_test(ctx: typer.Context, test_id: str) -> None:
     """
     Pause test execution
     """
-    api = ctx.find_object(APIs)
+    api = get_api(ctx)
     api.syn.set_test_status(test_id, TestStatus.paused)
     typer.echo(f"test id: {test_id} has been paused")
 
@@ -153,7 +152,7 @@ def resume_test(ctx: typer.Context, test_id: str) -> None:
     """
     Resume test execution
     """
-    api = ctx.find_object(APIs)
+    api = get_api(ctx)
     api.syn.set_test_status(test_id, TestStatus.active)
     typer.echo(f"test id: {test_id} has been resumed")
 
@@ -170,7 +169,7 @@ def get_test_health(
     """
     Print test results and health status
     """
-    api = ctx.find_object(APIs)
+    api = get_api(ctx)
     t = api.syn.test(test_id)
     health = api.syn.results(t, periods=periods)
 
