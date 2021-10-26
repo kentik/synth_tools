@@ -3,7 +3,7 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-from requests import Response
+from requests import Request, Response
 from typer.testing import CliRunner
 
 from kentik_synth_client import KentikAPIRequestError
@@ -11,10 +11,12 @@ from kentik_synth_client.synth_client import SynthHTTPTransport
 from synth_tools.cli import app
 
 
-def fake_resp(status_code, content) -> Response:
+def fake_resp(status_code, content, method="GET", url="https://dev/null") -> Response:
     resp = Response()
     resp.status_code = status_code
     resp._content = content
+    resp.request = Request(method=method, url=url)
+
     return resp
 
 
@@ -50,17 +52,17 @@ def test_agents(mocked_req, cmd, status_code, expected_in_output, not_expected_i
 
 
 @pytest.mark.parametrize(
-    "cmd, status_code, expected_in_output, not_expected_in_output, requests",
+    "cmd, status_code, expected_in_output, not_expected_in_output, responses",
     [
         # Expects to print that the agent does not exists when attempting to retrieve an nonexistent agent
-        (["agent", "get", "999"], 0, ["Agent 999 does not exists"], ["id:"], [fake_resp(404, b"")]),
+        (["agent", "get", "999"], 1, ["Agent 999 does not exist"], ["id:"], [fake_resp(404, b"")]),
         # Expects to print the raw request response in case of 5xx
-        (["agent", "get", "123"], 0, ["Got unexpected response from API"], ["id:"], [fake_resp(500, b"some err")]),
+        (["agent", "get", "123"], 1, ["Got unexpected response from API"], ["id:"], [fake_resp(500, b"some err")]),
     ],
 )
 @mock.patch.object(SynthHTTPTransport, "req")
-def test_agents_exceptions(mocked_req, cmd, status_code, expected_in_output, not_expected_in_output, requests):
-    mocked_req.side_effect = [KentikAPIRequestError(r) for r in requests]
+def test_agents_exceptions(mocked_req, cmd, status_code, expected_in_output, not_expected_in_output, responses):
+    mocked_req.side_effect = [KentikAPIRequestError(r) for r in responses]
     result = CliRunner().invoke(app, cmd)
     assert result.exit_code == status_code
 

@@ -4,7 +4,7 @@ import typer
 
 from kentik_synth_client import KentikAPIRequestError
 from synth_tools.apis import APIs
-from synth_tools.commands.utils import all_matcher_from_rules, print_agent, print_agent_brief
+from synth_tools.commands.utils import all_matcher_from_rules, fail, print_agent, print_agent_brief
 
 agents_app = typer.Typer()
 
@@ -43,10 +43,9 @@ def get_agent(
             a = api.syn.agent(i)
         except KentikAPIRequestError as e:
             if e.response.status_code == 404:
-                typer.echo(f"Agent {i} does not exists")
+                fail(f"Agent {i} does not exist")
             else:
-                typer.echo(f"Got unexpected response from API:\n{e.response.text}")
-            continue
+                fail(f"Got unexpected response from API:\n{e}")
 
         typer.echo(f"id: {i}")
         print_agent(a, indent_level=1, attributes=attributes)
