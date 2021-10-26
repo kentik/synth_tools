@@ -94,7 +94,7 @@ def deactivate_agent(
     agent_ids: List[str],
 ) -> None:
     """
-    Dectivate an active agent
+    Deactivate an active agent
     """
     api = get_api(ctx)
     for i in agent_ids:
