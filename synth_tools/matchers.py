@@ -22,24 +22,55 @@ class Matcher(ABC):
 
 
 class PropertyMatcher(Matcher):
+    class MatchFunctionType(Enum):
+        direct = 0
+        regex = 1
+        contains = 2
+        one_of = 3
+
+    MATCH_FUNCTIONS = {
+        "regex": MatchFunctionType.regex,
+        "contains": MatchFunctionType.contains,
+        "one_of": MatchFunctionType.one_of,
+    }
+
     def __init__(self, key: str, value: Any):
-        self.is_regex = False
+        self.match_type = self.MatchFunctionType.direct
+        self.value: Any
         self.key = key
+        # handle special functions
         if type(value) == str:
-            m = re.match(r"regex\((.*)\)", value)
-        else:
-            m = None
-        if m:
-            self.value = re.compile(m.groups()[0])
-            self.is_regex = True
-        else:
+            m = re.match(r"({})\((.*)\)".format("|".join(self.MATCH_FUNCTIONS.keys())), value)
+            if m:
+                self.match_type = self.MATCH_FUNCTIONS.get(m.group(1), self.MatchFunctionType.direct)
+                if self.match_type == self.MatchFunctionType.regex:
+                    self.value = re.compile(m.group(2))
+                elif self.match_type == self.MatchFunctionType.contains:
+                    self.value = m.group(2)
+                elif self.match_type == self.MatchFunctionType.one_of:
+                    self.value = [s.strip() for s in m.group(2).split(",")]
+        if self.match_type == self.MatchFunctionType.direct:
             self.value = value
+        log.debug(
+            "%s: key: '%s' value: '%s' match_type: '%s'", self.__class__.__name__, self.key, self.value, self.match_type
+        )
 
     def match(self, data: Any) -> bool:
+        ret = False
         # handle exceptions
         if self.key == "label" and hasattr(data, "has_label"):
             log.debug("%s: matching label: '%s', data: '%s'", self.__class__.__name__, self.value, str(data))
-            ret = data.has_label(self.value)  # type: ignore
+            if self.match_type == self.MatchFunctionType.direct:
+                ret = data.has_label(self.value)  # type: ignore
+            elif self.match_type == self.MatchFunctionType.one_of:
+                ret = any(data.has_label(label) for label in self.value)
+            else:
+                log.error(
+                    "'%s' function is not supported for matching attribute 'label' of '%s'",
+                    self.match_type.name,
+                    data.__class__.__name__,
+                )
+                ret = False
             log.debug("%s: ret '%s'", self.__class__.__name__, ret)
             return ret
         log.debug("%s: matching key: '%s', data: '%s'", self.__class__.__name__, self.key, str(data))
@@ -58,13 +89,23 @@ class PropertyMatcher(Matcher):
                 )
                 log.debug("%s: ret '%s'", self.__class__.__name__, False)
                 return False
-        if type(obj) == str and self.is_regex:
-            log.debug("%s: matching regex: '%s', value: '%s'", self.__class__.__name__, self.value, obj)
-            ret = self.value.match(obj) is not None
-        elif isinstance(obj, Enum):
-            ret = obj.value == self.value
+        if isinstance(obj, Enum):
+            v = obj.value
         else:
+            v = obj
+        log.debug("%s: matching '%s': '%s', value: '%s'", self.__class__.__name__, self.match_type.name, self.value, v)
+        if self.match_type == self.MatchFunctionType.direct:
             ret = str(obj) == str(self.value)
+        elif self.match_type == self.MatchFunctionType.regex:
+            ret = self.value.match(str(v)) is not None
+        elif self.match_type == self.MatchFunctionType.contains:
+            if hasattr(v, "__iter__"):
+                log.debug("%s: '%s' is iterable", self.__class__.__name__, v)
+                ret = self.value in v
+            else:
+                ret = self.value == v or str(self.value) == str(v)
+        elif self.match_type == self.MatchFunctionType.one_of:
+            ret = any(str(obj) == v for v in self.value)
         log.debug("%s: ret %s", self.__class__.__name__, ret)
         return ret
 
