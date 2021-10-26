@@ -15,9 +15,9 @@ for name, command in commands_registry.items():
 
 def version_callback(value: bool) -> None:
     if value:
-        from importlib.metadata import version
+        from pkg_resources import get_distribution
 
-        typer.echo(version("kentik-synth-tools"))
+        typer.echo(get_distribution("kentik-synth-tools"))
         raise typer.Exit()
 
 

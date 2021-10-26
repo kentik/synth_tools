@@ -1,5 +1,4 @@
 grpcio
-great-circle-calculator >= 1.2.0
 kentik-api >= 0.3.0
 pyyaml
 typer
