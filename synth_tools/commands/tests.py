@@ -44,7 +44,7 @@ def create_test(
     test_config: Path = typer.Argument(..., help="Path to test config file"),
     dry_run: bool = typer.Option(False, help="Only construct and print test data"),
     print_config: bool = typer.Option(False, help="Print test configuration"),
-    attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+    fields: Optional[str] = typer.Option(None, "-f", help="Config attributes to print"),
     show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
@@ -53,7 +53,7 @@ def create_test(
     api = get_api(ctx)
     test = load_test(api, test_config, fail)
     if dry_run:
-        print_test(test, show_all=show_all, attributes=attributes)
+        print_test(test, show_all=show_all, attributes=fields)
     else:
         test = api.syn.create_test(test)
         typer.echo(f"Created new test: id {test.id}")
@@ -76,7 +76,7 @@ def delete_test(ctx: typer.Context, test_ids: List[str] = typer.Argument(..., he
 def list_tests(
     ctx: typer.Context,
     brief: bool = typer.Option(False, help="Print only id, name and type"),
-    attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+    fields: Optional[str] = typer.Option(None, "-f", help="Config attributes to print"),
     show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
@@ -88,14 +88,14 @@ def list_tests(
             print_test_brief(t)
         else:
             typer.echo(f"id: {t.id}")
-            print_test(t, indent_level=1, show_all=show_all, attributes=attributes)
+            print_test(t, indent_level=1, show_all=show_all, attributes=fields)
 
 
 @tests_app.command("get")
 def get_test(
     ctx: typer.Context,
     test_ids: List[str],
-    attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+    fields: Optional[str] = typer.Option(None, "-f", help="Config attributes to print"),
     show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
@@ -104,7 +104,7 @@ def get_test(
     api = get_api(ctx)
     for i in test_ids:
         t = api.syn.test(i)
-        print_test(t, show_all=show_all, attributes=attributes)
+        print_test(t, show_all=show_all, attributes=fields)
 
 
 @tests_app.command("match")
@@ -112,7 +112,7 @@ def match_test(
     ctx: typer.Context,
     rules: List[str],
     brief: bool = typer.Option(False, help="Print only id, name and type"),
-    attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+    fields: Optional[str] = typer.Option(None, "-f", help="Config attributes to print"),
     show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
@@ -133,7 +133,7 @@ def match_test(
                     t,
                     indent_level=1,
                     show_all=show_all,
-                    attributes=attributes,
+                    attributes=fields,
                 )
 
 

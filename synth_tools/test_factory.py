@@ -559,6 +559,10 @@ class TestFactory:
         log.debug("TestFactory:create: agent_ids: '%s'", ", ".join([str(a) for a in agent_ids]))
 
         name = test_cfg.get("name", default_name)
-        test = entry.make_test(name, list(targets), list(agent_ids), test_cfg, fail)
+        try:
+            test = entry.make_test(name, list(targets), list(agent_ids), test_cfg, fail)
+        except TypeError as exc:
+            invalid_arg = str(exc).split("'")[1]
+            fail(f"Unsupported test attribute: '{invalid_arg}'")
         set_common_test_params(test, test_cfg)
         return test
