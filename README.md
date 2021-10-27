@@ -133,13 +133,15 @@ agent to be selected. Rule syntax is described in the `Device and Agent matching
 
 _Available matching rules :_
 
-  | type                     | evaluation                                                    | format                                                                           | example                                                                              |
-  | :------------------------| :-------------------------------------------------------------| :--------------------------------------------------------------------------------| :------------------------------------------------------------------------------------|
-  | direct attribute match   | tests value of specified (device or agent) attribute          |`attribute`: `value`                                                              | device_type: router                                                                  |
-  | regular expression match | matches value of specified attribute using regular expression |`attribute`: regex(`regular expression`)                                          | device_name: regex(.\*-iad1-.\*)                                                     |
-  | match any (logical OR)   | matches if at least one rule in the list matches              | any: `list of rules`                                                       | any: <br>  - label: gateway<br>  - label: edge router                          |
-  | match all (logical AND)  | matches if all rules in the list match                        | all: `list of rules`                                                       | all: <br>  - label: gateway<br>  - site.site_name: Ashburn DC3                 |
-  | one_of_each              | produces set of candidate matches and matches 1 object to each| one_of_each:<br>`attribute1`: `list of values`<br>`attribute2`: `list of values` | one_of_each:<br>site.site_name: \[siteA, siteB\]<br>device_type: \[router, gateway\] |
+  | type                     | evaluation                                                    | format                                                                          | example                                                                              |
+  | :------------------------| :-------------------------------------------------------------| :-------------------------------------------------------------------------------| :------------------------------------------------------------------------------------|
+  | direct attribute match   | tests value of specified (device or agent) attribute          |`attribute`: `value`                                                             | device_type: router                                                                  |
+  | regular expression match | matches value of specified attribute using regular expression |`attribute`: regex(`regular expression`)                                         | device_name: regex(.\*-iad1-.\*)                                                     |
+  | contains                 | test if an list/set type attribute contains specified value   |`attribute`: contains(`value`)                                                   | sending_ips: contains(1.2.3.4)                                                       |
+  | one_of                   | test if value of an attribute is in the list                  |`attribute`: one_of(`comma_separated_list`)                                      | label: one_of(edge router, gateway, bastions)                                        |
+  | match any (logical OR)   | matches if at least one rule in the list matches              |any: `list of rules`                                                             | any: <br>  - label: gateway<br>  - label: edge router                                |
+  | match all (logical AND)  | matches if all rules in the list match                        |all: `list of rules`                                                             | all: <br>  - label: gateway<br>  - site.site_name: Ashburn DC3                       |
+  | one_of_each              | produces set of candidate matches and matches 1 object to each|one_of_each:<br>`attribute1`: `list of values`<br>`attribute2`: `list of values` | one_of_each:<br>site.site_name: \[siteA, siteB\]<br>device_type: \[router, gateway\] |
 
 The `all` and `any` operators can be nested allowing to construct complex expressions. Example of matching `router`
 type devices in `siteA` and `gateway` devices in `siteB`
