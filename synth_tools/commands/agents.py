@@ -23,7 +23,7 @@ def _get_agent_by_id(api: KentikSynthClient, agent_id: str) -> dict:
 def list_agents(
     ctx: typer.Context,
     brief: bool = typer.Option(False, help="Print only id, name, alias and type"),
-    attributes: Optional[str] = typer.Option(None, help="Config attributes to print"),
+    fields: Optional[str] = typer.Option(None, "-f", help="Config attributes to print"),
 ) -> None:
     """
     List all agents
@@ -35,7 +35,7 @@ def list_agents(
                 print_agent_brief(a)
             else:
                 typer.echo(f"id: {a['id']}")
-                print_agent(a, indent_level=1, attributes=attributes)
+                print_agent(a, indent_level=1, attributes=fields)
     except KentikAPIRequestError as exc:
         fail(f"{exc}")
 
