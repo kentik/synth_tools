@@ -13,7 +13,7 @@ def _get_agent_by_id(api: KentikSynthClient, agent_id: str) -> dict:
         return api.agent(agent_id)
     except KentikAPIRequestError as exc:
         if exc.response.status_code == 404:
-            fail(f"Agent with id '{agent_id}' not found")
+            fail(f"Agent with id '{agent_id}' does not exist")
         else:
             fail(f"{exc}")
     return {}  # never reached, because fail function (or other exception) terminates the app
