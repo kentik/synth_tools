@@ -108,7 +108,7 @@ def run_one_shot(
     return health[0] if health else None
 
 
-def load_test(api: APIs, file: Path, fail: Callable[[str], None] = _fail) -> SynTest:
+def load_test(api: APIs, file: Path, fail: Callable[[str], None] = _fail) -> Optional[SynTest]:
     if file.exists():
         if not file.is_file():
             fail(f"Test configuration '{file.as_posix()}' is not a file")
@@ -120,7 +120,9 @@ def load_test(api: APIs, file: Path, fail: Callable[[str], None] = _fail) -> Syn
             cfg = yaml.safe_load(f)
     except Exception as ex:
         fail(f"Failed to load test config: {ex}")
-    now = datetime.now(tz=timezone.utc).replace(second=0, microsecond=0).isoformat()
-    test = TestFactory().create(api, f"__auto__{file.stem}_{now}", cfg, fail)
-    log.debug("loaded test: '%s'", ", ".join(f"{k}:{v}" for k, v in test.to_dict().items()))
+    test = TestFactory().create(api, file.stem, cfg, fail)
+    if not test:
+        log.debug("Failed to create test")  # never reached, TestFactory.create does not return without valid test
+    else:
+        log.debug("loaded test: '%s'", ", ".join(f"{k}:{v}" for k, v in test.to_dict().items()))
     return test

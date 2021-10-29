@@ -15,7 +15,7 @@ def fake_resp(status_code, content, method="GET", url="https://dev/null") -> Res
     resp = Response()
     resp.status_code = status_code
     resp._content = content
-    resp.request = Request(method=method, url=url)
+    resp.request = Request(method=method, url=url).prepare()
 
     return resp
 
@@ -35,8 +35,8 @@ def fake_req(fixture_file):
         (["agent", "list", "--brief"], 0, [], ["AGENT_STATUS_OK", "country:"], ["../fixtures/agents/get_agents.json"]),
         # Expects to print the id output for a successful request to an existent agent
         (["agent", "get", "593"], 0, ["id: 593", ""], [], ["../fixtures/agents/get_agent.json"]),
-        # Expects to not print anything when attempting to retrieve an nonexistent agent
-        (["agent", "get", "999"], 0, [], ["id:"], ["../fixtures/empty_dict.json"]),
+        # Expects to print just the id when API returns and "empty" agent
+        (["agent", "get", "999"], 1, ["id: 999"], ["name: "], ["../fixtures/empty_dict.json"]),
     ],
 )
 @mock.patch.object(SynthHTTPTransport, "req")
@@ -55,9 +55,15 @@ def test_agents(mocked_req, cmd, status_code, expected_in_output, not_expected_i
     "cmd, status_code, expected_in_output, not_expected_in_output, responses",
     [
         # Expects to print that the agent does not exists when attempting to retrieve an nonexistent agent
-        (["agent", "get", "999"], 1, ["Agent 999 does not exist"], ["id:"], [fake_resp(404, b"")]),
+        (["agent", "get", "999"], 1, ["FAILED: Agent with id '999' does not exist"], [], [fake_resp(404, b"")]),
         # Expects to print the raw request response in case of 5xx
-        (["agent", "get", "123"], 1, ["Got unexpected response from API"], ["id:"], [fake_resp(500, b"some err")]),
+        (
+            ["agent", "get", "123"],
+            1,
+            ["FAILED: GET https://dev/null failed - status: 500 error: some err"],
+            ["id: 123"],
+            [fake_resp(500, b"some err")],
+        ),
     ],
 )
 @mock.patch.object(SynthHTTPTransport, "req")

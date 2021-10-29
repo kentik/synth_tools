@@ -51,8 +51,8 @@ def get_agent(
     """
     api = get_api(ctx)
     for i in agent_ids:
-        typer.echo(f"id: {i}")
         a = _get_agent_by_id(api.syn, i)
+        typer.echo(f"id: {i}")
         print_agent(a, indent_level=1, attributes=fields)
 
 

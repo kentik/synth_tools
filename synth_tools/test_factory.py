@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from ipaddress import ip_address
 from typing import Any, Callable, Dict, List, Optional, Set
 from urllib.parse import urlparse
@@ -528,7 +529,7 @@ class TestFactory:
         "url": TestEntry(make_test=make_url_test, target_loader=url_targets, agent_loader=rust_agents),
     }
 
-    def create(self, api: APIs, default_name: str, cfg: dict, fail: Callable[[str], None] = _fail) -> SynTest:
+    def create(self, api: APIs, config_name: str, cfg: dict, fail: Callable[[str], None] = _fail) -> Optional[SynTest]:
         missing = [k for k in ("test", "agents") if k not in cfg]
         if missing:
             fail("Mandatory sections missing in configuration: {}".format(", ".join(missing)))
@@ -558,11 +559,17 @@ class TestFactory:
             fail("No agents matched configuration")
         log.debug("TestFactory:create: agent_ids: '%s'", ", ".join([str(a) for a in agent_ids]))
 
-        name = test_cfg.get("name", default_name)
+        now = datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat()
+        try:
+            name = test_cfg.get("name", "__auto_{config_name}_{iso_date}").format(iso_date=now, config_name=config_name)
+        except KeyError as exc:
+            fail(f"Test name template ({test_cfg['name']}) contains unsupported keyword {exc}")
+            return None  # never reached ... just to make linters happy
         try:
             test = entry.make_test(name, list(targets), list(agent_ids), test_cfg, fail)
         except TypeError as exc:
             invalid_arg = str(exc).split("'")[1]
             fail(f"Unsupported test attribute: '{invalid_arg}'")
+            return None  # never reached ... just to make linters happy
         set_common_test_params(test, test_cfg)
         return test
