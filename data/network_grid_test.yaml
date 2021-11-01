@@ -6,10 +6,7 @@ targets:
   match:
     devices:
       - site.site_name: Ashburn DC3
-      - any:
-          - label: edge router
-          - label: gateway
-          - label: bastions
+      - label: one_of(edge router, gateway, bastions)
     interface_addresses:
       family: IP_FAMILY_V4
       public_only: True
