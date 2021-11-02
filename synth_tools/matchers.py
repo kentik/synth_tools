@@ -2,6 +2,7 @@ import logging
 import re
 import sys
 from abc import ABC, abstractmethod
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from itertools import product
 from typing import Any, Dict, List, Optional
@@ -24,58 +25,60 @@ class Matcher(ABC):
 class PropertyMatcher(Matcher):
     class MatchFunctionType(Enum):
         direct = 0
-        regex = 1
-        contains = 2
-        one_of = 3
-
-    MATCH_FUNCTIONS = {
-        "regex": MatchFunctionType.regex,
-        "contains": MatchFunctionType.contains,
-        "one_of": MatchFunctionType.one_of,
-    }
+        regex = "regex"
+        contains = "contains"
+        one_of = "one_of"
+        older_than = "older_than"
+        newer_than = "newer_than"
 
     def __init__(self, key: str, value: Any):
         self.match_type = self.MatchFunctionType.direct
-        self.value: Any
+        self.value: Any = value
         self.key = key
+        self._fn = self._match_direct
         # handle special functions
         if type(value) == str:
-            m = re.match(r"({})\((.*)\)".format("|".join(self.MATCH_FUNCTIONS.keys())), value)
+            m = re.match(r"({})\((.*)\)".format("|".join([t.value for t in self.MatchFunctionType if t.value])), value)
             if m:
-                self.match_type = self.MATCH_FUNCTIONS.get(m.group(1), self.MatchFunctionType.direct)
+                try:
+                    self.match_type = self.MatchFunctionType(m.group(1))
+                except ValueError:
+                    log.debug(
+                        "%s: unknown match function '%s' - treating as direct", self.__class__.__name__, m.group(1)
+                    )
                 if self.match_type == self.MatchFunctionType.regex:
                     self.value = re.compile(m.group(2))
+                    self._fn = self._match_regex
                 elif self.match_type == self.MatchFunctionType.contains:
                     self.value = m.group(2)
+                    self._fn = self._match_contains
                 elif self.match_type == self.MatchFunctionType.one_of:
                     self.value = [s.strip() for s in m.group(2).split(",")]
-        if self.match_type == self.MatchFunctionType.direct:
-            self.value = value
+                    self._fn = self._match_one_of
+                elif self.match_type == self.MatchFunctionType.older_than:
+                    self._value_from_ts(m.group(2))
+                    self._fn = self._match_older_than
+                elif self.match_type == self.MatchFunctionType.newer_than:
+                    self._value_from_ts(m.group(2))
+                    self._fn = self._match_newer_than
         log.debug(
-            "%s: key: '%s' value: '%s' match_type: '%s'", self.__class__.__name__, self.key, self.value, self.match_type
+            "%s: key: '%s' value: '%s' match_type: '%s'",
+            self.__class__.__name__,
+            self.key,
+            self.value,
+            self.match_type.value,
         )
 
     def match(self, data: Any) -> bool:
-        ret = False
-        # handle exceptions
-        if self.key == "label" and hasattr(data, "has_label"):
-            log.debug("%s: matching label: '%s', data: '%s'", self.__class__.__name__, self.value, str(data))
-            if self.match_type == self.MatchFunctionType.direct:
-                ret = data.has_label(self.value)  # type: ignore
-            elif self.match_type == self.MatchFunctionType.one_of:
-                ret = any(data.has_label(label) for label in self.value)
-            else:
-                log.error(
-                    "'%s' function is not supported for matching attribute 'label' of '%s'",
-                    self.match_type.name,
-                    data.__class__.__name__,
-                )
-                ret = False
-            log.debug("%s: ret '%s'", self.__class__.__name__, ret)
-            return ret
         log.debug("%s: matching key: '%s', data: '%s'", self.__class__.__name__, self.key, str(data))
+        # handle special properties
+        if self.key == "label" and hasattr(data, "has_label"):
+            log.debug("%s: matching label", self.__class__.__name__)
+            return self._match_label(data)
+
         key_path = self.key.split(".")
         obj = data
+        k = self.key
         while key_path:
             k = key_path.pop(0)
             log.debug("%s: matching k: '%s', obj: '%s'", self.__class__.__name__, k, str(obj))
@@ -93,21 +96,100 @@ class PropertyMatcher(Matcher):
             v = obj.value
         else:
             v = obj
-        log.debug("%s: matching '%s': '%s', value: '%s'", self.__class__.__name__, self.match_type.name, self.value, v)
-        if self.match_type == self.MatchFunctionType.direct:
-            ret = str(obj) == str(self.value)
-        elif self.match_type == self.MatchFunctionType.regex:
-            ret = self.value.match(str(v)) is not None
-        elif self.match_type == self.MatchFunctionType.contains:
-            if hasattr(v, "__iter__"):
-                log.debug("%s: '%s' is iterable", self.__class__.__name__, v)
-                ret = self.value in v
-            else:
-                ret = self.value == v or str(self.value) == str(v)
-        elif self.match_type == self.MatchFunctionType.one_of:
-            ret = any(str(obj) == v for v in self.value)
+        log.debug(
+            "%s: matching '%s' '%s': '%s', value: '%s'", self.__class__.__name__, k, self.match_type.name, self.value, v
+        )
+        ret = self._fn(v)
         log.debug("%s: ret %s", self.__class__.__name__, ret)
         return ret
+
+    def _match_label(self, obj: Any) -> bool:
+        if self.match_type == self.MatchFunctionType.direct:
+            ret = data.has_label(self.value)  # type: ignore
+        elif self.match_type == self.MatchFunctionType.one_of:
+            ret = any(obj.has_label(label) for label in self.value)
+        else:
+            log.error(
+                "'%s' function is not supported for matching attribute 'label' of '%s'",
+                self.match_type.name,
+                obj.__class__.__name__,
+            )
+            ret = False
+        log.debug("%s: ret '%s'", self.__class__.__name__, ret)
+        return ret
+
+    def _match_direct(self, obj: Any) -> bool:
+        return str(obj) == str(self.value)
+
+    def _match_regex(self, obj: Any) -> bool:
+        # noinspection PyUnresolvedReferences
+        return self.value.match(str(obj)) is not None
+
+    def _match_contains(self, obj: Any) -> bool:
+        if hasattr(obj, "__iter__"):
+            log.debug("%s: '%s' is iterable", self.__class__.__name__, obj)
+            return self.value in obj
+        else:
+            return self.value == obj or str(self.value) == str(obj)
+
+    def _match_one_of(self, obj: Any) -> bool:
+        return any(str(obj) == v for v in self.value)
+
+    def _match_older_than(self, obj: Any) -> bool:
+        if not self.value:
+            # config had invalid time specification, nothing can match
+            return False
+        ts = self._ts_from_string(str(obj))
+        if not ts:
+            log.error("%s: Cannot parse time: '%s'", self.__class__.__name__, str(obj))
+            return False
+        else:
+            return ts < self.value  # type:ignore
+
+    def _match_newer_than(self, obj: Any) -> bool:
+        if not self.value:
+            # config had invalid time specification, nothing can match
+            return False
+        ts = self._ts_from_string(str(obj))
+        if not ts:
+            log.error("%s: Cannot parse time: '%s'", self.__class__.__name__, str(obj))
+            return False
+        else:
+            return ts > self.value  # type:ignore
+
+    @staticmethod
+    def _ts_from_string(s: str) -> Optional[datetime]:
+        try:
+            return datetime.fromisoformat(s)
+        except ValueError:
+            pass
+        if s.endswith("Z"):
+            try:
+                return datetime.fromisoformat(s.replace("Z", "+00:00").replace("T", " "))
+            except ValueError:
+                return None
+        else:
+            return None
+
+    def _value_from_ts(self, arg: str) -> None:
+        if arg == "now":
+            self.value = datetime.now(tz=timezone.utc)
+        elif arg == "today":
+            self.value = datetime.now(tz=timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        elif arg == "yesterday":
+            self.value = datetime.now(tz=timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(
+                days=1
+            )
+        elif arg == "tomorrow":
+            self.value = datetime.now(tz=timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(
+                days=1
+            )
+        else:
+            try:
+                self.value = datetime.fromisoformat(arg)
+            except ValueError as exc:
+                log.error("%s: Invalid timestamp in configuration: %s", self.__class__.__name__, exc)
+                self.value = None
 
 
 class SetMatcher(Matcher):

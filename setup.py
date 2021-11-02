@@ -142,6 +142,29 @@ class Isort(Command):
         run_cmd(cmd, self.announce)
 
 
+# noinspection PyAttributeOutsideInit
+class PyTest(Command):
+    """Custom command to run pytest"""
+
+    description = "run pytest on all test cases"
+    user_options = [("dirs=", None, "Directories containing tests")]
+
+    def initialize_options(self) -> None:
+        self.dirs = ["synth_tools/tests"]
+
+    def finalize_options(self):
+        """Post-process options."""
+        for d in self.dirs:
+            assert os.path.exists(d), "Path {} does not exist.".format(d)
+
+    def run(self):
+        """Run command"""
+        cmd = ["pytest"]
+        for d in self.dirs:
+            cmd.append(d)
+        run_cmd(cmd, self.announce)
+
+
 setup(
     name="kentik-synth-tools",
     description="Tools supporting management of Kentik synthetic tests",
@@ -155,7 +178,7 @@ setup(
     python_requires=">=3.7, <4",
     install_requires=["kentik-api>=0.3.1", "pyyaml", "typer", "validators"],
     tests_require=["pytest-runner", "pytest", "mypy"],
-    cmdclass={"mypy": MypyCmd, "grpc_stubs": FetchGRPCCode, "black": Black, "isort": Isort},
+    cmdclass={"mypy": MypyCmd, "grpc_stubs": FetchGRPCCode, "black": Black, "isort": Isort, "pytest": PyTest},
     classifiers=[
         "License :: OSI Approved :: Apache Software License",
     ],

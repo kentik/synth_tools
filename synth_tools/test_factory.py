@@ -277,8 +277,8 @@ def _get_agents(api: APIs, cfg, agent_type: Optional[str] = None, fail: Callable
         log.debug("_get_agents: use: %s", cfg["use"])
         return _get_use_list(cfg, "agents", cls=str, fail=fail)
 
-    min_agents = cfg.get("min", 1)
-    max_agents = cfg.get("max")
+    min_agents = cfg.get("min_matches", 1)
+    max_agents = cfg.get("max_matches")
     cfg = cfg["match"]
     log.debug("_get_agents: match: %s (min: %d, max: %s)", cfg, min_agents, max_agents)
     agents_matcher = AllMatcher(cfg, max_matches=max_agents)
