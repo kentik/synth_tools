@@ -218,11 +218,16 @@ in which agents are returned by the API which is undefined.
 
 In additions to direct comparison of value of object attributes, the tool provides following match functions:
 
-  | name        | evaluation                                                    | format                            | example                                          |
-  | :-----------| :-------------------------------------------------------------| :---------------------------------| :------------------------------------------------|
-  | regex       | evaluates regular expression on attribute value               | regex(`regular expression`)       | `device_name: regex(.\*-iad1-.\*)`               |
-  | contains    | tests if a multi-valued attribute contains specified value    | contains(`value`)                 | `sending_ips: contains(1.2.3.4)`                 |
-  | one_of      | test if value of an attribute is in the list                  | one_of(`comma_separated_list`)    | `label: one_of(edge router, gateway, bastions)`  |
+  | name        | evaluation                                                    | format                         | example                                                |
+  | :-----------| :-------------------------------------------------------------| :------------------------------| :------------------------------------------------------|
+  | regex       | evaluates regular expression on attribute value               | regex(`regular expression`)    | `device_name: regex(.\*-iad1-.\*)`                     |
+  | contains    | tests if a multi-valued attribute contains specified value    | contains(`value`)              | `sending_ips: contains(1.2.3.4)`                       |
+  | one_of      | test if value of an attribute is in the list                  | one_of(`comma_separated_list`) | `label: one_of(edge router, gateway, bastions)`        |
+  | newer_than  | tests whether a timestamp value is newer than specified time  | newer_than(`iso_format_time`)  | `lastAuthed: newer_than(2021-11-01 00:00:00.000+00:00)`|
+  | older_than  | tests whether a timestamp value is older than specified time  | older_than(`iso_format_time`)  | `lastAuthed: older_than(2021-11-01 00:00:00.000-07:00)`|
+
+Functions `newer_than` and `older_than` also accept time specification of `today`, `yesterday`, `tomorrow` which are
+expanded to UTC time based on system time of the machine on which `synth_ctl` executes.
 
 #### Optional specification of minimum and maximum number of matching targets
 
