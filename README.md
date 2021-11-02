@@ -14,7 +14,7 @@ The package is currently not published to PyPi, but it can be installed directly
 _Note_: Installation directly from Github requires to have `git` installed and on `$PATH`.
 
 ```bash
-pip install git+https://github.com/kentik/synth_tools.git#egg=kentik-synth-tools
+pip3 install git+https://github.com/kentik/synth_tools.git#egg=kentik-synth-tools
 ```
 
 It is highly recommended to use virtual environment, because the application has non-trivial dependencies.
