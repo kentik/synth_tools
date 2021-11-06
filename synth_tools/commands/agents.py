@@ -22,8 +22,8 @@ def _get_agent_by_id(api: KentikSynthClient, agent_id: str) -> dict:
 @agents_app.command("list")
 def list_agents(
     ctx: typer.Context,
-    brief: bool = typer.Option(False, help="Print only id, name, alias and type"),
-    fields: Optional[str] = typer.Option(None, "-f", help="Config attributes to print"),
+    brief: bool = typer.Option(False, "-b", "--brief", help="Print only id, name, alias and type"),
+    fields: Optional[str] = typer.Option(None, "-f", "--fields", help="Config attributes to print"),
 ) -> None:
     """
     List all agents
@@ -44,7 +44,7 @@ def list_agents(
 def get_agent(
     ctx: typer.Context,
     agent_ids: List[str],
-    fields: Optional[str] = typer.Option(None, "-f", help="Config attributes to print"),
+    fields: Optional[str] = typer.Option(None, "-f", "--fields", help="Config attributes to print"),
 ) -> None:
     """
     Print agent configuration
@@ -60,8 +60,8 @@ def get_agent(
 def match_agent(
     ctx: typer.Context,
     rules: List[str],
-    brief: bool = typer.Option(False, help="Print only id, name and type"),
-    fields: Optional[str] = typer.Option(None, "-f", help="Config attributes to print"),
+    brief: bool = typer.Option(False, "-b", "--brief", help="Print only id, name and type"),
+    fields: Optional[str] = typer.Option(None, "-f", "--fields", help="Config attributes to print"),
 ) -> None:
     """
     Print configuration of agents matching specified rules
@@ -77,8 +77,11 @@ def match_agent(
                 if brief:
                     print_agent_brief(a)
                 else:
-                    typer.echo(f"id: {a['id']}")
-                    print_agent(a, indent_level=1, attributes=fields)
+                    if fields == "id":
+                        typer.echo(a["id"])
+                    else:
+                        typer.echo(f"id: {a['id']}")
+                        print_agent(a, indent_level=1, attributes=fields)
     except KentikAPIRequestError as exc:
         fail(f"{exc}")
 

@@ -185,6 +185,9 @@ _Available matching rules :_
   | match all (logical AND)  | matches if all rules in the list match                        |all: `list of rules`                                                             | all: <br>  - label: gateway<br>  - site.site_name: Ashburn DC3                       |
   | one_of_each              | produces set of candidate matches and matches 1 object to each|one_of_each:<br>`attribute1`: `list of values`<br>`attribute2`: `list of values` | one_of_each:<br>site.site_name: \[siteA, siteB\]<br>device_type: \[router, gateway\] |
 
+Attribute value match (including match via a function) can be negated using `!` as the first character of the value.
+Example: `type:!dns`. 
+
 The `all` and `any` operators can be nested allowing to construct complex expressions. Example of matching `router`
 type devices in `siteA` and `gateway` devices in `siteB`
 
@@ -414,7 +417,8 @@ id: 580 name: EXOSCALE,CH (61098) alias: Munich, Germany type: global
 ### Specifying attributes/fields to include in test or agent configuration listing
 
 The `--fields` (or `-f`) option allows specifying agent or test configuration attributes/fields to display in a listing.
-Fields are specified as a comma-separated list, with dot-syntax for nested attributes.
+Fields are specified as a comma-separated list, with dot-syntax for nested attributes. If the only requested attribute
+is`id`, output contains only ids of matching agents with the `id:` prefix. 
 
 Examples:
 ```
@@ -429,9 +433,12 @@ id: 811
   alias: Dubai, United Arab Emirates
   os:
   version: 0.0.15
+
+❯ synth_ctl agent match type:private asn:15169 -f id
+3553
 ```
 
-The `--brief` option allows to request output of minimal set of attributes, one line per test or object.
+The `--brief` (or `-b`) option enables output of minimal set of attributes, one line per object.
 See `synth_ctl test list --help` or `synth_ctl agent list --help` for details.
 
 ### Running a test in one-shot mode

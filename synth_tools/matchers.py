@@ -36,9 +36,15 @@ class PropertyMatcher(Matcher):
         self.value: Any = value
         self.key = key
         self._fn = self._match_direct
+        self.is_negation = False
         # handle special functions
-        if type(value) == str:
-            m = re.match(r"({})\((.*)\)".format("|".join([t.value for t in self.MatchFunctionType if t.value])), value)
+        if type(self.value) == str:
+            if self.value.startswith("!"):
+                self.is_negation = True
+                self.value = self.value[1:]
+            m = re.match(
+                r"({})\((.*)\)".format("|".join([t.value for t in self.MatchFunctionType if t.value])), self.value
+            )
             if m:
                 try:
                     self.match_type = self.MatchFunctionType(m.group(1))
@@ -62,11 +68,12 @@ class PropertyMatcher(Matcher):
                     self._value_from_ts(m.group(2))
                     self._fn = self._match_newer_than
         log.debug(
-            "%s: key: '%s' value: '%s' match_type: '%s'",
+            "%s: key: '%s' value: '%s' match_type: '%s' is_negation: '%s'",
             self.__class__.__name__,
             self.key,
             self.value,
             self.match_type.value,
+            self.is_negation,
         )
 
     def match(self, data: Any) -> bool:
@@ -74,7 +81,7 @@ class PropertyMatcher(Matcher):
         # handle special properties
         if self.key == "label" and hasattr(data, "has_label"):
             log.debug("%s: matching label", self.__class__.__name__)
-            return self._match_label(data)
+            return self._match_label(data) ^ self.is_negation
 
         key_path = self.key.split(".")
         obj = data
@@ -99,7 +106,7 @@ class PropertyMatcher(Matcher):
         log.debug(
             "%s: matching '%s' '%s': '%s', value: '%s'", self.__class__.__name__, k, self.match_type.name, self.value, v
         )
-        ret = self._fn(v)
+        ret = self._fn(v) ^ self.is_negation
         log.debug("%s: ret %s", self.__class__.__name__, ret)
         return ret
 
@@ -114,7 +121,7 @@ class PropertyMatcher(Matcher):
                 self.match_type.name,
                 obj.__class__.__name__,
             )
-            ret = False
+            ret = self.is_negation
         log.debug("%s: ret '%s'", self.__class__.__name__, ret)
         return ret
 
@@ -142,7 +149,7 @@ class PropertyMatcher(Matcher):
         ts = self._ts_from_string(str(obj))
         if not ts:
             log.error("%s: Cannot parse time: '%s'", self.__class__.__name__, str(obj))
-            return False
+            return self.is_negation
         else:
             return ts < self.value  # type:ignore
 
@@ -153,7 +160,7 @@ class PropertyMatcher(Matcher):
         ts = self._ts_from_string(str(obj))
         if not ts:
             log.error("%s: Cannot parse time: '%s'", self.__class__.__name__, str(obj))
-            return False
+            return self.is_negation
         else:
             return ts > self.value  # type:ignore
 
