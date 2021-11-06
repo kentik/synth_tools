@@ -28,6 +28,8 @@ def one_shot(
     """
     api = get_api(ctx)
     test = load_test(api, test_config, fail)
+    if not test:
+        return  # not reached, load test does no return without valid test, but we need to make linters happy
     if print_config:
         print_test(test, show_all=show_all)
     health = run_one_shot(api, test, wait_factor=wait_factor, retries=retries, delete=delete)
@@ -52,10 +54,16 @@ def create_test(
     """
     api = get_api(ctx)
     test = load_test(api, test_config, fail)
+    if not test:
+        return  # not reached, load test does no return without valid test, but we need to make linters happy
     if dry_run:
         print_test(test, show_all=show_all, attributes=fields)
+        if not test:
+            return  # not reached, load test does no return without valid test, but we need to make linters happy
     else:
         test = api.syn.create_test(test)
+        if not test:
+            return  # not reached, load test does no return without valid test, but we need to make linters happy
         typer.echo(f"Created new test: id {test.id}")
         if print_config:
             print_test(test, show_all=show_all)

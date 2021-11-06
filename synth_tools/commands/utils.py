@@ -183,8 +183,8 @@ def print_agent_brief(agent: dict) -> None:
 def all_matcher_from_rules(rules: List[str]) -> AllMatcher:
     matchers: List[Dict] = []
     for r in rules:
-        parts = r.split(":")
-        if len(parts) < 2:
+        parts = r.split(":", maxsplit=1)
+        if len(parts) != 2:
             fail(f"Invalid match spec: {r} (must have format: '<property>:<value>')")
         matchers.append({parts[0]: parts[1]})
     return AllMatcher(matchers)
