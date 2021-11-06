@@ -34,8 +34,11 @@ def list_agents(
             if brief:
                 print_agent_brief(a)
             else:
-                typer.echo(f"id: {a['id']}")
-                print_agent(a, indent_level=1, attributes=fields)
+                if fields == "id":
+                    typer.echo(a["id"])
+                else:
+                    typer.echo(f"id: {a['id']}")
+                    print_agent(a, indent_level=1, attributes=fields)
     except KentikAPIRequestError as exc:
         fail(f"{exc}")
 

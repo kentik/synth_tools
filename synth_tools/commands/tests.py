@@ -95,8 +95,11 @@ def list_tests(
         if brief:
             print_test_brief(t)
         else:
-            typer.echo(f"id: {t.id}")
-            print_test(t, indent_level=1, show_all=show_all, attributes=fields)
+            if fields == "id":
+                typer.echo(t.id)
+            else:
+                typer.echo(f"id: {t.id}")
+                print_test(t, indent_level=1, show_all=show_all, attributes=fields)
 
 
 @tests_app.command("get")
