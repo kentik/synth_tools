@@ -46,7 +46,7 @@ def create_test(
     test_config: Path = typer.Argument(..., help="Path to test config file"),
     dry_run: bool = typer.Option(False, help="Only construct and print test data"),
     print_config: bool = typer.Option(False, help="Print test configuration"),
-    fields: Optional[str] = typer.Option(None, "-f", help="Config attributes to print"),
+    fields: Optional[str] = typer.Option(None, "-f", "--fields", help="Config attributes to print"),
     show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
@@ -83,8 +83,8 @@ def delete_test(ctx: typer.Context, test_ids: List[str] = typer.Argument(..., he
 @tests_app.command("list")
 def list_tests(
     ctx: typer.Context,
-    brief: bool = typer.Option(False, help="Print only id, name and type"),
-    fields: Optional[str] = typer.Option(None, "-f", help="Config attributes to print"),
+    brief: bool = typer.Option(False, "-b", "--brief", help="Print only id, name and type"),
+    fields: Optional[str] = typer.Option(None, "-f", "--fields", help="Config attributes to print"),
     show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
@@ -95,15 +95,18 @@ def list_tests(
         if brief:
             print_test_brief(t)
         else:
-            typer.echo(f"id: {t.id}")
-            print_test(t, indent_level=1, show_all=show_all, attributes=fields)
+            if fields == "id":
+                typer.echo(t.id)
+            else:
+                typer.echo(f"id: {t.id}")
+                print_test(t, indent_level=1, show_all=show_all, attributes=fields)
 
 
 @tests_app.command("get")
 def get_test(
     ctx: typer.Context,
     test_ids: List[str],
-    fields: Optional[str] = typer.Option(None, "-f", help="Config attributes to print"),
+    fields: Optional[str] = typer.Option(None, "-f", "--fields", help="Config attributes to print"),
     show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
@@ -119,8 +122,8 @@ def get_test(
 def match_test(
     ctx: typer.Context,
     rules: List[str],
-    brief: bool = typer.Option(False, help="Print only id, name and type"),
-    fields: Optional[str] = typer.Option(None, "-f", help="Config attributes to print"),
+    brief: bool = typer.Option(False, "-b", "--brief", help="Print only id, name and type"),
+    fields: Optional[str] = typer.Option(None, "-f", "--fields", help="Config attributes to print"),
     show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
@@ -136,13 +139,16 @@ def match_test(
             if brief:
                 print_test_brief(t)
             else:
-                typer.echo(f"id: {t.id}")
-                print_test(
-                    t,
-                    indent_level=1,
-                    show_all=show_all,
-                    attributes=fields,
-                )
+                if fields == "id":
+                    typer.echo(t.id)
+                else:
+                    typer.echo(f"id: {t.id}")
+                    print_test(
+                        t,
+                        indent_level=1,
+                        show_all=show_all,
+                        attributes=fields,
+                    )
 
 
 @tests_app.command("pause")
