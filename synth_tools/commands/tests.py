@@ -3,11 +3,23 @@ from typing import List, Optional
 
 import typer
 
-from kentik_synth_client import TestStatus
+from kentik_synth_client import KentikAPIRequestError, KentikSynthClient, TestStatus
+from kentik_synth_client.synth_tests import SynTest
 from synth_tools.commands.utils import all_matcher_from_rules, fail, get_api, print_health, print_test, print_test_brief
 from synth_tools.core import load_test, run_one_shot
 
 tests_app = typer.Typer()
+
+
+def _get_test_by_id(api: KentikSynthClient, test_id: str) -> SynTest:
+    try:
+        return api.test(test_id)
+    except KentikAPIRequestError as exc:
+        if exc.response.status_code == 404:
+            fail(f"Test with id '{test_id}' does not exist")
+        else:
+            fail(f"{exc}")
+    return SynTest(name="non-existent")  # never reached, because fail function (or other exception) terminates the app
 
 
 @tests_app.command()
@@ -76,6 +88,8 @@ def delete_test(ctx: typer.Context, test_ids: List[str] = typer.Argument(..., he
     """
     api = get_api(ctx)
     for i in test_ids:
+        # Try to fetch test first in order to provide better error message if the test does not exist
+        _get_test_by_id(api.syn, i)
         api.syn.delete_test(i)
         typer.echo(f"Deleted test: id: {i}")
 
@@ -114,7 +128,7 @@ def get_test(
     """
     api = get_api(ctx)
     for i in test_ids:
-        t = api.syn.test(i)
+        t = _get_test_by_id(api.syn, i)
         print_test(t, show_all=show_all, attributes=fields)
 
 
@@ -157,6 +171,8 @@ def pause_test(ctx: typer.Context, test_id: str) -> None:
     Pause test execution
     """
     api = get_api(ctx)
+    # Try to fetch test first in order to provide better error message if the test does not exist
+    _get_test_by_id(api.syn, test_id)
     api.syn.set_test_status(test_id, TestStatus.paused)
     typer.echo(f"test id: {test_id} has been paused")
 
@@ -167,6 +183,8 @@ def resume_test(ctx: typer.Context, test_id: str) -> None:
     Resume test execution
     """
     api = get_api(ctx)
+    # Try to fetch test first in order to provide better error message if the test does not exist
+    _get_test_by_id(api.syn, test_id)
     api.syn.set_test_status(test_id, TestStatus.active)
     typer.echo(f"test id: {test_id} has been resumed")
 
@@ -184,7 +202,7 @@ def get_test_health(
     Print test results and health status
     """
     api = get_api(ctx)
-    t = api.syn.test(test_id)
+    t = _get_test_by_id(api.syn, test_id)
     health = api.syn.results(t, periods=periods)
 
     if not health:
