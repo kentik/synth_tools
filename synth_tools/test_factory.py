@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from ipaddress import ip_address
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, Final, List, Optional, Set, Tuple
 from urllib.parse import urlparse
 
 from kentik_api.public import Device, Interface
@@ -12,6 +12,7 @@ from kentik_synth_client.synth_tests import (
     AgentTest,
     DNSGridTest,
     DNSTest,
+    FlowTest,
     HealthSettings,
     HostnameTest,
     IPTest,
@@ -26,6 +27,7 @@ from kentik_synth_client.synth_tests import (
 from kentik_synth_client.types import *
 from synth_tools.apis import APIs
 from synth_tools.matchers import AllMatcher
+from synth_tools.utils import dict_to_camel
 
 log = logging.getLogger("test_factory")
 
@@ -265,6 +267,11 @@ def domain_targets(_: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _
     return names
 
 
+def any_str_targets(_: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
+    _use_list_only(cfg, fail)
+    return set(_get_use_list(cfg, "targets", cls=str, fail=fail))
+
+
 # noinspection PyUnusedLocal
 def dummy_loader(_: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
     log.debug("dummy_loader: cfg: '%s'", cfg)
@@ -303,9 +310,6 @@ def rust_agents(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _f
 def node_agents(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
     log.debug("node_agents: cfg '%s'", cfg)
     return _get_agents(api, cfg, "IMPLEMENT_TYPE_NODE", fail=fail)
-
-
-COMMON_TEST_PARAMS = ("name", "type", "period", "ping", "trace", "healthSettings", "protocol", "family", "port")
 
 
 def get_ping_task_params(cfg: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -405,8 +409,24 @@ def make_mesh_test(
     return MeshTest.create(name=name, agent_ids=agents)
 
 
-def get_optional_params(cfg: dict) -> dict:
-    return {k: v for k, v in cfg.items() if k not in COMMON_TEST_PARAMS}
+def get_test_attributes(required: List, cfg: dict, fail: Callable[[str], None] = _fail) -> dict:
+    # noinspection PyPep8Naming
+    COMMON_TEST_PARAMS: Final[Tuple] = (
+        "name",
+        "type",
+        "period",
+        "ping",
+        "trace",
+        "health_settings",
+        "protocol",
+        "family",
+        "port",
+    )
+
+    missing = [a for a in required if a not in cfg]
+    if missing:
+        fail("'{}' requires following configuration attributes: '{}'".format(cfg["type"], ",".join(missing)))
+    return {k: v for k, v in cfg.items() if (k not in COMMON_TEST_PARAMS) or (k in required)}
 
 
 def make_page_load_test(
@@ -414,7 +434,7 @@ def make_page_load_test(
 ) -> SynTest:
     if len(targets) > 1:
         fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    optional_params = get_optional_params(cfg)
+    attrs = get_test_attributes([], cfg, fail)
     ping = "ping" in cfg
     trace = "trace" in cfg
     if ping ^ trace:
@@ -424,8 +444,8 @@ def make_page_load_test(
             )
         )
     log.debug("make_page_load_test: ping: '%s', trace: '%s'", ping, trace)
-    log.debug("make_page_load_test: optional_params: '%s'", ", ".join(f"{k}:{v}" for k, v in optional_params.items()))
-    return PageLoadTest.create(name=name, target=targets[0], agent_ids=agents, **optional_params)
+    log.debug("make_page_load_test: attrs: '%s'", ", ".join(f"{k}:{v}" for k, v in attrs.items()))
+    return PageLoadTest.create(name=name, target=targets[0], agent_ids=agents, **attrs)
 
 
 def make_url_test(
@@ -433,7 +453,7 @@ def make_url_test(
 ) -> SynTest:
     if len(targets) > 1:
         fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    optional_params = get_optional_params(cfg)
+    attrs = get_test_attributes([], cfg, fail)
     ping = "ping" in cfg
     trace = "trace" in cfg
     if ping ^ trace:
@@ -443,8 +463,18 @@ def make_url_test(
             )
         )
     log.debug("make_url_test: ping: '%s', trace: '%s'", ping, trace)
-    log.debug("make_url_test: optional_params: '%s'", ", ".join(f"{k}:{v}" for k, v in optional_params.items()))
-    return UrlTest.create(name=name, target=targets[0], agent_ids=agents, ping=ping, trace=trace, **optional_params)
+    log.debug("make_url_test: attrs: '%s'", ", ".join(f"{k}:{v}" for k, v in attrs.items()))
+    return UrlTest.create(name=name, target=targets[0], agent_ids=agents, ping=ping, trace=trace, **attrs)
+
+
+def make_flow_test(
+    name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
+) -> SynTest:
+    if len(targets) > 1:
+        fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
+    attrs = get_test_attributes(["target_type", "direction", "inet_direction"], cfg, fail)
+    log.debug("make_flow_test: attrs: '%s'", ", ".join(f"{k}:{v}" for k, v in attrs.items()))
+    return FlowTest.create(name=name, target=targets[0], agent_ids=agents, **attrs)
 
 
 # noinspection PyUnusedLocal
@@ -492,9 +522,9 @@ def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None]
             test.settings.trace = TraceTask.from_dict(cfg["trace"])  # type: ignore
     # else:
     #     test.settings.trace = None
-    if "healthSettings" in cfg:
-        log.debug("set_common_test_params: test: '%s' healthSettings: '%s'", test.name, cfg.get("healthSettings"))
-        test.settings.healthSettings = HealthSettings.from_dict(cfg["healthSettings"])
+    if "health_settings" in cfg:
+        log.debug("set_common_test_params: test: '%s' health_settings: '%s'", test.name, cfg.get("health_settings"))
+        test.settings.healthSettings = HealthSettings.from_dict(dict_to_camel(cfg["health_settings"]))
     if "period" in cfg:
         log.debug("set_common_test_params: test: '%s' period: '%s'", test.name, cfg.get("period"))
         test.set_period(cfg["period"])
@@ -527,6 +557,7 @@ class TestFactory:
         ),
         "page_load": TestEntry(make_test=make_page_load_test, target_loader=url_targets, agent_loader=node_agents),
         "url": TestEntry(make_test=make_url_test, target_loader=url_targets, agent_loader=rust_agents),
+        "flow": TestEntry(make_test=make_flow_test, target_loader=any_str_targets, agent_loader=rust_agents),
     }
 
     def create(self, api: APIs, config_name: str, cfg: dict, fail: Callable[[str], None] = _fail) -> Optional[SynTest]:

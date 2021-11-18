@@ -1,4 +1,5 @@
 grpcio
+inflection
 kentik-api >= 0.3.0
 pyyaml
 typer

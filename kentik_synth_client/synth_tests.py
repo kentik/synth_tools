@@ -383,7 +383,7 @@ class FlowTest(PingTraceTest):
         name: str,
         target: str,
         agent_ids: List[str],
-        type: FlowTestSubType,
+        target_type: FlowTestSubType,
         direction: DirectionType,
         inet_direction: DirectionType,
         max_tasks: int = 5,
@@ -395,7 +395,7 @@ class FlowTest(PingTraceTest):
                 agentIds=agent_ids,
                 flow=dict(
                     target=target,
-                    type=type,
+                    type=target_type,
                     direction=direction,
                     inetDirection=inet_direction,
                     maxTasks=max_tasks,

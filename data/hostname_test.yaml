@@ -2,17 +2,19 @@ test:
   type: hostname
   period: 300
   ping:
-    timeout: 3000 # milliseconds
     protocol: icmp
+    timeout: 3000
   trace:
-    timeout: 22500 # milliseconds
     protocol: icmp
+    timeout: 22500
 
 targets:
   use:
-    - www.example.com
+  - www.example.com
 
 agents:
   match:
-    - family: IP_FAMILY_DUAL
-    - one_of_each: { asn: [14061], country: [US, DE] }
+  - family: IP_FAMILY_DUAL
+  - one_of_each:
+      asn: [14061]
+      country: [US, DE]

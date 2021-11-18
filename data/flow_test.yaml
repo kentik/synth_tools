@@ -1,0 +1,26 @@
+test:
+  type: flow
+  period: 600
+  protocol: tcp
+  target_type: city
+  direction: dst
+  inet_direction: src
+  max_tasks: 3
+  ping:
+    protocol: icmp
+    timeout: 3000
+  trace:
+    protocol: icmp
+    timeout: 22500
+
+targets:
+  use:
+  - Prague
+
+agents:
+  match:
+  - type: global
+  - any:
+    - country: US
+    - country: United States
+  max_matches: 2

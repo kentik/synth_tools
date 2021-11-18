@@ -3,12 +3,31 @@ import sys
 from collections import defaultdict
 from typing import Dict, List, Optional
 
+import inflection
 import typer
 
 from kentik_synth_client import SynTest
+from synth_tools import log
 from synth_tools.apis import APIs
-from synth_tools.commands import log
-from synth_tools.matchers import AllMatcher
+
+
+def camel_to_snake(name: str) -> str:
+    if "-" in name:
+        return "-".join(inflection.underscore(s) for s in name.split("-"))
+    else:
+        return inflection.underscore(name)
+
+
+def snake_to_camel(name: str) -> str:
+    return inflection.camelize(name, False)
+
+
+def dict_to_camel(d: dict) -> dict:
+    return {snake_to_camel(k): v for k, v in d.items()}
+
+
+def dict_to_snake(d: dict) -> dict:
+    return {camel_to_snake(k): v for k, v in d.items()}
 
 
 def fail(msg: str) -> None:
@@ -29,7 +48,8 @@ def print_dict(d: dict, indent_level=0, attr_list: Optional[List[str]] = None) -
     if attr_list is None:
         attr_list = []
     match_attrs = [a.split(".")[0] for a in attr_list]
-    for k, v in d.items():
+    for _k, v in d.items():
+        k = camel_to_snake(_k)
         if match_attrs and k not in match_attrs:
             continue
         typer.echo(f"{indent}{k}: ", nl=False)
@@ -178,13 +198,3 @@ def print_agent(agent: dict, indent_level=0, attributes: Optional[str] = None) -
 
 def print_agent_brief(agent: dict) -> None:
     typer.echo(f"id: {agent['id']} name: {agent['name']} alias: {agent['alias']} type: {agent['type']}")
-
-
-def all_matcher_from_rules(rules: List[str]) -> AllMatcher:
-    matchers: List[Dict] = []
-    for r in rules:
-        parts = r.split(":", maxsplit=1)
-        if len(parts) != 2:
-            fail(f"Invalid match spec: {r} (must have format: '<property>:<value>')")
-        matchers.append({parts[0]: parts[1]})
-    return AllMatcher(matchers)

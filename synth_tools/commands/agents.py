@@ -3,7 +3,8 @@ from typing import List, Optional
 import typer
 
 from kentik_synth_client import KentikAPIRequestError, KentikSynthClient
-from synth_tools.commands.utils import all_matcher_from_rules, fail, get_api, print_agent, print_agent_brief
+from synth_tools.matchers import all_matcher_from_rules
+from synth_tools.utils import fail, get_api, print_agent, print_agent_brief
 
 agents_app = typer.Typer()
 
