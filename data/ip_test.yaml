@@ -1,17 +1,16 @@
 test:
-  name: knock on www.example.com
   type: ip
   period: 600
   ping:
-    timeout: 3000 # milliseconds
-    protocol: tcp
     port: 80
+    protocol: tcp
+    timeout: 3000
 
 targets:
   use:
-    - 2606:2800:220:1:248:1893:25c8:1946
-    - 93.184.216.34
+  - 2606:2800:220:1:248:1893:25c8:1946
+  - 93.184.216.34
 
 agents:
   use:
-    - 606
+  - 606

@@ -3,9 +3,10 @@ from typing import Optional
 
 import typer
 
+from synth_tools import log
 from synth_tools.apis import APIs
-from synth_tools.commands import commands_registry, log
-from synth_tools.commands.utils import fail
+from synth_tools.commands import commands_registry
+from synth_tools.utils import fail
 
 app = typer.Typer()
 

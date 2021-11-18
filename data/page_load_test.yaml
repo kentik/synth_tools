@@ -1,31 +1,33 @@
 test:
   type: page_load
   period: 600
-  protocol: tcp
   ping:
-    timeout: 3000 # milliseconds
     protocol: icmp
+    timeout: 3000
+  protocol: tcp
   trace:
-    timeout: 22500 # milliseconds
     protocol: icmp
-  healthSettings:
-    latencyCriticalStddev: 3
-    latencyWarningStddev: 1
-    packetLossCritical: 50
-    packetLossWarning: 20
-    httpLatencyCriticalStddev: 3
-    httpLatencyWarningStddev: 1
-    httpValidCodes: [200, 301]
+    timeout: 22500
   headers:
     user-agent: kentik
+  health_settings:
+    http_latency_critical_stddev: 3
+    http_latency_warning_stddev: 1
+    http_valid_codes: [200, 301]
+    latency_critical_stddev: 3
+    latency_warning_stddev: 1
+    packet_loss_critical: 50
+    packet_loss_warning: 20
 
 targets:
   use:
-    - https://www.example.com
+  - https://www.example.com
 
 agents:
   match:
-    - any:
-      - family: IP_FAMILY_V4
-      - family: IP_FAMILY_DUAL
-    - one_of_each: { asn: [31898, 16509], country: [United States, US] }
+  - any:
+    - family: IP_FAMILY_V4
+    - family: IP_FAMILY_DUAL
+  - one_of_each:
+      asn: [31898, 16509]
+      country: [United States, US]

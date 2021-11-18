@@ -1,9 +1,3 @@
-import logging
-
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger()
-
-
 from synth_tools.commands.agents import agents_app
 from synth_tools.commands.tests import tests_app
 

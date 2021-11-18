@@ -1,6 +1,4 @@
 import logging
-import random
-import string
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from time import sleep
@@ -17,10 +15,6 @@ log = logging.getLogger("core")
 
 def _fail(msg: str) -> None:
     raise RuntimeError(msg)
-
-
-def random_string(str_size, allowed_chars=string.ascii_letters + string.digits):
-    return "".join(random.choice(allowed_chars) for _ in range(str_size))
 
 
 def run_one_shot(

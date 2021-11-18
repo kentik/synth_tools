@@ -7,6 +7,8 @@ from enum import Enum
 from itertools import product
 from typing import Any, Dict, List, Optional
 
+from synth_tools.utils import fail, snake_to_camel
+
 log = logging.getLogger("matchers")
 
 
@@ -34,7 +36,7 @@ class PropertyMatcher(Matcher):
     def __init__(self, key: str, value: Any):
         self.match_type = self.MatchFunctionType.direct
         self.value: Any = value
-        self.key = key
+        self.key = snake_to_camel(key)
         self._fn = self._match_direct
         self.is_negation = False
         # handle special functions
@@ -85,7 +87,7 @@ class PropertyMatcher(Matcher):
 
         key_path = self.key.split(".")
         obj = data
-        k = self.key
+        k = self.key  # to make linters happy
         while key_path:
             k = key_path.pop(0)
             log.debug("%s: matching k: '%s', obj: '%s'", self.__class__.__name__, k, str(obj))
@@ -135,7 +137,7 @@ class PropertyMatcher(Matcher):
     def _match_contains(self, obj: Any) -> bool:
         if hasattr(obj, "__iter__"):
             log.debug("%s: '%s' is iterable", self.__class__.__name__, obj)
-            return self.value in obj
+            return self.value in [str(x) for x in obj]
         else:
             return self.value == obj or str(self.value) == str(obj)
 
@@ -275,3 +277,13 @@ class OneOfEachMatcher(Matcher):
             ret = False
         log.debug("%s: ret '%s'", self.__class__.__name__, ret)
         return ret
+
+
+def all_matcher_from_rules(rules: List[str]) -> AllMatcher:
+    matchers: List[Dict] = []
+    for r in rules:
+        parts = r.split(":", maxsplit=1)
+        if len(parts) != 2:
+            fail(f"Invalid match spec: {r} (must have format: '<property>:<value>')")
+        matchers.append({parts[0]: parts[1]})
+    return AllMatcher(matchers)
