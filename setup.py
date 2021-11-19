@@ -101,10 +101,11 @@ class Black(Command):
     """Custom command to run black"""
 
     description = "run black on all relevant code"
-    user_options = [("dirs=", None, "Directories to check with black")]
+    user_options = [("dirs=", None, "Directories to check with black"), ("check", None, "Run in check mode")]
 
     def initialize_options(self) -> None:
         self.dirs = ["."]
+        self.check = False
 
     def finalize_options(self):
         """Post-process options."""
@@ -114,6 +115,8 @@ class Black(Command):
     def run(self):
         """Run command"""
         cmd = ["black"]
+        if self.check:
+            cmd.append("--check")
         for d in self.dirs:
             cmd.append(d)
         run_cmd(cmd, self.announce)
@@ -124,10 +127,11 @@ class Isort(Command):
     """Custom command to run isort"""
 
     description = "run isort on all relevant code"
-    user_options = [("dirs=", None, "Directories to check with isort")]
+    user_options = [("dirs=", None, "Directories to check with isort"), ("check", None, "Run in check mode")]
 
     def initialize_options(self) -> None:
         self.dirs = ["."]
+        self.check = False
 
     def finalize_options(self):
         """Post-process options."""
@@ -137,6 +141,8 @@ class Isort(Command):
     def run(self):
         """Run command"""
         cmd = ["isort"]
+        if self.check:
+            cmd.append("--check")
         for d in self.dirs:
             cmd.append(d)
         run_cmd(cmd, self.announce)
