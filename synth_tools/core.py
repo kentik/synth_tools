@@ -1,3 +1,4 @@
+import atexit
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -24,17 +25,30 @@ def run_one_shot(
     retries: int = 3,
     delete: bool = True,
 ) -> Optional[dict]:
-    def _delete_test(tst: SynTest):
+    def _delete_test(tst: SynTest) -> bool:
         log.debug("Deleting test '%s' (id: %s)", tst.name, tst.id)
         try:
             api.syn.delete_test(tst.id)
             log.info("Deleted test %s' (id: %s)", tst.name, tst.id)
+            return True
         except KentikAPIRequestError as exc:
             log.error("Failed to delete test '%s' (id: %s) (%s)", tst.name, tst.id, exc)
+            return False
+
+    def _pause_test(tst: SynTest) -> bool:
+        log.info("Pausing test id: %s", tst.id)
+        try:
+            api.syn.set_test_status(tst.id, TestStatus.paused)
+            return True
+        except KentikAPIRequestError as exc:
+            log.error("Failed to pause test '%s' (id: %s) (%s)", tst.name, tst.id, exc)
+            return False
 
     log.debug("creating test '%s'", test.name)
     try:
         t = api.syn.create_test(test)
+        # make sure that we do not leave detritus behind if execution is terminated prematurely
+        atexit.register(_delete_test, t)
     except KentikAPIRequestError as ex:
         log.error("Failed to create test '%s' (%s)", test.name, ex)
         return None
@@ -45,19 +59,18 @@ def run_one_shot(
             api.syn.set_test_status(t.id, TestStatus.active)
         except KentikAPIRequestError as ex:
             log.error("Failed to activate test '%s' (id: %s) (%s)", t.name, t.id, ex)
-            _delete_test(t)
             return None
 
     wait_time = max(
         0.0,
-        t.max_period * wait_factor - (datetime.now(tz=timezone.utc) - t.edate).total_seconds(),
+        t.max_period * wait_factor,
     )
     start = datetime.now(tz=timezone.utc)
     while retries:
         if wait_time > 0:
             log.info("Waiting for %s seconds for test to accumulate results", wait_time)
             sleep(wait_time)
-        wait_time = t.max_period
+        wait_time = t.max_period * 1.0
         now = datetime.now(tz=timezone.utc)
         try:
             health = api.syn.health(
@@ -94,11 +107,11 @@ def run_one_shot(
         health = None
 
     if delete:
-        _delete_test(t)
+        all_clean = _delete_test(t)
     else:
-        log.info("Pausing test id: %s", t.id)
-        api.syn.set_test_status(t.id, TestStatus.paused)
-
+        all_clean = _pause_test(t)
+    if all_clean:
+        atexit.unregister(_delete_test)
     return health[0] if health else None
 
 

@@ -7,7 +7,7 @@ from kentik_synth_client import KentikAPIRequestError, KentikSynthClient, TestSt
 from kentik_synth_client.synth_tests import SynTest
 from synth_tools.core import load_test, run_one_shot
 from synth_tools.matchers import all_matcher_from_rules
-from synth_tools.utils import fail, get_api, print_health, print_test, print_test_brief
+from synth_tools.utils import fail, get_api, print_health, print_test, print_test_brief, test_to_dict
 
 tests_app = typer.Typer()
 
@@ -146,7 +146,7 @@ def match_test(
     """
     api = get_api(ctx)
     matcher = all_matcher_from_rules(rules)
-    matching = [t for t in api.syn.tests if matcher.match(t.to_dict()["test"])]
+    matching = [t for t in api.syn.tests if matcher.match(test_to_dict(t))]
     if not matching:
         typer.echo("No test matches specified rules")
     else:
