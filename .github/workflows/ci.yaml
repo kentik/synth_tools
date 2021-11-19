@@ -31,7 +31,7 @@ jobs:
       - name: "Run pytest"
         run: |
           set -xe
-          python setup.py pytest
+          KTAPI_CFG_FILE=data/profile.json python setup.py pytest
 
       - name: "Check for changes of lint tools for ${{ matrix.python-version }}"
         if: success()
