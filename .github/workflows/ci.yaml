@@ -1,5 +1,5 @@
 name: CI
-on: [push, pull_request]
+on: [pull_request]
 jobs:
   tests:
     name: "Python ${{ matrix.python-version }}"
@@ -25,8 +25,13 @@ jobs:
       - name: "Run isort/black for ${{ matrix.python-version }}"
         run: |
           set -xe
-          python setup.py isort
-          python setup.py black
+          python setup.py isort --check
+          python setup.py black --check
+
+      - name: "Run pytest"
+        run: |
+          set -xe
+          KTAPI_CFG_FILE=data/profile.json python setup.py pytest
 
       - name: "Check for changes of lint tools for ${{ matrix.python-version }}"
         if: success()
@@ -38,3 +43,6 @@ jobs:
 
       - name: "Install package for for ${{ matrix.python-version }}"
         run: python setup.py install
+
+      - name: "Run synth_ctl for ${{ matrix.python-version }}"
+        run: synth_ctl --help
