@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from ipaddress import ip_address
-from typing import Any, Callable, Dict, Final, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set
 from urllib.parse import urlparse
 
 from kentik_api.public import Device, Interface
@@ -411,7 +411,7 @@ def make_mesh_test(
 
 def get_test_attributes(required: List, cfg: dict, fail: Callable[[str], None] = _fail) -> dict:
     # noinspection PyPep8Naming
-    COMMON_TEST_PARAMS: Final[Tuple] = (
+    COMMON_TEST_PARAMS = (
         "name",
         "type",
         "period",
