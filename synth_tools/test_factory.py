@@ -27,7 +27,7 @@ from kentik_synth_client.synth_tests import (
 from kentik_synth_client.types import *
 from synth_tools.apis import APIs
 from synth_tools.matchers import AllMatcher
-from synth_tools.utils import dict_to_camel
+from synth_tools.utils import snake_to_camel, transform_dict_keys
 
 log = logging.getLogger("test_factory")
 
@@ -288,7 +288,7 @@ def _get_agents(api: APIs, cfg, agent_type: Optional[str] = None, fail: Callable
     max_agents = cfg.get("max_matches")
     cfg = cfg["match"]
     log.debug("_get_agents: match: %s (min: %d, max: %s)", cfg, min_agents, max_agents)
-    agents_matcher = AllMatcher(cfg, max_matches=max_agents)
+    agents_matcher = AllMatcher(cfg, max_matches=max_agents, property_transformer=snake_to_camel)
     agents = set(
         a["id"] for a in api.syn.agents if (not agent_type or a["agentImpl"] == agent_type) and agents_matcher.match(a)
     )
@@ -524,7 +524,9 @@ def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None]
     #     test.settings.trace = None
     if "health_settings" in cfg:
         log.debug("set_common_test_params: test: '%s' health_settings: '%s'", test.name, cfg.get("health_settings"))
-        test.settings.healthSettings = HealthSettings.from_dict(dict_to_camel(cfg["health_settings"]))
+        test.settings.healthSettings = HealthSettings.from_dict(
+            transform_dict_keys(cfg["health_settings"], snake_to_camel)
+        )
     if "period" in cfg:
         log.debug("set_common_test_params: test: '%s' period: '%s'", test.name, cfg.get("period"))
         test.set_period(cfg["period"])
