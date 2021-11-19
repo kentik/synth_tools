@@ -23,6 +23,7 @@ def run_cmd(cmd, reporter) -> None:
         subprocess.check_call(cmd)
     except subprocess.CalledProcessError as ex:
         reporter(str(ex), level=distutils.log.ERROR)
+        exit(1)
 
 
 def rm_all(directory, remove_dir=False):
