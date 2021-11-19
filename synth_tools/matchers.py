@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from itertools import product
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from synth_tools.utils import fail, snake_to_camel
 
@@ -33,10 +33,13 @@ class PropertyMatcher(Matcher):
         older_than = "older_than"
         newer_than = "newer_than"
 
-    def __init__(self, key: str, value: Any):
+    def __init__(self, key: str, value: Any, property_transformer: Optional[Callable[[str], str]] = None):
         self.match_type = self.MatchFunctionType.direct
         self.value: Any = value
-        self.key = snake_to_camel(key)
+        if property_transformer:
+            self.key = property_transformer(key)
+        else:
+            self.key = key
         self._fn = self._match_direct
         self.is_negation = False
         # handle special functions
@@ -114,7 +117,7 @@ class PropertyMatcher(Matcher):
 
     def _match_label(self, obj: Any) -> bool:
         if self.match_type == self.MatchFunctionType.direct:
-            ret = data.has_label(self.value)  # type: ignore
+            ret = obj.has_label(self.value)  # type: ignore
         elif self.match_type == self.MatchFunctionType.one_of:
             ret = any(obj.has_label(label) for label in self.value)
         else:
@@ -135,6 +138,8 @@ class PropertyMatcher(Matcher):
         return self.value.match(str(obj)) is not None
 
     def _match_contains(self, obj: Any) -> bool:
+        if type(obj) == str:
+            return self.value in obj
         if hasattr(obj, "__iter__"):
             log.debug("%s: '%s' is iterable", self.__class__.__name__, obj)
             return self.value in [str(x) for x in obj]
@@ -202,7 +207,12 @@ class PropertyMatcher(Matcher):
 
 
 class SetMatcher(Matcher):
-    def __init__(self, data: List[Dict[str, Any]], max_matches: Optional[int] = None):
+    def __init__(
+        self,
+        data: List[Dict[str, Any]],
+        max_matches: Optional[int] = None,
+        property_transformer: Optional[Callable[[str], str]] = None,
+    ):
         self.matchers = []
         self.max_matches: Optional[int] = max_matches
         for e in data:
@@ -210,7 +220,7 @@ class SetMatcher(Matcher):
                 if k in self.SPECIAL:
                     matcher = getattr(sys.modules[__name__], self.SPECIAL[k])(v)
                 else:
-                    matcher = PropertyMatcher(k, v)
+                    matcher = PropertyMatcher(k, v, property_transformer=property_transformer)
                 self.matchers.append(matcher)
         log.debug("%s: %d matchers, max_matches: %s", self.__class__.__name__, len(self.matchers), self.max_matches)
 
@@ -286,4 +296,4 @@ def all_matcher_from_rules(rules: List[str]) -> AllMatcher:
         if len(parts) != 2:
             fail(f"Invalid match spec: {r} (must have format: '<property>:<value>')")
         matchers.append({parts[0]: parts[1]})
-    return AllMatcher(matchers)
+    return AllMatcher(matchers, property_transformer=snake_to_camel)

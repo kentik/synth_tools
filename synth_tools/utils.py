@@ -1,7 +1,7 @@
 import json
 import sys
 from collections import defaultdict
-from typing import Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import inflection
 import typer
@@ -22,12 +22,22 @@ def snake_to_camel(name: str) -> str:
     return inflection.camelize(name, False)
 
 
-def dict_to_camel(d: dict) -> dict:
-    return {snake_to_camel(k): v for k, v in d.items()}
-
-
-def dict_to_snake(d: dict) -> dict:
-    return {camel_to_snake(k): v for k, v in d.items()}
+def transform_dict_keys(d: Dict[str, Any], fn: Callable[[str], str]) -> Dict[str, Any]:
+    out: Dict[str, Any] = dict()
+    for k, v in d.items():
+        if type(v) == dict:
+            out[fn(k)] = transform_dict_keys(v, fn)
+        elif type(v) == list:
+            out_value = []
+            for e in v:
+                if type(e) == dict:
+                    out_value.append(transform_dict_keys(e, fn))
+                else:
+                    out_value.append(e)
+            out[fn(k)] = out_value
+        else:
+            out[fn(k)] = v
+    return out
 
 
 def fail(msg: str) -> None:
