@@ -8,7 +8,7 @@ from synth_tools.apis import APIs
 from synth_tools.commands import commands_registry
 from synth_tools.utils import fail
 
-app = typer.Typer()
+app = typer.Typer(add_completion=False)
 
 for name, command in commands_registry.items():
     app.add_typer(command, name=name)

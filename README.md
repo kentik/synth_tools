@@ -46,7 +46,6 @@ EOF
 The `synth_ctl` tool current does not support:
 - modification of synthetic agents
 - modification of deployed tests (PATCH operation)
-- creation of `flow` type tests
 - creation of `bgp` type tests
 - retrieval of test traceroute results (traces)
 
@@ -90,26 +89,26 @@ _Common test attributes:_
   | name           | name of the test                                                              | NO       | any printable string                                            |
   | period         | test execution period                                                         | NO       | integer (default: 60 seconds)                                   |
   | family         | IP address family to use for tests selecting target address via DNS resolution| NO       | IP_FAMILY_DUAL (default), IP_FAMILY_V4, IP_FAMILY_V6            |
-  | healthSettings | definition of thresholds for establishing test health                         | NO       | _see bellow_ (default: no thresholds)                           |
+  | health_settings| definition of thresholds for establishing test health                         | NO       | _see bellow_ (default: no thresholds)                           |
 
 _Health settings attributes_
 ```
-    latencyCritical: 0
-    latencyWarning: 0
-    latencyCriticalStddev: 3
-    latencyWarningStddev: 1
-    packetLossCritical: 50
-    packetLossWarning: 0
-    jitterCritical: 0
-    jitterWarning: 0
-    jitterCriticalStddev: 3
-    jitterWarningStddev: 1
-    httpLatencyCritical: 0
-    httpLatencyWarning: 0
-    httpLatencyCriticalStddev: 3
-    httpLatencyWarningStddev: 1
-    httpValidCodes: []
-    dnsValidCodes: []
+    latency_ critical: 0
+    latency_warning: 0
+    latency_critical_stddev: 3
+    latency_warning_stddev: 1
+    packet_loss_critical: 50
+    packet_loss_warning: 0
+    jitter_critical: 0
+    jitter_warning: 0
+    jitter_critical_stddev: 3
+    jitter_warning_stddev: 1
+    http_latency_critical: 0
+    http_latency_warning: 0
+    http_latency_critical_stddev: 3
+    http_latency_warning_stddev: 1
+    http_valid_codes: []
+    dns_valid_codes: []
 ```
 
 _Test specific attributes:_
@@ -117,8 +116,8 @@ _Test specific attributes:_
 
 #### targets section
 
-The `targets` section allows to specify direct list of targets (using the `use` sub-section), or set of selection rules
- (using the `match` sub-section). Only one of `use` or `match` can be specified. 
+The `targets` section allows specifying either direct list of targets (using the `use` sub-section),
+or set of selection rules (using the `match` sub-section). Only one of `use` or `match` can be specified. 
 
 At the moment only tests targeting IP addresses or agents support `match`. 
 _Supported `targets` specification for individual test types_:
@@ -197,10 +196,10 @@ targets:
     devices:
       - any:
         - all:
-          - site.site_name: siteA
+          - site.site_name: site_a
           - device_type: router
         - all:
-          - site.site_name: siteB
+          - site.site_name: site_b
           - device_type: gateway
       ...
 ```
@@ -221,13 +220,13 @@ in which agents are returned by the API which is undefined.
 
 In additions to direct comparison of value of object attributes, the tool provides following match functions:
 
-  | name        | evaluation                                                    | format                         | example                                                |
-  | :-----------| :-------------------------------------------------------------| :------------------------------| :------------------------------------------------------|
-  | regex       | evaluates regular expression on attribute value               | regex(`regular expression`)    | `device_name: regex(.\*-iad1-.\*)`                     |
-  | contains    | tests if a multi-valued attribute contains specified value    | contains(`value`)              | `sending_ips: contains(1.2.3.4)`                       |
-  | one_of      | test if value of an attribute is in the list                  | one_of(`comma_separated_list`) | `label: one_of(edge router, gateway, bastions)`        |
-  | newer_than  | tests whether a timestamp value is newer than specified time  | newer_than(`iso_format_time`)  | `lastAuthed: newer_than(2021-11-01 00:00:00.000+00:00)`|
-  | older_than  | tests whether a timestamp value is older than specified time  | older_than(`iso_format_time`)  | `lastAuthed: older_than(2021-11-01 00:00:00.000-07:00)`|
+  | name        | evaluation                                                    | format                         | example                                                 |
+  | :-----------| :-------------------------------------------------------------| :------------------------------| :-------------------------------------------------------|
+  | regex       | evaluates regular expression on attribute value               | regex(`regular expression`)    | `device_name: regex(.\*-iad1-.\*)`                      |
+  | contains    | tests if a multi-valued attribute contains specified value    | contains(`value`)              | `sending_ips: contains(1.2.3.4)`                        |
+  | one_of      | test if value of an attribute is in the list                  | one_of(`comma_separated_list`) | `label: one_of(edge router, gateway, bastions)`         |
+  | newer_than  | tests whether a timestamp value is newer than specified time  | newer_than(`iso_format_time`)  | `last_authed: newer_than(2021-11-01 00:00:00.000+00:00)`|
+  | older_than  | tests whether a timestamp value is older than specified time  | older_than(`iso_format_time`)  | `last_authed: older_than(2021-11-01 00:00:00.000-07:00)`|
 
 Functions `newer_than` and `older_than` also accept time specification of `today`, `yesterday`, `tomorrow` which are
 expanded to UTC time based on system time of the machine on which `synth_ctl` executes.
@@ -286,8 +285,8 @@ test:
   period: 600
   servers: [1.1.1.1, 8.8.8.8]
   record_type: DNS_RECORD_AAAA
-  healthSettings:
-    dnsValidCodes: [0]
+  health_settings:
+    dns_valid_codes: [0]
 
 targets:
   use:
@@ -381,7 +380,7 @@ id: 5372
   type: application_mesh
   status: TEST_STATUS_ACTIVE
   settings:
-    agentIds: ['848', '598', '608', '849', '733', '2642', '2644', '828', '813', '803', '2122', '644', '1022', '662', '573', '612', '611', '615', '568', '616']
+    agent_ids: ['848', '598', '608', '849', '733', '2642', '2644', '828', '813', '803', '2122', '644', '1022', '662', '573', '612', '611', '615', '568', '616']
     [...]
 
 ❯ synth_ctl agent match country:JP version:0.0.17 "name:regex(asia-.*)"
@@ -396,17 +395,17 @@ id: 638
   long: 139.6917
   family: IP_FAMILY_V4
   asn: 15169
-  siteId: 0
+  site_id: 0
   version: 0.0.17
   challenge:
   city: Tokyo
   region: Tokyo
   country: JP
-  testIds: []
-  localIp:
-  cloudVpc:
-  agentImpl: IMPLEMENT_TYPE_RUST
-  lastAuthed: 2021-10-28T22:05:47.115Z
+  test_ids: []
+  local_ip:
+  cloud_vpc:
+  agent_impl: IMPLEMENT_TYPE_RUST
+  last_authed: 2021-10-28T22:05:47.115Z
 
 ❯ synth_ctl agent match asn:61098 country:DE --brief
 id: 2541 name: EXOSCALE,CH (61098) alias: Frankfurt, Germany type: global
@@ -418,15 +417,15 @@ id: 580 name: EXOSCALE,CH (61098) alias: Munich, Germany type: global
 
 The `--fields` (or `-f`) option allows specifying agent or test configuration attributes/fields to display in a listing.
 Fields are specified as a comma-separated list, with dot-syntax for nested attributes. If the only requested attribute
-is`id`, output contains only ids of matching agents with the `id:` prefix. 
+is `id`, output contains only ids of matching agents without the `id:` prefix (one per line) 
 
 Examples:
 ```
-❯ synth_ctl test get 666 -f name,settings.healthSettings.httpValidCodes
+❯ synth_ctl test get 666 -f name,settings.health_settings.http_valid_codes
 name: webserver_test
 settings:
-  healthSettings:
-    httpValidCodes: [200, 301]
+  health_settings:
+    http_valid_codes: [200, 301]
     
 ❯ synth_ctl agent get 811 -f alias,version,os
 id: 811
@@ -434,7 +433,9 @@ id: 811
   os:
   version: 0.0.15
 
-❯ synth_ctl agent match type:private asn:15169 -f id
+❯ synth_ctl agent match type:private -f id
+7108
+3462
 3553
 ```
 
@@ -474,20 +475,16 @@ Usage: synth_ctl [OPTIONS] COMMAND [ARGS]...
   Tool for manipulating Kentik synthetic tests
 
 Options:
-  -p, --profile TEXT              Credential profile for the monitoring
-                                  account [required]
-  -t, --target-profile TEXT       Credential profile for the target account
-                                  (default: same as profile)
-  -d, --debug                     Debug output
-  --proxy TEXT                    Proxy to use to connect to Kentik API
-  --api-url TEXT                  Base URL for Kentik API (default:
-                                  api.kentik.com)
-  --install-completion [bash|zsh|fish|powershell|pwsh]
-                                  Install completion for the specified shell.
-  --show-completion [bash|zsh|fish|powershell|pwsh]
-                                  Show completion for the specified shell, to
-                                  copy it or customize the installation.
-  --help                          Show this message and exit.
+  -p, --profile TEXT         Credential profile for the monitoring account
+                             [default: default]
+  -t, --target-profile TEXT  Credential profile for the target account
+                             (default: same as profile)
+  -d, --debug                Debug output
+  --proxy TEXT               Proxy to use to connect to Kentik API
+  --api-url TEXT             Base URL for Kentik API (default:
+                             api.kentik.com)
+  --version                  Show version and exit
+  --help                     Show this message and exit.
 
 Commands:
   agent
@@ -523,9 +520,12 @@ Options:
   --help  Show this message and exit.
 
 Commands:
-  get    Print agent configuration
-  list   List all agents
-  match  Print configuration of agents matching specified rules
+  activate    Activate pending agent
+  deactivate  Deactivate an active agent
+  delete      Delete an agent
+  get         Print agent configuration
+  list        List all agents
+  match       Print configuration of agents matching specified rules
 ```
 
 Help is also available for individual commands. Example:
@@ -553,10 +553,10 @@ Options:
   --print-config / --no-print-config
                                   Print test configuration  [default: no-
                                   print-config]
-  --show-internal / --no-show-internal
-                                  Show internal test attributes  [default: no-
-                                  show-internal]
+  --show-all / --no-show-all      Show all test attributes  [default: no-show-
+                                  all]
   --json                          Print output in JSON format
   --help                          Show this message and exit.
 ```
+
 
