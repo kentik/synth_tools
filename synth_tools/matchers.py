@@ -135,6 +135,8 @@ class PropertyMatcher(Matcher):
         return self.value.match(str(obj)) is not None
 
     def _match_contains(self, obj: Any) -> bool:
+        if type(obj) == str:
+            return self.value in obj
         if hasattr(obj, "__iter__"):
             log.debug("%s: '%s' is iterable", self.__class__.__name__, obj)
             return self.value in [str(x) for x in obj]
