@@ -1,5 +1,5 @@
 name: CI
-on: [push, pull_request]
+on: [pull_request]
 jobs:
   tests:
     name: "Python ${{ matrix.python-version }}"
@@ -38,3 +38,6 @@ jobs:
 
       - name: "Install package for for ${{ matrix.python-version }}"
         run: python setup.py install
+
+      - name: "Run synth_ctl for ${{ matrix.python-version }}"
+        run: synth_ctl --help
