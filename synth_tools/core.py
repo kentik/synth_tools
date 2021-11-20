@@ -75,7 +75,7 @@ def run_one_shot(
         try:
             health = api.syn.health(
                 [t.id],
-                start=now - timedelta(seconds=t.max_period * wait_factor),
+                start=min(start, now - timedelta(seconds=t.max_period * wait_factor)),
                 end=now,
             )
         except KentikAPIRequestError as ex:
@@ -103,7 +103,7 @@ def run_one_shot(
         )
         break
     else:
-        log.fatal("Failed to get valid health data for test id: %s", t.id)
+        log.debug("Failed to get valid health data for test id: %s", t.id)
         health = None
 
     if delete:

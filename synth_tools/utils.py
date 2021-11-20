@@ -99,7 +99,10 @@ def print_health(
                     continue
                 for task_type in ("ping", "knock", "shake", "dns", "http"):
                     if task_type in task["task"]:
-                        target = task["task"][task_type]["target"]
+                        if task_type == "dns":
+                            target = f"{task['task'][task_type]['target']} via {task['task'][task_type]['resolver']}"
+                        else:
+                            target = task["task"][task_type]["target"]
                         break
                 else:
                     target = h["dstIp"]
