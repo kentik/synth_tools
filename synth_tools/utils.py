@@ -138,13 +138,20 @@ INTERNAL_TEST_SETTINGS = (
 )
 
 
+def test_to_dict(test: SynTest) -> Dict[str, Any]:
+    d = test.to_dict()["test"]
+    d["created"] = test.cdate
+    d["modified"] = test.edate
+    return d
+
+
 def print_test(
     test: SynTest,
     indent_level: int = 0,
     show_all: bool = False,
     attributes: Optional[str] = None,
 ) -> None:
-    d = test.to_dict()["test"]
+    d = test_to_dict(test)
     if not show_all:
         if not test.deployed:
             del d["status"]
