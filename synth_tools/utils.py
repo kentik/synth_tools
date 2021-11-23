@@ -120,8 +120,12 @@ def print_health(
                     if field in h:
                         e[field] = h[field]
                 results_by_target[target].append(e)
-                if "data" in e:
-                    e["data"] = json.loads(e["data"])
+                data = e.get("data")
+                if data:
+                    try:
+                        e["data"] = json.loads(data)
+                    except json.decoder.JSONDecodeError as ex:
+                        log.critical("Failed to parse JSON in health data '%s' (exception: %s)", data, ex)
     if json_out:
         json.dump(results_by_target, sys.stdout, indent=2)
     else:
