@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import List, Optional
 
@@ -5,9 +6,18 @@ import typer
 
 from kentik_synth_client import KentikAPIRequestError, KentikSynthClient, TestStatus
 from kentik_synth_client.synth_tests import SynTest
-from synth_tools.core import load_test, run_one_shot
+from synth_tools.core import load_test, make_test_results, run_one_shot
 from synth_tools.matchers import all_matcher_from_rules
-from synth_tools.utils import fail, get_api, print_health, print_test, print_test_brief, test_to_dict
+from synth_tools.utils import (
+    dump_test_results,
+    fail,
+    get_api,
+    print_dict,
+    print_test,
+    print_test_brief,
+    print_test_results,
+    test_to_dict,
+)
 
 tests_app = typer.Typer()
 
@@ -29,12 +39,11 @@ def one_shot(
     test_config: Path = typer.Argument(..., help="Path to test config file"),
     wait_factor: float = typer.Option(1.0, help="Multiplier for test period for computing wait time for test results"),
     retries: int = typer.Option(3, help="Number retries waiting for test results"),
-    raw_out: str = typer.Option("", help="Path to file to store raw test results in JSON format"),
-    failing: bool = typer.Option(False, help="Print only failing results"),
+    summary: bool = typer.Option(False, help="Print summary rest results"),
     delete: bool = typer.Option(True, help="Delete test after retrieving results"),
     print_config: bool = typer.Option(False, help="Print test configuration"),
     show_all: bool = typer.Option(False, help="Show all test attributes"),
-    json_out: bool = typer.Option(False, "--json", help="Print output in JSON format"),
+    json_out: Optional[str] = typer.Option(None, help="Path to store test results in JSON format"),
 ) -> None:
     """
     Create test, wait until it produces results and delete or disable it
@@ -45,12 +54,27 @@ def one_shot(
         return  # not reached, load test does no return without valid test, but we need to make linters happy
     if print_config:
         print_test(test, show_all=show_all)
-    health = run_one_shot(api, test, wait_factor=wait_factor, retries=retries, delete=delete)
 
-    if not health:
-        fail("Test did not produce any health data")
+    health, polls = run_one_shot(api, test, wait_factor=wait_factor, retries=retries, delete=delete)
+
+    results = make_test_results(health, polls)
+    dump_test_results(None, results, json_out=json_out)
+
+    if summary:
+        print_dict(
+            dict(
+                type=test.type.value,
+                name=test.name,
+                agents=test.settings.agentIds,
+                success=results["success"],
+                polls=results["polls"],
+            )
+        )
     else:
-        print_health(health, raw_out=raw_out, failing_only=failing, json_out=json_out)
+        print_test_results(results)
+
+    if not results["success"]:
+        fail(f"Test did not produce any health data in {results['polls']} retries")
 
 
 @tests_app.command("create")
@@ -194,9 +218,8 @@ def resume_test(ctx: typer.Context, test_id: str) -> None:
 def get_test_health(
     ctx: typer.Context,
     test_id: str,
-    raw_out: str = typer.Option("", help="Path to file to store raw test results in JSON format"),
-    json_out: bool = typer.Option(False, "--json", help="Print output in JSON format"),
-    failing: bool = typer.Option(False, help="Print only failing results"),
+    raw_out: Optional[str] = typer.Option("", help="Path to file to store raw test results API response"),
+    json_out: Optional[str] = typer.Option(None, help="Path to file to store test results in JSON format"),
     periods: int = typer.Option(3, help="Number of test periods to request"),
 ) -> None:
     """
@@ -209,4 +232,6 @@ def get_test_health(
     if not health:
         fail(f"Test '{test_id}' did not produce any health data")
 
-    print_health(health[0], raw_out=raw_out, failing_only=failing, json_out=json_out)
+    results = make_test_results(health[0])
+    dump_test_results(health, results, raw_out=raw_out, json_out=json_out)
+    print_test_results(results)

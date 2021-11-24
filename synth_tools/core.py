@@ -1,9 +1,11 @@
 import atexit
+import json
 import logging
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from time import sleep
-from typing import Callable, Optional
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import yaml
 
@@ -18,13 +20,57 @@ def _fail(msg: str) -> None:
     raise RuntimeError(msg)
 
 
+def make_test_results(health: Optional[Dict[str, Any]], polls: Optional[int] = None) -> Dict[str, Any]:
+    results: Dict[str, Any] = defaultdict(list)
+    results["success"] = health is not None
+    if polls is not None:
+        results["polls"] = polls
+    if not health:
+        return results
+    results["targets"] = defaultdict(list)
+    for task in health["tasks"]:
+        for agent in task["agents"]:
+            for h in agent["health"]:
+                for task_type in ("ping", "knock", "shake", "dns", "http"):
+                    if task_type in task["task"]:
+                        if task_type == "dns":
+                            target = f"{task['task'][task_type]['target']} via {task['task'][task_type]['resolver']}"
+                        else:
+                            target = task["task"][task_type]["target"]
+                        break
+                else:
+                    target = h["dstIp"]
+                    task_type = h["taskType"]
+                e = dict(
+                    time=h["overallHealth"]["time"],
+                    agent_id=agent["agent"]["id"],
+                    agent_addr=agent["agent"]["ip"],
+                    task_type=task_type,
+                    loss=f"{h['packetLoss'] * 100}% ({h['packetLossHealth']})",
+                    latency=f"{h['avgLatency']/1000}ms ({h['latencyHealth']})",
+                    jitter=f"{h['avgJitter']/1000}ms ({h['jitterHealth']})",
+                )
+                for field in ("data", "status", "size"):
+                    if field in h:
+                        e[field] = h[field]
+                data = e.get("data")
+                if data:
+                    try:
+                        e["data"] = json.loads(data)
+                    except json.decoder.JSONDecodeError as ex:
+                        log.critical("Failed to parse JSON in health data '%s' (exception: %s)", data, ex)
+                results["targets"][target].append(e)
+
+    return results
+
+
 def run_one_shot(
     api: APIs,
     test: SynTest,
     wait_factor: float = 1.0,
     retries: int = 3,
     delete: bool = True,
-) -> Optional[dict]:
+) -> Tuple[Optional[dict], int]:
     def _delete_test(tst: SynTest) -> bool:
         log.debug("Deleting test '%s' (id: %s)", tst.name, tst.id)
         try:
@@ -44,6 +90,7 @@ def run_one_shot(
             log.error("Failed to pause test '%s' (id: %s) (%s)", tst.name, tst.id, exc)
             return False
 
+    polls = 0
     log.debug("creating test '%s'", test.name)
     try:
         t = api.syn.create_test(test)
@@ -51,7 +98,7 @@ def run_one_shot(
         atexit.register(_delete_test, t)
     except KentikAPIRequestError as ex:
         log.error("Failed to create test '%s' (%s)", test.name, ex)
-        return None
+        return None, polls
     log.info("Created test '%s' (id: %s)", t.name, t.id)
     if t.status != TestStatus.active:
         log.info("Activating test '%s'", t.name)
@@ -59,7 +106,7 @@ def run_one_shot(
             api.syn.set_test_status(t.id, TestStatus.active)
         except KentikAPIRequestError as ex:
             log.error("Failed to activate test '%s' (id: %s) (%s)", t.name, t.id, ex)
-            return None
+            return None, polls
 
     wait_time = max(
         0.0,
@@ -68,11 +115,12 @@ def run_one_shot(
     start = datetime.now(tz=timezone.utc)
     while retries:
         if wait_time > 0:
-            log.info("Waiting for %s seconds for test to accumulate results", wait_time)
+            log.info("Waiting %s seconds for test to accumulate results", wait_time)
             sleep(wait_time)
         wait_time = t.max_period * 1.0
         now = datetime.now(tz=timezone.utc)
         try:
+            polls += 1
             health = api.syn.health(
                 [t.id],
                 start=min(start, now - timedelta(seconds=t.max_period * wait_factor)),
@@ -104,7 +152,7 @@ def run_one_shot(
         break
     else:
         log.debug("Failed to get valid health data for test id: %s", t.id)
-        health = None
+        health = None, polls
 
     if delete:
         all_clean = _delete_test(t)
@@ -112,7 +160,8 @@ def run_one_shot(
         all_clean = _pause_test(t)
     if all_clean:
         atexit.unregister(_delete_test)
-    return health[0] if health else None
+    log.debug("polls: %d health: %s", polls, health)
+    return health[0] if health else None, polls
 
 
 def load_test(api: APIs, file: Path, fail: Callable[[str], None] = _fail) -> Optional[SynTest]:
