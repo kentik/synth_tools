@@ -1,4 +1,5 @@
 import logging
+from os import uname
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from ipaddress import ip_address
