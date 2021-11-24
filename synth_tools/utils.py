@@ -1,6 +1,4 @@
 import json
-import sys
-from collections import defaultdict
 from typing import Any, Callable, Dict, List, Optional
 
 import inflection
@@ -76,63 +74,33 @@ def print_dict(d: dict, indent_level=0, attr_list: Optional[List[str]] = None) -
     return items
 
 
-def print_health(
-    health: dict,
-    raw_out: Optional[str] = None,
-    failing_only: bool = False,
-    json_out: bool = False,
+def print_test_results(
+    results: Dict[str, Any],
 ) -> None:
-    if not health:
-        log.warning("No valid health data")
-        return
+    for k, v in results.items():
+        if k == "targets":
+            for t, data in v.items():
+                typer.echo(f"target: {t}")
+                for e in sorted(data, key=lambda x: x["time"]):
+                    typer.echo("  {}".format(", ".join(f"{k}: {v}" for k, v in e.items())))
+        else:
+            typer.echo(f"{k}: {v}")
 
-    if raw_out:
+
+def dump_test_results(
+    health: Optional[Dict[str, Any]],
+    results: Dict[str, Any],
+    raw_out: Optional[str] = None,
+    json_out: Optional[str] = None,
+):
+    if raw_out and health:
         log.info("Writing health data to '%s'", raw_out)
         with open(raw_out, "w") as f:
             json.dump(health, f, indent=2)
-
-    results_by_target = defaultdict(list)
-    for task in health["tasks"]:
-        for agent in task["agents"]:
-            for h in agent["health"]:
-                if failing_only and h["overallHealth"]["health"] != "failing":
-                    continue
-                for task_type in ("ping", "knock", "shake", "dns", "http"):
-                    if task_type in task["task"]:
-                        if task_type == "dns":
-                            target = f"{task['task'][task_type]['target']} via {task['task'][task_type]['resolver']}"
-                        else:
-                            target = task["task"][task_type]["target"]
-                        break
-                else:
-                    target = h["dstIp"]
-                    task_type = h["taskType"]
-                e = dict(
-                    time=h["overallHealth"]["time"],
-                    agent_id=agent["agent"]["id"],
-                    agent_addr=agent["agent"]["ip"],
-                    task_type=task_type,
-                    loss=f"{h['packetLoss'] * 100}% ({h['packetLossHealth']})",
-                    latency=f"{h['avgLatency']/1000}ms ({h['latencyHealth']})",
-                    jitter=f"{h['avgJitter']/1000}ms ({h['jitterHealth']})",
-                )
-                for field in ("data", "status", "size"):
-                    if field in h:
-                        e[field] = h[field]
-                results_by_target[target].append(e)
-                data = e.get("data")
-                if data:
-                    try:
-                        e["data"] = json.loads(data)
-                    except json.decoder.JSONDecodeError as ex:
-                        log.critical("Failed to parse JSON in health data '%s' (exception: %s)", data, ex)
     if json_out:
-        json.dump(results_by_target, sys.stdout, indent=2)
-    else:
-        for t, data in results_by_target.items():
-            typer.echo(f"target: {t}")
-            for e in sorted(data, key=lambda x: x["time"]):
-                typer.echo("  {}".format(", ".join(f"{k}: {v}" for k, v in e.items())))
+        log.info("Writing results to '%s'", json_out)
+        with open(json_out, "w") as f:
+            json.dump(results, f, indent=2)
 
 
 INTERNAL_TEST_SETTINGS = (
