@@ -1,4 +1,5 @@
 import logging
+from os import uname
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from ipaddress import ip_address
@@ -594,7 +595,9 @@ class TestFactory:
 
         now = datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat()
         try:
-            name = test_cfg.get("name", "__auto_{config_name}_{iso_date}").format(iso_date=now, config_name=config_name)
+            name = test_cfg.get("name", "__auto:{config_name}:{host}:{iso_date}").format(
+                iso_date=now, config_name=config_name, host=uname()[1]
+            )
         except KeyError as exc:
             fail(f"Test name template ({test_cfg['name']}) contains unsupported keyword {exc}")
             return None  # never reached ... just to make linters happy
