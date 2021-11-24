@@ -16,14 +16,15 @@ README = (HERE / "README.md").read_text()
 PACKAGES = ["kentik_synth_client", "synth_tools", "synth_tools.commands"]
 
 
-def run_cmd(cmd, reporter) -> None:
+def run_cmd(cmd, reporter) -> bool:
     """Run arbitrary command as subprocess"""
-    reporter("Run command: {}".format(str(cmd)), level=distutils.log.DEBUG)
+    reporter("run_cmd: {}".format(str(cmd)), level=distutils.log.DEBUG)
     try:
         subprocess.check_call(cmd)
+        return True
     except subprocess.CalledProcessError as ex:
         reporter(str(ex), level=distutils.log.ERROR)
-        exit(1)
+        return False
 
 
 def rm_all(directory, remove_dir=False):
@@ -94,15 +95,16 @@ class MypyCmd(Command):
             cmd.append("--install-types")
         for d in self.dirs:
             cmd.append(d)
-        run_cmd(cmd, self.announce)
+        if not run_cmd(cmd, self.announce):
+            exit(1)
 
 
 # noinspection PyAttributeOutsideInit
-class Black(Command):
-    """Custom command to run black"""
+class Format(Command):
+    """Custom command to run black + isort"""
 
-    description = "run black on all relevant code"
-    user_options = [("dirs=", None, "Directories to check with black"), ("check", None, "Run in check mode")]
+    description = "run black and isort on all relevant code; read configuration from pyproject.toml"
+    user_options = [("dirs=", None, "Directories to check"), ("check", None, "Run in check mode")]
 
     def initialize_options(self) -> None:
         self.dirs = ["."]
@@ -115,38 +117,31 @@ class Black(Command):
 
     def run(self):
         """Run command"""
+        results = list()
+        results.append(self._black())
+        results.append(self._isort())
+        if not all(results):
+            exit(1)
+
+    def _black(self) -> bool:
         cmd = ["black"]
         if self.check:
             cmd.append("--check")
+            cmd.append("--diff")
         for d in self.dirs:
             cmd.append(d)
-        run_cmd(cmd, self.announce)
+        self.announce("Executing: {}".format(" ".join(cmd)), level=distutils.log.INFO)
+        return run_cmd(cmd, self.announce)
 
-
-# noinspection PyAttributeOutsideInit
-class Isort(Command):
-    """Custom command to run isort"""
-
-    description = "run isort on all relevant code"
-    user_options = [("dirs=", None, "Directories to check with isort"), ("check", None, "Run in check mode")]
-
-    def initialize_options(self) -> None:
-        self.dirs = ["."]
-        self.check = False
-
-    def finalize_options(self):
-        """Post-process options."""
-        for d in self.dirs:
-            assert os.path.exists(d), "Path {} does not exist.".format(d)
-
-    def run(self):
-        """Run command"""
+    def _isort(self) -> bool:
         cmd = ["isort"]
         if self.check:
             cmd.append("--check")
+            cmd.append("--diff")
         for d in self.dirs:
             cmd.append(d)
-        run_cmd(cmd, self.announce)
+        self.announce("Executing: {}".format(" ".join(cmd)), level=distutils.log.INFO)
+        return run_cmd(cmd, self.announce)
 
 
 # noinspection PyAttributeOutsideInit
@@ -169,7 +164,8 @@ class PyTest(Command):
         cmd = ["pytest"]
         for d in self.dirs:
             cmd.append(d)
-        run_cmd(cmd, self.announce)
+        if not run_cmd(cmd, self.announce):
+            exit(1)
 
 
 setup(
@@ -185,7 +181,12 @@ setup(
     python_requires=">=3.7, <4",
     install_requires=["inflection", "kentik-api>=0.3.1", "pyyaml", "typer", "validators"],
     tests_require=["pytest-runner", "pytest", "mypy"],
-    cmdclass={"mypy": MypyCmd, "grpc_stubs": FetchGRPCCode, "black": Black, "isort": Isort, "pytest": PyTest},
+    cmdclass={
+        "mypy": MypyCmd,
+        "grpc_stubs": FetchGRPCCode,
+        "format": Format,
+        "pytest": PyTest,
+    },
     classifiers=[
         "License :: OSI Approved :: Apache Software License",
     ],
