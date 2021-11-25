@@ -20,9 +20,13 @@ def _fail(msg: str) -> None:
     raise RuntimeError(msg)
 
 
-def make_test_results(health: Optional[Dict[str, Any]], polls: Optional[int] = None) -> Dict[str, Any]:
+def make_test_results(
+    health: Optional[Dict[str, Any]], test_id: Optional[str] = None, polls: Optional[int] = None
+) -> Dict[str, Any]:
     results: Dict[str, Any] = defaultdict(list)
     results["success"] = health is not None
+    if test_id:
+        results["test_id"] = test_id
     if polls is not None:
         results["polls"] = polls
     if not health:
@@ -70,7 +74,7 @@ def run_one_shot(
     wait_factor: float = 1.0,
     retries: int = 3,
     delete: bool = True,
-) -> Tuple[Optional[dict], int]:
+) -> Tuple[Optional[str], Optional[int], Optional[dict]]:
     def _delete_test(tst: SynTest) -> bool:
         log.debug("Deleting test '%s' (id: %s)", tst.name, tst.id)
         try:
@@ -98,15 +102,16 @@ def run_one_shot(
         atexit.register(_delete_test, t)
     except KentikAPIRequestError as ex:
         log.error("Failed to create test '%s' (%s)", test.name, ex)
-        return None, polls
+        return None, None, None
     log.info("Created test '%s' (id: %s)", t.name, t.id)
+    tid = t.id  # Must save here, because test delete resets it
     if t.status != TestStatus.active:
         log.info("Activating test '%s'", t.name)
         try:
             api.syn.set_test_status(t.id, TestStatus.active)
         except KentikAPIRequestError as ex:
             log.error("Failed to activate test '%s' (id: %s) (%s)", t.name, t.id, ex)
-            return None, polls
+            return tid, None, None
 
     wait_time = max(
         0.0,
@@ -152,7 +157,7 @@ def run_one_shot(
         break
     else:
         log.debug("Failed to get valid health data for test id: %s", t.id)
-        health = None, polls
+        health = None, tid, polls
 
     if delete:
         all_clean = _delete_test(t)
@@ -161,7 +166,7 @@ def run_one_shot(
     if all_clean:
         atexit.unregister(_delete_test)
     log.debug("polls: %d health: %s", polls, health)
-    return health[0] if health else None, polls
+    return tid, polls, health[0] if health else None
 
 
 def load_test(api: APIs, file: Path, fail: Callable[[str], None] = _fail) -> Optional[SynTest]:

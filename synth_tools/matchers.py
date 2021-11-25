@@ -293,6 +293,7 @@ class OneOfEachMatcher(Matcher):
 
 
 def all_matcher_from_rules(rules: List[str]) -> AllMatcher:
+    log.debug("rules: '%s'", rules)
     matchers: List[Dict] = []
     for r in rules:
         parts = r.split(":", maxsplit=1)

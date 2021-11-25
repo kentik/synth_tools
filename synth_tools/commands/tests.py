@@ -54,14 +54,15 @@ def one_shot(
     if print_config:
         print_test(test, show_all=show_all)
 
-    health, polls = run_one_shot(api, test, wait_factor=wait_factor, retries=retries, delete=delete)
+    tid, polls, health = run_one_shot(api, test, wait_factor=wait_factor, retries=retries, delete=delete)
 
-    results = make_test_results(health, polls)
+    results = make_test_results(health, test_id=tid, polls=polls)
     dump_test_results(None, results, json_out=json_out)
 
     if summary:
         print_dict(
             dict(
+                test_id=tid,
                 type=test.type.value,
                 name=test.name,
                 agents=test.settings.agentIds,
