@@ -125,7 +125,7 @@ def run_one_shot(
         try:
             api.syn.set_test_status(t.id, TestStatus.active)
         except KentikAPIRequestError as ex:
-            log.error("Failed to activate test '%s' (id: %s) (%s)", t.name, t.id, ex)
+            log.error("tid: %s Failed to activate test (%s)", tid, ex)
             return tid, None, None
 
     wait_time = max(
@@ -135,7 +135,7 @@ def run_one_shot(
     start = datetime.now(tz=timezone.utc)
     while retries:
         if wait_time > 0:
-            log.info("Waiting %s seconds for test to accumulate results", wait_time)
+            log.info("tid: %s: Waiting %s seconds for test to accumulate results", tid, wait_time)
             sleep(wait_time)
         wait_time = t.max_period * 1.0
         now = datetime.now(tz=timezone.utc)
@@ -147,31 +147,32 @@ def run_one_shot(
                 end=now,
             )
         except KentikAPIRequestError as ex:
-            log.error("Failed to retrieve test health (%s). Retrying ...", ex)
+            log.error("tid: %s Failed to retrieve test health (%s). Retrying ...", tid, ex)
             retries -= 1
             continue
         if len(health) < 1:
-            log.debug("Health not available after %f seconds", (now - start).total_seconds())
+            log.debug("tid: %s Health not available after %f seconds", tid, (now - start).total_seconds())
             retries -= 1
             continue
         health_ts = datetime.fromisoformat(health[0]["overallHealth"]["time"].replace("Z", "+00:00"))
         if (health_ts - now).total_seconds() > t.max_period * wait_factor:
             log.info(
-                "Stale health data after %f second (timestamp: %s)",
+                "tid: %s Stale health data after %f second (timestamp: %s)",
+                tid,
                 (now - start).total_seconds(),
                 health_ts.isoformat(),
             )
             retries -= 1
             continue
         log.debug(
-            "Test '%s' is %s at %s",
-            t.id,
+            "tid: %s %s at %s",
+            tid,
             health[0]["overallHealth"]["health"],
             health_ts.isoformat(),
         )
         break
     else:
-        log.debug("Failed to get valid health data for test id: %s", t.id)
+        log.debug("tid: %s Failed to get valid health data for test", tid)
         health = None, tid, polls
 
     if delete:
@@ -180,7 +181,7 @@ def run_one_shot(
         all_clean = _pause_test(t)
     if all_clean:
         atexit.unregister(_delete_test)
-    log.debug("polls: %d health: %s", polls, health)
+    log.debug("tid: %s polls: %d health: %s", tid, polls, health)
     return tid, polls, health[0] if health else None
 
 
