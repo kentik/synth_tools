@@ -20,52 +20,67 @@ def _fail(msg: str) -> None:
     raise RuntimeError(msg)
 
 
-def make_test_results(
-    health: Optional[Dict[str, Any]], test_id: Optional[str] = None, polls: Optional[int] = None
-) -> Dict[str, Any]:
-    results: Dict[str, Any] = defaultdict(list)
-    results["success"] = health is not None
-    if test_id:
-        results["test_id"] = test_id
-    if polls is not None:
-        results["polls"] = polls
-    if not health:
-        return results
-    results["targets"] = defaultdict(list)
-    for task in health["tasks"]:
-        for agent in task["agents"]:
-            for h in agent["health"]:
-                for task_type in ("ping", "knock", "shake", "dns", "http"):
-                    if task_type in task["task"]:
-                        if task_type == "dns":
-                            target = f"{task['task'][task_type]['target']} via {task['task'][task_type]['resolver']}"
-                        else:
-                            target = task["task"][task_type]["target"]
-                        break
-                else:
-                    target = h["dstIp"]
-                    task_type = h["taskType"]
-                e = dict(
-                    time=h["overallHealth"]["time"],
-                    agent_id=agent["agent"]["id"],
-                    agent_addr=agent["agent"]["ip"],
-                    task_type=task_type,
-                    loss=f"{h['packetLoss'] * 100}% ({h['packetLossHealth']})",
-                    latency=f"{h['avgLatency']/1000}ms ({h['latencyHealth']})",
-                    jitter=f"{h['avgJitter']/1000}ms ({h['jitterHealth']})",
-                )
-                for field in ("data", "status", "size"):
-                    if field in h:
-                        e[field] = h[field]
-                data = e.get("data")
-                if data:
-                    try:
-                        e["data"] = json.loads(data)
-                    except json.decoder.JSONDecodeError as ex:
-                        log.critical("Failed to parse JSON in health data '%s' (exception: %s)", data, ex)
-                results["targets"][target].append(e)
+class TestResults:
+    def __init__(
+        self,
+        test: SynTest,
+        test_id: Optional[str] = None,
+        polls: Optional[int] = None,
+        health: Optional[Dict[str, Any]] = None,
+    ):
+        self.test_id = test_id
+        self.name = test.name
+        self.type = test.type.value
+        self.agents = test.settings.agentIds
+        self.polls = polls
+        self.targets: Dict[str, Any] = defaultdict(list)
+        self.success = health is not None
+        if not health:
+            return
+        for task in health["tasks"]:
+            for agent in task["agents"]:
+                for h in agent["health"]:
+                    for task_type in ("ping", "knock", "shake", "dns", "http"):
+                        if task_type in task["task"]:
+                            if task_type == "dns":
+                                target = (
+                                    f"{task['task'][task_type]['target']} via {task['task'][task_type]['resolver']}"
+                                )
+                            else:
+                                target = task["task"][task_type]["target"]
+                            break
+                    else:
+                        target = h["dstIp"]
+                        task_type = h["taskType"]
+                    e = dict(
+                        time=h["overallHealth"]["time"],
+                        agent_id=agent["agent"]["id"],
+                        agent_addr=agent["agent"]["ip"],
+                        task_type=task_type,
+                        loss=f"{h['packetLoss'] * 100}% ({h['packetLossHealth']})",
+                        latency=f"{h['avgLatency']/1000}ms ({h['latencyHealth']})",
+                        jitter=f"{h['avgJitter']/1000}ms ({h['jitterHealth']})",
+                    )
+                    for field in ("data", "status", "size"):
+                        if field in h:
+                            e[field] = h[field]
+                    data = e.get("data")
+                    if data:
+                        try:
+                            e["data"] = json.loads(data)
+                        except json.decoder.JSONDecodeError as ex:
+                            log.critical("Failed to parse JSON in health data '%s' (exception: %s)", data, ex)
+                    self.targets[target].append(e)
 
-    return results
+    def to_dict(self) -> Dict[str, Any]:
+        return dict(
+            success=self.success,
+            id=self.test_id,
+            name=self.name,
+            agents=self.agents,
+            polls=self.polls,
+            targets={k: v for k, v in self.targets.items()},
+        )
 
 
 def run_one_shot(
