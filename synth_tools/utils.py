@@ -87,20 +87,12 @@ def print_test_results(
             typer.echo(f"{k}: {v}")
 
 
-def dump_test_results(
-    health: Optional[Dict[str, Any]],
-    results: Dict[str, Any],
-    raw_out: Optional[str] = None,
-    json_out: Optional[str] = None,
-):
-    if raw_out and health:
-        log.info("Writing health data to '%s'", raw_out)
-        with open(raw_out, "w") as f:
-            json.dump(health, f, indent=2)
-    if json_out:
-        log.info("Writing results to '%s'", json_out)
-        with open(json_out, "w") as f:
-            json.dump(results, f, indent=2)
+def dict_to_json(filename: str, data: Dict[str, Any]) -> None:
+    try:
+        with open(filename, "w") as f:
+            json.dump(data, f, indent=2)
+    except OSError as ex:
+        fail(f"Cannot write to file '{filename}' ({ex})")
 
 
 INTERNAL_TEST_SETTINGS = (

@@ -1,14 +1,15 @@
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import typer
 
 from kentik_synth_client import KentikAPIRequestError, KentikSynthClient, TestStatus
 from kentik_synth_client.synth_tests import SynTest
-from synth_tools.core import load_test, make_test_results, run_one_shot
+from synth_tools import log
+from synth_tools.core import TestResults, load_test, run_one_shot
 from synth_tools.matchers import all_matcher_from_rules
 from synth_tools.utils import (
-    dump_test_results,
+    dict_to_json,
     fail,
     get_api,
     print_dict,
@@ -56,25 +57,23 @@ def one_shot(
 
     tid, polls, health = run_one_shot(api, test, wait_factor=wait_factor, retries=retries, delete=delete)
 
-    results = make_test_results(health, test_id=tid, polls=polls)
-    dump_test_results(None, results, json_out=json_out)
+    results = TestResults(test=test, health=health, test_id=tid, polls=polls)
+
+    if json_out:
+        log.info("Writing results to %s", json_out)
+        dict_to_json(json_out, results.to_dict())
 
     if summary:
-        print_dict(
-            dict(
-                test_id=tid,
-                type=test.type.value,
-                name=test.name,
-                agents=test.settings.agentIds,
-                success=results["success"],
-                polls=results["polls"],
-            )
-        )
+        d: Dict[str, Any] = dict()
+        for k, v in results.to_dict().items():
+            if k in ("id", "type", "name", "success", "agents", "polls"):
+                d[k] = v
+        print_dict(d)
     else:
-        print_test_results(results)
+        print_test_results(results.to_dict())
 
-    if not results["success"]:
-        fail(f"Test did not produce any health data in {results['polls']} retries")
+    if not results.success:
+        fail(f"Test did not produce any health data in {results.polls} retries")
 
 
 @tests_app.command("create")
@@ -232,6 +231,11 @@ def get_test_health(
     if not health:
         fail(f"Test '{test_id}' did not produce any health data")
 
-    results = make_test_results(health[0])
-    dump_test_results(health, results, raw_out=raw_out, json_out=json_out)
-    print_test_results(results)
+    results = TestResults(t, test_id=t.id, health=health[0])
+    if raw_out:
+        log.info("Writing health data to %s", raw_out)
+        dict_to_json(raw_out, health)
+    if json_out:
+        log.info("Writing results to %s", json_out)
+        dict_to_json(json_out, results.to_dict())
+    print_test_results(results.to_dict())
