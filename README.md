@@ -8,7 +8,7 @@ The synth_tools repo consists of 2 components:
 
 ## Requirements and Installation
 
-The `synth_tools` packages requires Python3 to execute. The lowest tested version is 3.7.3 and the newest 3.10.0.
+The `synth_tools` package requires Python3 to execute. The lowest tested version is 3.7.3 and the newest 3.10.0.
 The package is currently not published to PyPi, but it can be installed directly from Github.
 
 _Note_: Installation directly from Github requires to have `git` installed and on `$PATH`.
