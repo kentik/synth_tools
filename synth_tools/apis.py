@@ -1,4 +1,3 @@
-import logging
 import os
 from typing import Callable, Optional
 from urllib.parse import urlparse
@@ -8,8 +7,7 @@ from kentik_api.utils import get_credentials
 from kentik_api.utils.auth import load_credential_profile
 
 from kentik_synth_client import KentikSynthClient
-
-log = logging.getLogger("apis")
+from synth_tools import log
 
 
 def _fail(msg: str) -> None:

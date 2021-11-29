@@ -1,6 +1,5 @@
 import atexit
 import json
-import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -10,10 +9,9 @@ from typing import Any, Callable, Dict, Optional, Tuple
 import yaml
 
 from kentik_synth_client import KentikAPIRequestError, SynTest, TestStatus
+from synth_tools import log
 from synth_tools.apis import APIs
 from synth_tools.test_factory import TestFactory
-
-log = logging.getLogger("core")
 
 
 def _fail(msg: str) -> None:
