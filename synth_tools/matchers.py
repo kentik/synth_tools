@@ -1,4 +1,3 @@
-import logging
 import re
 import sys
 from abc import ABC, abstractmethod
@@ -7,9 +6,8 @@ from enum import Enum
 from itertools import product
 from typing import Any, Callable, Dict, List, Optional
 
+from synth_tools import log
 from synth_tools.utils import fail, snake_to_camel
-
-log = logging.getLogger("matchers")
 
 
 class Matcher(ABC):

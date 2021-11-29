@@ -1,4 +1,3 @@
-import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from ipaddress import ip_address
@@ -26,11 +25,10 @@ from kentik_synth_client.synth_tests import (
     UrlTest,
 )
 from kentik_synth_client.types import *
+from synth_tools import log
 from synth_tools.apis import APIs
 from synth_tools.matchers import AllMatcher
 from synth_tools.utils import snake_to_camel, transform_dict_keys
-
-log = logging.getLogger("test_factory")
 
 
 def _fail(msg: str) -> None:
@@ -596,7 +594,7 @@ class TestFactory:
         now = datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat()
         try:
             name = test_cfg.get("name", "__auto:{config_name}:{host}:{iso_date}").format(
-                iso_date=now, config_name=config_name, host=uname()[1]
+                iso_date=now, config_name=config_name, host=uname().nodename
             )
         except KeyError as exc:
             fail(f"Test name template ({test_cfg['name']}) contains unsupported keyword {exc}")
