@@ -55,6 +55,7 @@ def one_shot(
     if print_config:
         print_test(test, show_all=show_all)
 
+    typer.echo("Waiting for test to accumulate results ...")
     tid, polls, health = run_one_shot(api, test, wait_factor=wait_factor, retries=retries, delete=delete)
 
     results = TestResults(test=test, health=health, test_id=tid, polls=polls)
