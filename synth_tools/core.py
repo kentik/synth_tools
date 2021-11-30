@@ -133,7 +133,7 @@ def run_one_shot(
     start = datetime.now(tz=timezone.utc)
     while retries:
         if wait_time > 0:
-            log.info("tid: %s: Waiting %s seconds for test to accumulate results", tid, wait_time)
+            log.debug("tid: %s: Waiting %s seconds for test to accumulate results", tid, wait_time)
             sleep(wait_time)
         wait_time = t.max_period * 1.0
         now = datetime.now(tz=timezone.utc)
