@@ -1,6 +1,6 @@
 test:
   type: url
-  period: 600
+  period: 60
   ping:
     protocol: icmp
     timeout: 3000

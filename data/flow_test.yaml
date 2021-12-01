@@ -1,6 +1,6 @@
 test:
   type: flow
-  period: 600
+  period: 60
   protocol: tcp
   target_type: city
   direction: dst

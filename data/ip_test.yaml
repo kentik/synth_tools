@@ -1,6 +1,6 @@
 test:
   type: ip
-  period: 600
+  period: 60
   ping:
     port: 80
     protocol: tcp

@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from time import sleep
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import yaml
 
@@ -22,14 +22,10 @@ class TestResults:
     def __init__(
         self,
         test: SynTest,
-        test_id: Optional[str] = None,
         polls: Optional[int] = None,
         health: Optional[Dict[str, Any]] = None,
     ):
-        self.test_id = test_id
-        self.name = test.name
-        self.type = test.type.value
-        self.agents = test.settings.agentIds
+        self.test = test
         self.polls = polls
         self.targets: Dict[str, Any] = defaultdict(list)
         self.success = health is not None
@@ -70,12 +66,36 @@ class TestResults:
                             log.critical("Failed to parse JSON in health data '%s' (exception: %s)", data, ex)
                     self.targets[target].append(e)
 
+    @property
+    def type(self) -> str:
+        return self.test.type.value
+
+    @property
+    def id(self):
+        return self.test.id
+
+    @property
+    def name(self) -> str:
+        return self.test.name
+
+    @property
+    def test_targets(self):
+        return self.test.targets
+
+    @property
+    def agents(self) -> List[str]:
+        return self.test.settings.agentIds
+
     def to_dict(self) -> Dict[str, Any]:
         return dict(
             success=self.success,
-            id=self.test_id,
-            name=self.name,
-            agents=self.agents,
+            test=dict(
+                id=self.id,
+                type=self.type,
+                name=self.name,
+                targets=self.test_targets,
+                agents=self.agents,
+            ),
             polls=self.polls,
             targets={k: v for k, v in self.targets.items()},
         )

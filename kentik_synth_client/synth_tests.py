@@ -3,6 +3,8 @@ from dataclasses import dataclass, field, fields
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, TypeVar
 
+import inflection
+
 from .types import *
 
 log = logging.getLogger("synth_tests")
@@ -218,6 +220,20 @@ class SynTest(_ConfigElement):
             and self.settings.__getattribute__(f.name)._name in self.settings.tasks
         )
 
+    @property
+    def targets(self) -> List[str]:
+        type_label = inflection.camelize(self.type.value, False)
+        try:
+            d = getattr(self.settings, type_label)
+            if "target" in d:
+                return [d["target"]]
+            if "targets" in d:
+                return d["targets"]
+        except AttributeError:
+            pass
+        log.debug("'%s' (type: '%s'): Test has not targets", self.name, self.type.value)
+        return []
+
     def undeploy(self):
         self._id = "0"
 
@@ -342,6 +358,10 @@ class MeshTest(PingTraceTest):
     def create(cls: Type[MeshTestType], name: str, agent_ids: List[str]) -> MeshTestType:
         return cls(name=name, settings=PingTraceTestSettings(agentIds=agent_ids))
 
+    @property
+    def targets(self) -> List[str]:
+        return self.settings.agentIds
+
 
 @dataclass
 class GridTestSettings(PingTraceTestSettings):
@@ -403,6 +423,11 @@ class FlowTest(PingTraceTest):
                 ),
             ),
         )
+
+    @property
+    def targets(self) -> List[str]:
+        d = self.settings.flow
+        return [f"{d['direction']}:{d['type']}:{d['target']}"]
 
 
 @dataclass

@@ -1,6 +1,6 @@
 test:
   type: dns_grid
-  period: 600
+  period: 60
   health_settings:
     dns_valid_codes: [0]
   record_type: DNS_RECORD_AAAA

@@ -58,7 +58,7 @@ def one_shot(
     typer.echo("Waiting for test to accumulate results ...")
     tid, polls, health = run_one_shot(api, test, wait_factor=wait_factor, retries=retries, delete=delete)
 
-    results = TestResults(test=test, health=health, test_id=tid, polls=polls)
+    results = TestResults(test=test, health=health, polls=polls)
 
     if json_out:
         log.info("Writing results to %s", json_out)
@@ -232,7 +232,7 @@ def get_test_health(
     if not health:
         fail(f"Test '{test_id}' did not produce any health data")
 
-    results = TestResults(t, test_id=t.id, health=health[0])
+    results = TestResults(t, health=health[0])
     if raw_out:
         log.info("Writing health data to %s", raw_out)
         dict_to_json(raw_out, health)
