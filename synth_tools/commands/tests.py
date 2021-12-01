@@ -58,7 +58,7 @@ def one_shot(
     typer.echo("Waiting for test to accumulate results ...")
     tid, polls, health = run_one_shot(api, test, wait_factor=wait_factor, retries=retries, delete=delete)
 
-    results = TestResults(test=test, health=health, polls=polls)
+    results = TestResults(test=test, test_id=tid, health=health, polls=polls)
 
     if json_out:
         log.info("Writing results to %s", json_out)

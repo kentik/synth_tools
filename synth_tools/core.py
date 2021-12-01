@@ -22,10 +22,14 @@ class TestResults:
     def __init__(
         self,
         test: SynTest,
+        test_id: Optional[str] = None,
         polls: Optional[int] = None,
         health: Optional[Dict[str, Any]] = None,
     ):
         self.test = test
+        self.test_id = test_id
+        if self.test_id is None and test.deployed:
+            self.test_id = test.id
         self.polls = polls
         self.targets: Dict[str, Any] = defaultdict(list)
         self.success = health is not None
@@ -71,10 +75,6 @@ class TestResults:
         return self.test.type.value
 
     @property
-    def id(self):
-        return self.test.id
-
-    @property
     def name(self) -> str:
         return self.test.name
 
@@ -90,7 +90,7 @@ class TestResults:
         return dict(
             success=self.success,
             test=dict(
-                id=self.id,
+                id=self.test_id,
                 type=self.type,
                 name=self.name,
                 targets=self.test_targets,
