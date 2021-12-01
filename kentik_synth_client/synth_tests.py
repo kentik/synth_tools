@@ -231,7 +231,7 @@ class SynTest(_ConfigElement):
                 return d["targets"]
         except AttributeError:
             pass
-        log.debug("'%s' (type: '%s'): Test has not targets", self.name, self.type.value)
+        log.debug("'%s' (type: '%s'): Test has no targets", self.name, self.type.value)
         return []
 
     def undeploy(self):
