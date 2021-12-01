@@ -1,6 +1,6 @@
 test:
   type: page_load
-  period: 600
+  period: 60
   ping:
     protocol: icmp
     timeout: 3000
@@ -21,13 +21,10 @@ test:
 
 targets:
   use:
-  - https://www.example.com
+  - https://httpbin.org/anything
 
 agents:
   match:
-  - any:
-    - family: IP_FAMILY_V4
-    - family: IP_FAMILY_DUAL
   - one_of_each:
       asn: [31898, 16509]
       country: [United States, US]

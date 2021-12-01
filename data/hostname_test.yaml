@@ -1,6 +1,6 @@
 test:
   type: hostname
-  period: 300
+  period: 60
   ping:
     protocol: icmp
     timeout: 3000

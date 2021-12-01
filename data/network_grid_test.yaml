@@ -1,5 +1,5 @@
 test:
-  period: 300
+  period: 60
   type: network_grid
 
 targets:

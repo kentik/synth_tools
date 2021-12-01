@@ -1,7 +1,7 @@
 test:
   type: mesh
   family: IP_FAMILY_V4
-  period: 600
+  period: 60
   ping:
     protocol: icmp
     timeout: 3000
