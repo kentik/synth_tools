@@ -31,7 +31,7 @@ class TestResults:
         if self.test_id is None and test.deployed:
             self.test_id = test.id
         self.polls = polls
-        self.targets: Dict[str, Any] = defaultdict(list)
+        self.results: Dict[str, Any] = defaultdict(list)
         self.success = health is not None
         if not health:
             return
@@ -68,7 +68,7 @@ class TestResults:
                             e["data"] = json.loads(data)
                         except json.decoder.JSONDecodeError as ex:
                             log.critical("Failed to parse JSON in health data '%s' (exception: %s)", data, ex)
-                    self.targets[target].append(e)
+                    self.results[target].append(e)
 
     @property
     def type(self) -> str:
@@ -97,7 +97,7 @@ class TestResults:
                 agents=self.agents,
             ),
             polls=self.polls,
-            targets={k: v for k, v in self.targets.items()},
+            results={k: v for k, v in self.results.items()},
         )
 
 
