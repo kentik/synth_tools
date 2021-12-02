@@ -215,11 +215,13 @@ class SynTest(_ConfigElement):
             return None
 
     @property
-    def created_by(self) -> str:
+    def created_by(self) -> Optional[str]:
+        if all(not x for x in (self._createdBy.__dict__.values())):
+            return None
         if self._createdBy.fullName:
-            return f"{self._createdBy.fullName} id: {self._createdBy.id} e-mail: {self._createdBy.email}"
+            return f"{self._createdBy.fullName} user_id: {self._createdBy.id} e-mail: {self._createdBy.email}"
         else:
-            return f"id: {self._createdBy.id} e-mail: {self._createdBy.email}"
+            return f"user_id: {self._createdBy.id} e-mail: {self._createdBy.email}"
 
     @property
     def max_period(self) -> int:

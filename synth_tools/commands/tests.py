@@ -152,8 +152,11 @@ def get_test(
     Print test configuration
     """
     api = get_api(ctx)
+    print_id = len(test_ids) > 1 and (not fields or "id" not in fields.split(","))
     for i in test_ids:
         t = _get_test_by_id(api.syn, i)
+        if print_id:
+            typer.echo(f"id: {t.id}")
         print_test(t, show_all=show_all, attributes=fields)
 
 
