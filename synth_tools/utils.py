@@ -109,6 +109,7 @@ def test_to_dict(test: SynTest) -> Dict[str, Any]:
     d = test.to_dict()["test"]
     d["created"] = test.cdate
     d["modified"] = test.edate
+    d["created_by"] = test.created_by
     return d
 
 
