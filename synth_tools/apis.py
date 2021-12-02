@@ -17,8 +17,8 @@ def _fail(msg: str) -> None:
 class APIs:
     def __init__(
         self,
-        mgmt_profile: str,
-        syn_profile: str,
+        mgmt_profile: Optional[str] = None,
+        syn_profile: Optional[str] = None,
         proxy: Optional[str] = None,
         api_url: Optional[str] = None,
         fail: Callable[[str], None] = _fail,
@@ -35,6 +35,13 @@ class APIs:
         log.debug("API: proxy: %s", self.proxy)
 
     def _load_profile(self, profile: str) -> dict:
+        if not profile:
+            log.debug("No profile provided, expecting credentials in environment variables")
+            missing = [v for v in ("KTAPI_AUTH_EMAIL", "KTAPI_AUTH_TOKEN") if not os.environ.get(v)]
+            if missing:
+                log.error("No credential profile specified and no %s in environment", " ".join(missing))
+                self._fail("Missing authentication credentials ({})".format(" ".join(missing)))
+            return {}
         home = os.environ.get("KTAPI_HOME", os.environ.get("HOME", "."))
         cfg_file = os.environ.get("KTAPI_CFG_FILE", os.path.join(home, ".kentik", profile))
         cfg = load_credential_profile(cfg_file)
@@ -51,8 +58,6 @@ class APIs:
     @property
     def mgmt(self):
         if not self._mgmt_api:
-            if not self.mgmt_profile:
-                self._fail("No authentication profile specified to target account")
             if self.proxy:
                 proxy = self.proxy
             else:
@@ -77,8 +82,6 @@ class APIs:
     @property
     def syn(self):
         if not self._syn_api:
-            if not self.syn_profile:
-                self._fail("No authentication profile specified (---profile option is required)")
             if self.proxy:
                 proxy = self.proxy
             else:

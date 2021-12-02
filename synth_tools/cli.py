@@ -26,7 +26,7 @@ def version_callback(value: bool) -> None:
 @app.callback(no_args_is_help=True)
 def main(
     ctx: typer.Context,
-    profile: str = typer.Option(
+    profile: Optional[str] = typer.Option(
         "default",
         "-p",
         "--profile",
@@ -51,6 +51,8 @@ def main(
     if debug:
         log.setLevel(logging.DEBUG)
         log.debug("Debug output enabled")
+    if profile == "-":
+        profile = None
     if target_profile is None:
         target_profile = profile
 

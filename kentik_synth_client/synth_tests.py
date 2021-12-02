@@ -174,6 +174,13 @@ class SynTestSettings(_ConfigElement):
 
 
 @dataclass
+class UserInfo(_ConfigElement):
+    id: str = ""
+    email: str = ""
+    fullName: str = ""
+
+
+@dataclass
 class SynTest(_ConfigElement):
     name: str
     type: TestType = field(init=False, default=TestType.none)
@@ -182,6 +189,7 @@ class SynTest(_ConfigElement):
     _id: str = field(default="0", init=False)
     _cdate: str = field(default_factory=str, init=False)
     _edate: str = field(default_factory=str, init=False)
+    _createdBy: UserInfo = field(default_factory=UserInfo, init=False)
     settings: SynTestSettings = field(default_factory=SynTestSettings)
 
     @property
@@ -205,6 +213,13 @@ class SynTest(_ConfigElement):
             return datetime.fromisoformat(self._edate.replace("Z", "+00:00"))
         except ValueError:
             return None
+
+    @property
+    def created_by(self) -> str:
+        if self._createdBy.fullName:
+            return f"{self._createdBy.fullName} id: {self._createdBy.id} e-mail: {self._createdBy.email}"
+        else:
+            return f"id: {self._createdBy.id} e-mail: {self._createdBy.email}"
 
     @property
     def max_period(self) -> int:
