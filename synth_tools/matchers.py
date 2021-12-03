@@ -216,6 +216,7 @@ class SetMatcher(Matcher):
     ):
         self.matchers = []
         self.max_matches: Optional[int] = max_matches
+        self._done = False
         for e in data:
             for k, v in e.items():
                 if k in self.SPECIAL:
@@ -225,16 +226,22 @@ class SetMatcher(Matcher):
                 self.matchers.append(matcher)
         log.debug("%s: %d matchers, max_matches: %s", self.__class__.__name__, len(self.matchers), self.max_matches)
 
-    @abstractmethod
     def match(self, data: object) -> bool:
-        return super().match(data)
+        if self._done:
+            return False
+        if self.max_matches is not None and self.max_matches == 0:
+            log.debug("%s: match limit reached", self.__class__.__name__)
+            self._done = True
+            return False
+        return self.do_match(data)
+
+    @abstractmethod
+    def do_match(self, data: object) -> bool:
+        raise NotImplementedError
 
 
 class AllMatcher(SetMatcher):
-    def match(self, data: object) -> bool:
-        if self.max_matches is not None and self.max_matches == 0:
-            log.debug("%s: match limit reached", self.__class__.__name__)
-            return False
+    def do_match(self, data: object) -> bool:
         for m in self.matchers:
             if not m.match(data):
                 log.debug("%s: ret '%s'", self.__class__.__name__, False)
@@ -246,10 +253,7 @@ class AllMatcher(SetMatcher):
 
 
 class AnyMatcher(SetMatcher):
-    def match(self, data: object) -> bool:
-        if self.max_matches is not None and self.max_matches == 0:
-            log.debug("%s: match limit reached", self.__class__.__name__)
-            return False
+    def do_match(self, data: object) -> bool:
         if not self.matchers:
             log.debug("%s: no matchers: ret '%s'", self.__class__.__name__, True)
             if self.max_matches is not None:

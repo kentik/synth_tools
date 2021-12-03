@@ -561,49 +561,68 @@ class TestFactory:
         "flow": TestEntry(make_test=make_flow_test, target_loader=any_str_targets, agent_loader=rust_agents),
     }
 
+    @staticmethod
+    def _make_error_handler(
+        fail: Callable[[str], None],
+        config_name: str,
+        test_name: Optional[str] = None,
+        test_type: Optional[str] = None,
+    ) -> Callable[[str], None]:
+        def _report(msg):
+            info = f"Failed to create test: cfg file: {config_name}"
+            if test_name:
+                info += f", name: {test_name}"
+            if test_type:
+                info += f", type: {test_type}"
+            fail(f"{info} - {msg}")
+
+        return _report
+
     def create(self, api: APIs, config_name: str, cfg: dict, fail: Callable[[str], None] = _fail) -> Optional[SynTest]:
+        _error_handler = self._make_error_handler(fail, config_name)
         missing = [k for k in ("test", "agents") if k not in cfg]
         if missing:
-            fail("Mandatory sections missing in configuration: {}".format(", ".join(missing)))
+            _error_handler("Mandatory sections missing in configuration: {}".format(", ".join(missing)))
         test_cfg = cfg["test"]
         test_type = test_cfg.get("type")
         if not test_type:
-            fail("No 'test.type' in configuration")
+            _error_handler("No 'test.type' in configuration")
         entry = self._MAP.get(test_type)
         if not entry:
-            fail(f"Unsupported test type: {test_type} (supported types: {self._MAP.keys()})")
+            _error_handler(f"Unsupported test type: {test_type} (supported types: {self._MAP.keys()})")
             raise RuntimeError("Never reached")  # just to make mypy happy :-/
-
-        if entry.requires_targets:
-            if "targets" not in cfg:
-                fail("Required 'targets' section is missing in configuration")
-            targets = entry.target_loader(api, cfg["targets"], fail)
-            if not targets:
-                fail("No targets matched test configuration")
-            log.debug("TestFactory:create: targets: '%s'", ", ".join(targets))
-        else:
-            if "targets" in cfg:
-                log.warning("'targets' section is ignored for '%s' test", test_type)
-            targets = set()
-
-        agent_ids = entry.agent_loader(api, cfg["agents"], fail)
-        if not agent_ids:
-            fail("No agents matched configuration")
-        log.debug("TestFactory:create: agent_ids: '%s'", ", ".join([str(a) for a in agent_ids]))
-
+        _error_handler = self._make_error_handler(fail, config_name, test_type=test_type)
         now = datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat()
         try:
             name = test_cfg.get("name", "__auto:{config_name}:{host}:{iso_date}").format(
                 iso_date=now, config_name=config_name, host=uname().nodename
             )
         except KeyError as exc:
-            fail(f"Test name template ({test_cfg['name']}) contains unsupported keyword {exc}")
+            _error_handler(f"Test name template ({test_cfg['name']}) contains unsupported keyword {exc}")
             return None  # never reached ... just to make linters happy
+        _error_handler = self._make_error_handler(fail, config_name, name)
+        if entry.requires_targets:
+            if "targets" not in cfg:
+                _error_handler("Required 'targets' section is missing in configuration")
+            targets = entry.target_loader(api, cfg["targets"], _error_handler)
+            if not targets:
+                _error_handler("No targets matched test configuration")
+            log.debug("TestFactory:create: targets: '%s'", ", ".join(targets))
+        else:
+            if "targets" in cfg:
+                log.warning("'targets' section is ignored for '%s' test", test_type)
+            targets = set()
+
+        agent_ids = entry.agent_loader(api, cfg["agents"], _error_handler)
+        if not agent_ids:
+            _error_handler("No agents matched configuration")
+        log.debug("TestFactory:create: agent_ids: '%s'", ", ".join([str(a) for a in agent_ids]))
+
         try:
-            test = entry.make_test(name, list(targets), list(agent_ids), test_cfg, fail)
+            test = entry.make_test(name, list(targets), list(agent_ids), test_cfg, _error_handler)
         except TypeError as exc:
             invalid_arg = str(exc).split("'")[1]
-            fail(f"Unsupported test attribute: '{invalid_arg}'")
+            _error_handler(f"Unsupported test attribute: '{invalid_arg}'")
             return None  # never reached ... just to make linters happy
         set_common_test_params(test, test_cfg)
         return test
