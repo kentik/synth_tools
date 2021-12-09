@@ -68,7 +68,7 @@ def one_shot(
                 id=results.test_id,
                 type=results.test_type,
                 name=results.test_name,
-                success=results.success,
+                status=results.status.name,
                 agents=results.test_agents,
                 polls=results.polls,
             )

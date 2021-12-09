@@ -3,6 +3,7 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from enum import Enum
 from pathlib import Path
 from time import sleep
 from typing import Any, Callable, Dict, List, Optional
@@ -28,10 +29,22 @@ class ErrorRecord:
         return {k: str(v) for k, v in self.__dict__.items()}
 
 
+class TestRunStatus(Enum):
+    NONE = "none"
+    SUCCESS = "success"
+    CONFIG_BUILD_FAILED = "config build failed"
+    CREATION_FAILED = "creation failed"
+    NO_HEALTH_DATA = "no health data"
+    DELETE_FAILED = "test delete failed"
+    STATUS_CHANGE_FAILED = "status change failed"
+    RETRYABLE_ERROR = "retryable error"
+    OTHER = "other"
+
+
 class TestResults:
     def __init__(
         self,
-        test: SynTest,
+        test: Optional[SynTest] = None,
     ):
         self.test = test
         if self.test:
@@ -41,10 +54,10 @@ class TestResults:
         self.polls = 0
         self.errors: List[ErrorRecord] = list()
         self.results: Dict[str, Any] = defaultdict(list)
-        self.success = False
+        self.status = TestRunStatus.NONE
 
     def set_health(self, health):
-        self.success = True
+        self.status = TestRunStatus.SUCCESS
         for task in health["tasks"]:
             for agent in task["agents"]:
                 for h in agent["health"]:
@@ -82,7 +95,8 @@ class TestResults:
         for entries in self.results.values():
             entries.sort(key=lambda x: x["time"])
 
-    def record_error(self, label: str, cause: Any):
+    def record_error(self, status: TestRunStatus, label: str, cause: Any):
+        self.status = status
         self.errors.append(ErrorRecord(label, cause))
 
     @property
@@ -103,7 +117,7 @@ class TestResults:
 
     def to_dict(self) -> Dict[str, Any]:
         return dict(
-            success=self.success,
+            status=self.status.name,
             test=dict(
                 id=self.test_id,
                 type=self.test_type,
@@ -128,8 +142,8 @@ def run_one_shot(api: APIs, test: SynTest, retries: int = 3, delete: bool = True
             api.syn.delete_test(tst.id)
             log.info("Deleted test %s' (id: %s)", tst.name, tst.id)
             return True
-        except KentikAPIRequestError as ex:
-            r.record_error("API_ERROR: TestDelete", ex)
+        except Exception as ex:
+            r.record_error(TestRunStatus.DELETE_FAILED, "API_ERROR: TestDelete", ex)
             log.error("Failed to delete test '%s' (id: %s) (%s)", tst.name, tst.id, ex)
             return False
 
@@ -138,8 +152,8 @@ def run_one_shot(api: APIs, test: SynTest, retries: int = 3, delete: bool = True
         try:
             api.syn.set_test_status(tst.id, TestStatus.paused)
             return True
-        except KentikAPIRequestError as ex:
-            r.record_error("API_ERROR: TestStatusUpdate", ex)
+        except Exception as ex:
+            r.record_error(TestRunStatus.STATUS_CHANGE_FAILED, "API_ERROR: TestStatusUpdate", ex)
             log.error("Failed to pause test '%s' (id: %s) (%s)", tst.name, tst.id, ex)
             return False
 
@@ -148,8 +162,8 @@ def run_one_shot(api: APIs, test: SynTest, retries: int = 3, delete: bool = True
         t = api.syn.create_test(test)
         # make sure that we do not leave detritus behind if execution is terminated prematurely
         atexit.register(_delete_test, t)
-    except KentikAPIRequestError as exc:
-        r.record_error("API_ERROR: TestCreate", exc)
+    except Exception as exc:
+        r.record_error(TestRunStatus.CREATION_FAILED, "API_ERROR: TestCreate", exc)
         log.error("Failed to create test '%s' (%s)", test.name, exc)
         return r
     log.info("Created test '%s' (id: %s)", t.name, t.id)
@@ -158,8 +172,8 @@ def run_one_shot(api: APIs, test: SynTest, retries: int = 3, delete: bool = True
         log.info("Activating test '%s'", t.name)
         try:
             api.syn.set_test_status(t.id, TestStatus.active)
-        except KentikAPIRequestError as exc:
-            r.record_error("API_ERROR: TestStatusUpdate", exc)
+        except Exception as exc:
+            r.record_error(TestRunStatus.STATUS_CHANGE_FAILED, "API_ERROR: TestStatusUpdate", exc)
             log.error("tid: %s Failed to activate test (%s)", t.id, exc)
             return r
 
@@ -182,10 +196,14 @@ def run_one_shot(api: APIs, test: SynTest, retries: int = 3, delete: bool = True
                 end=now,
             )
         except KentikAPIRequestError as exc:
-            r.record_error("API_ERROR: GetHealthForTests", exc)
+            r.record_error(TestRunStatus.RETRYABLE_ERROR, "API_ERROR: GetHealthForTests", exc)
             log.error("tid: %s Failed to retrieve test health (%s). Retrying ...", t.id, exc)
             retries -= 1
             continue
+        except Exception as exc:
+            r.record_error(TestRunStatus.NO_HEALTH_DATA, "API_ERROR: GetHealthForTests", exc)
+            log.error("tid: %s Failed to retrieve test health (%s). Giving up.", t.id, exc)
+            break
         if len(health) < 1:
             log.debug("tid: %s Health not available after %f seconds", t.id, (now - start).total_seconds())
             retries -= 1
@@ -209,7 +227,7 @@ def run_one_shot(api: APIs, test: SynTest, retries: int = 3, delete: bool = True
         )
         break
     else:
-        r.record_error("TIMEOUT", f"Failed to get valid health data")
+        r.record_error(TestRunStatus.NO_HEALTH_DATA, "TIMEOUT", f"Failed to get valid health data")
         log.debug("tid: %s Failed to get valid health data for test", t.id)
 
     if delete:
@@ -218,7 +236,7 @@ def run_one_shot(api: APIs, test: SynTest, retries: int = 3, delete: bool = True
         all_clean = _pause_test(t)
     if all_clean:
         atexit.unregister(_delete_test)
-    log.debug("tid: %s success: %s errors: %d", r.success, len(r.errors))
+    log.debug("tid: %s status: %s errors: %d", r.status, len(r.errors))
     return r
 
 
