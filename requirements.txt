@@ -1,6 +1,6 @@
 grpcio
 inflection
 kentik-api >= 0.3.1
-pyyaml
+pyyaml<6.0.0,>=5.3.1
 typer
 validators

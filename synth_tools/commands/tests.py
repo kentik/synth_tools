@@ -68,7 +68,7 @@ def one_shot(
                 id=results.test_id,
                 type=results.test_type,
                 name=results.test_name,
-                success=results.success,
+                status=results.status.name,
                 agents=results.test_agents,
                 polls=results.polls,
             )
@@ -231,7 +231,11 @@ def get_test_health(
     """
     api = get_api(ctx)
     t = _get_test_by_id(api.syn, test_id)
-    health = api.syn.results(t, periods=periods)
+    try:
+        health = api.syn.results(t, periods=periods)
+    except Exception as exc:
+        fail(f"Failed to get results ({exc}")
+        health = None  # to make linters happy (this line is never reached)
 
     if not health:
         fail(f"Test '{test_id}' did not produce any health data")
