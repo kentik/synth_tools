@@ -1,10 +1,11 @@
 import atexit
 import json
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from time import sleep
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
 import yaml
 
@@ -18,23 +19,32 @@ def _fail(msg: str) -> None:
     raise RuntimeError(msg)
 
 
+@dataclass
+class ErrorRecord:
+    type: str
+    cause: Any
+
+    def to_dict(self) -> Dict[str, str]:
+        return {k: str(v) for k, v in self.__dict__.items()}
+
+
 class TestResults:
     def __init__(
         self,
         test: SynTest,
-        test_id: Optional[str] = None,
-        polls: Optional[int] = None,
-        health: Optional[Dict[str, Any]] = None,
     ):
         self.test = test
-        self.test_id = test_id
-        if self.test_id is None and test.deployed:
-            self.test_id = test.id
-        self.polls = polls
+        if self.test:
+            self.test_id = self.test.id  # test.id is reset when test is un-deployed
+        else:
+            self.test_id = ""
+        self.polls = 0
+        self.errors: List[ErrorRecord] = list()
         self.results: Dict[str, Any] = defaultdict(list)
-        self.success = health is not None
-        if not health:
-            return
+        self.success = False
+
+    def set_health(self, health):
+        self.success = True
         for task in health["tasks"]:
             for agent in task["agents"]:
                 for h in agent["health"]:
@@ -69,53 +79,58 @@ class TestResults:
                         except json.decoder.JSONDecodeError as ex:
                             log.critical("Failed to parse JSON in health data '%s' (exception: %s)", data, ex)
                     self.results[target].append(e)
+        for entries in self.results.values():
+            entries.sort(key=lambda x: x["time"])
+
+    def record_error(self, label: str, cause: Any):
+        self.errors.append(ErrorRecord(label, cause))
 
     @property
-    def type(self) -> str:
-        return self.test.type.value
+    def test_type(self) -> str:
+        return self.test.type.value if self.test else ""
 
     @property
-    def name(self) -> str:
-        return self.test.name
+    def test_name(self) -> str:
+        return self.test.name if self.test else ""
 
     @property
-    def test_targets(self):
-        return self.test.targets
+    def test_targets(self) -> List[str]:
+        return self.test.targets if self.test else []
 
     @property
-    def agents(self) -> List[str]:
-        return self.test.settings.agentIds
+    def test_agents(self) -> List[str]:
+        return self.test.settings.agentIds if self.test else []
 
     def to_dict(self) -> Dict[str, Any]:
         return dict(
             success=self.success,
             test=dict(
                 id=self.test_id,
-                type=self.type,
-                name=self.name,
+                type=self.test_type,
+                name=self.test_name,
                 targets=self.test_targets,
-                agents=self.agents,
+                agents=self.test_agents,
             ),
-            polls=self.polls,
-            results={k: v for k, v in self.results.items()},
+            execution=dict(
+                polls=self.polls,
+                results=dict(self.results),
+            ),
+            errors=[e.to_dict() for e in self.errors],
         )
 
 
-def run_one_shot(
-    api: APIs,
-    test: SynTest,
-    wait_factor: float = 1.0,
-    retries: int = 3,
-    delete: bool = True,
-) -> Tuple[Optional[str], Optional[int], Optional[dict]]:
+def run_one_shot(api: APIs, test: SynTest, retries: int = 3, delete: bool = True) -> TestResults:
+    r = TestResults(test)
+
     def _delete_test(tst: SynTest) -> bool:
         log.debug("Deleting test '%s' (id: %s)", tst.name, tst.id)
         try:
             api.syn.delete_test(tst.id)
             log.info("Deleted test %s' (id: %s)", tst.name, tst.id)
             return True
-        except KentikAPIRequestError as exc:
-            log.error("Failed to delete test '%s' (id: %s) (%s)", tst.name, tst.id, exc)
+        except KentikAPIRequestError as ex:
+            r.record_error("API_ERROR: TestDelete", ex)
+            log.error("Failed to delete test '%s' (id: %s) (%s)", tst.name, tst.id, ex)
             return False
 
     def _pause_test(tst: SynTest) -> bool:
@@ -123,75 +138,79 @@ def run_one_shot(
         try:
             api.syn.set_test_status(tst.id, TestStatus.paused)
             return True
-        except KentikAPIRequestError as exc:
-            log.error("Failed to pause test '%s' (id: %s) (%s)", tst.name, tst.id, exc)
+        except KentikAPIRequestError as ex:
+            r.record_error("API_ERROR: TestStatusUpdate", ex)
+            log.error("Failed to pause test '%s' (id: %s) (%s)", tst.name, tst.id, ex)
             return False
 
-    polls = 0
     log.debug("creating test '%s'", test.name)
     try:
         t = api.syn.create_test(test)
         # make sure that we do not leave detritus behind if execution is terminated prematurely
         atexit.register(_delete_test, t)
-    except KentikAPIRequestError as ex:
-        log.error("Failed to create test '%s' (%s)", test.name, ex)
-        return None, None, None
+    except KentikAPIRequestError as exc:
+        r.record_error("API_ERROR: TestCreate", exc)
+        log.error("Failed to create test '%s' (%s)", test.name, exc)
+        return r
     log.info("Created test '%s' (id: %s)", t.name, t.id)
-    tid = t.id  # Must save here, because test delete resets it
+    r.test_id = t.id  # Must save here, because test delete resets it
     if t.status != TestStatus.active:
         log.info("Activating test '%s'", t.name)
         try:
             api.syn.set_test_status(t.id, TestStatus.active)
-        except KentikAPIRequestError as ex:
-            log.error("tid: %s Failed to activate test (%s)", tid, ex)
-            return tid, None, None
+        except KentikAPIRequestError as exc:
+            r.record_error("API_ERROR: TestStatusUpdate", exc)
+            log.error("tid: %s Failed to activate test (%s)", t.id, exc)
+            return r
 
     wait_time = max(
         0.0,
-        t.max_period * wait_factor,
+        t.max_period,
     )
     start = datetime.now(tz=timezone.utc)
     while retries:
         if wait_time > 0:
-            log.debug("tid: %s: Waiting %s seconds for test to accumulate results", tid, wait_time)
+            log.debug("tid: %s: Waiting %s seconds for test to accumulate results", t.id, wait_time)
             sleep(wait_time)
-        wait_time = t.max_period * 1.0
+        wait_time = t.max_period
         now = datetime.now(tz=timezone.utc)
         try:
-            polls += 1
+            r.polls += 1
             health = api.syn.health(
                 [t.id],
-                start=min(start, now - timedelta(seconds=t.max_period * wait_factor)),
+                start=min(start, now - timedelta(seconds=t.max_period)),
                 end=now,
             )
-        except KentikAPIRequestError as ex:
-            log.error("tid: %s Failed to retrieve test health (%s). Retrying ...", tid, ex)
+        except KentikAPIRequestError as exc:
+            r.record_error("API_ERROR: GetHealthForTests", exc)
+            log.error("tid: %s Failed to retrieve test health (%s). Retrying ...", t.id, exc)
             retries -= 1
             continue
         if len(health) < 1:
-            log.debug("tid: %s Health not available after %f seconds", tid, (now - start).total_seconds())
+            log.debug("tid: %s Health not available after %f seconds", t.id, (now - start).total_seconds())
             retries -= 1
             continue
         health_ts = datetime.fromisoformat(health[0]["overallHealth"]["time"].replace("Z", "+00:00"))
-        if (health_ts - now).total_seconds() > t.max_period * wait_factor:
+        if (health_ts - now).total_seconds() > t.max_period:
             log.info(
                 "tid: %s Stale health data after %f second (timestamp: %s)",
-                tid,
+                t.id,
                 (now - start).total_seconds(),
                 health_ts.isoformat(),
             )
             retries -= 1
             continue
+        r.set_health(health[0])
         log.debug(
             "tid: %s %s at %s",
-            tid,
+            t.id,
             health[0]["overallHealth"]["health"],
             health_ts.isoformat(),
         )
         break
     else:
-        log.debug("tid: %s Failed to get valid health data for test", tid)
-        health = None, tid, polls
+        r.record_error("TIMEOUT", f"Failed to get valid health data")
+        log.debug("tid: %s Failed to get valid health data for test", t.id)
 
     if delete:
         all_clean = _delete_test(t)
@@ -199,8 +218,8 @@ def run_one_shot(
         all_clean = _pause_test(t)
     if all_clean:
         atexit.unregister(_delete_test)
-    log.debug("tid: %s polls: %d health: %s", tid, polls, health)
-    return tid, polls, health[0] if health else None
+    log.debug("tid: %s success: %s errors: %d", r.success, len(r.errors))
+    return r
 
 
 def load_test(api: APIs, file: Path, fail: Callable[[str], None] = _fail) -> Optional[SynTest]:

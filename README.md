@@ -540,8 +540,6 @@ Arguments:
   TEST_CONFIG  Path to test config file  [required]
 
 Options:
-  --wait-factor FLOAT             Multiplier for test period for computing
-                                  wait time for test results  [default: 1.0]
   --retries INTEGER               Number retries waiting for test results
                                   [default: 3]
   --raw-out TEXT                  Path to file to store raw test results in

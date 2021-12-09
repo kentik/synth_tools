@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 import typer
 
@@ -12,10 +12,11 @@ from synth_tools.utils import (
     dict_to_json,
     fail,
     get_api,
-    print_dict,
+    print_struct,
     print_test,
     print_test_brief,
     print_test_results,
+    sort_id,
     test_to_dict,
 )
 
@@ -37,7 +38,6 @@ def _get_test_by_id(api: KentikSynthClient, test_id: str) -> SynTest:
 def one_shot(
     ctx: typer.Context,
     test_config: Path = typer.Argument(..., help="Path to test config file"),
-    wait_factor: float = typer.Option(1.0, help="Multiplier for test period for computing wait time for test results"),
     retries: int = typer.Option(3, help="Number retries waiting for test results"),
     summary: bool = typer.Option(False, help="Print summary rest results"),
     delete: bool = typer.Option(True, help="Delete test after retrieving results"),
@@ -56,25 +56,25 @@ def one_shot(
         print_test(test, show_all=show_all)
 
     typer.echo("Waiting for test to accumulate results ...")
-    tid, polls, health = run_one_shot(api, test, wait_factor=wait_factor, retries=retries, delete=delete)
-
-    results = TestResults(test=test, test_id=tid, health=health, polls=polls)
+    results = run_one_shot(api, test, retries=retries, delete=delete)
 
     if json_out:
         log.info("Writing results to %s", json_out)
         dict_to_json(json_out, results.to_dict())
 
     if summary:
-        d: Dict[str, Any] = dict()
-        for k, v in results.to_dict().items():
-            if k in ("id", "type", "name", "success", "agents", "polls"):
-                d[k] = v
-        print_dict(d)
+        print_struct(
+            dict(
+                id=results.test_id,
+                type=results.test_type,
+                name=results.test_name,
+                success=results.success,
+                agents=results.test_agents,
+                polls=results.polls,
+            )
+        )
     else:
-        print_test_results(results.to_dict())
-
-    if not results.success:
-        fail(f"Test did not produce any health data in {results.polls} retries")
+        print_struct(results.to_dict())
 
 
 @tests_app.command("create")
@@ -130,7 +130,7 @@ def list_tests(
     List all tests
     """
     api = get_api(ctx)
-    for t in api.syn.tests:
+    for t in sorted(api.syn.tests, key=lambda x: sort_id(x.id)):
         if brief:
             print_test_brief(t)
         else:
@@ -177,6 +177,7 @@ def match_test(
     if not matching:
         typer.echo("No test matches specified rules")
     else:
+        matching.sort(key=lambda x: sort_id(x.id))
         for t in matching:
             if brief:
                 print_test_brief(t)
@@ -235,11 +236,12 @@ def get_test_health(
     if not health:
         fail(f"Test '{test_id}' did not produce any health data")
 
-    results = TestResults(t, health=health[0])
+    results = TestResults(t)
+    results.set_health(health[0])
     if raw_out:
         log.info("Writing health data to %s", raw_out)
         dict_to_json(raw_out, health)
     if json_out:
         log.info("Writing results to %s", json_out)
         dict_to_json(json_out, results.to_dict())
-    print_test_results(results.to_dict())
+    print_test_results(results.to_dict()["execution"]["results"])

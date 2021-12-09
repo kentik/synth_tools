@@ -3,10 +3,19 @@ from typing import Any, Callable, Dict, List, Optional
 
 import inflection
 import typer
+import yaml
 
 from kentik_synth_client import SynTest
 from synth_tools import log
 from synth_tools.apis import APIs
+
+
+def sort_id(id_str: str) -> str:
+    try:
+        d = int(id_str)
+        return f"{d:010}"
+    except ValueError:
+        return id_str
 
 
 def camel_to_snake(name: str) -> str:
@@ -50,41 +59,27 @@ def get_api(ctx: typer.Context) -> APIs:
     return api
 
 
-def print_dict(d: dict, indent_level=0, attr_list: Optional[List[str]] = None) -> int:
-    indent = "  " * indent_level
-    items = 0
+def filter_dict(data: dict, attr_list: Optional[List[str]] = None) -> Dict[str, Any]:
+    out: Dict[str, Any] = dict()
     if attr_list is None:
         attr_list = []
     match_attrs = [a.split(".")[0] for a in attr_list]
-    for _k, v in d.items():
+    for _k, v in data.items():
         k = camel_to_snake(_k)
         if match_attrs and k not in match_attrs:
             continue
-        typer.echo(f"{indent}{k}: ", nl=False)
         if type(v) == dict:
-            typer.echo("")
-            items += print_dict(
-                v,
-                indent_level + 1,
-                attr_list=[a.split(".", maxsplit=1)[1] for a in attr_list if a.startswith(f"{k}.")],
-            )
+            out[k] = filter_dict(v, attr_list=[a.split(".", maxsplit=1)[1] for a in attr_list if a.startswith(f"{k}.")])
         else:
-            typer.echo(f"{v}")
-            items += 1
-    return items
+            out[k] = v
+    return out
 
 
-def print_test_results(
-    results: Dict[str, Any],
-) -> None:
-    for k, v in results.items():
-        if k == "targets":
-            for t, data in v.items():
-                typer.echo(f"target: {t}")
-                for e in sorted(data, key=lambda x: x["time"]):
-                    typer.echo("  {}".format(", ".join(f"{k}: {v}" for k, v in e.items())))
-        else:
-            typer.echo(f"{k}: {v}")
+def print_struct(data: Any, indent_level=0):
+    indent = "  " * indent_level
+    s = yaml.dump(data, default_flow_style=False, sort_keys=False)
+    for line in s.split("\n"):
+        typer.echo(f"{indent}{line}")
 
 
 def dict_to_json(filename: str, data: Dict[str, Any]) -> None:
@@ -164,12 +159,15 @@ def print_test(
         attr_list = attributes.split(",")
     else:
         attr_list = []
-    if print_dict(d, indent_level=indent_level, attr_list=attr_list):
-        typer.echo("")
+    print_struct(filter_dict(d, attr_list), indent_level=indent_level)
 
 
 def print_test_brief(test: SynTest) -> None:
     typer.echo(f"id: {test.id} name: {test.name} type: {test.type.value}")
+
+
+def print_test_results(results: Dict[str, Any]):
+    print_struct(transform_dict_keys(results, camel_to_snake))
 
 
 def print_agent(agent: dict, indent_level=0, attributes: Optional[str] = None) -> None:
@@ -179,8 +177,7 @@ def print_agent(agent: dict, indent_level=0, attributes: Optional[str] = None) -
         attr_list = attributes.split(",")
     else:
         attr_list = []
-    if print_dict(a, indent_level=indent_level, attr_list=attr_list):
-        typer.echo("")
+    print_struct(filter_dict(a, attr_list), indent_level=indent_level)
 
 
 def print_agent_brief(agent: dict) -> None:

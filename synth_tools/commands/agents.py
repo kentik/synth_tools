@@ -4,7 +4,7 @@ import typer
 
 from kentik_synth_client import KentikAPIRequestError, KentikSynthClient
 from synth_tools.matchers import all_matcher_from_rules
-from synth_tools.utils import fail, get_api, print_agent, print_agent_brief
+from synth_tools.utils import fail, get_api, print_agent, print_agent_brief, sort_id
 
 agents_app = typer.Typer()
 
@@ -31,7 +31,7 @@ def list_agents(
     """
     api = get_api(ctx)
     try:
-        for a in api.syn.agents:
+        for a in sorted(api.syn.agents, key=lambda x: sort_id(x["id"])):
             if brief:
                 print_agent_brief(a)
             else:
@@ -77,6 +77,7 @@ def match_agent(
         if not matching:
             typer.echo("No agent matches specified rules")
         else:
+            matching.sort(key=lambda x: sort_id(x["id"]))
             for a in matching:
                 if brief:
                     print_agent_brief(a)

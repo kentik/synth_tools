@@ -172,6 +172,16 @@ class SynTestSettings(_ConfigElement):
     rollupLevel: int = field(init=False, default=1)
     servers: List[str] = field(default_factory=list)
 
+    def to_dict(self) -> dict:
+        def _id(i: str) -> str:
+            try:
+                return f"{int(i):010}"
+            except ValueError:
+                return i
+
+        self.agentIds.sort(key=lambda x: _id(x))
+        return super().to_dict()
+
 
 @dataclass
 class UserInfo(_ConfigElement):
