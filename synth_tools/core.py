@@ -236,7 +236,7 @@ def run_one_shot(api: APIs, test: SynTest, retries: int = 3, delete: bool = True
         all_clean = _pause_test(t)
     if all_clean:
         atexit.unregister(_delete_test)
-    log.debug("tid: %s status: %s errors: %d", r.status, len(r.errors))
+    log.debug("tid: %s status: %s errors: %d", r.test_id, r.status, len(r.errors))
     return r
 
 
