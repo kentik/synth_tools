@@ -31,6 +31,23 @@ from synth_tools.matchers import AllMatcher
 from synth_tools.utils import snake_to_camel, transform_dict_keys
 
 
+def _remap_keys(d: Dict[str, Any], attr_map: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    if not attr_map:
+        return d
+    out: Dict[str, Any] = dict()
+    for k, v in d:
+        nk = attr_map.get(k)
+        if nk is not None:
+            if nk:
+                log.debug("_remap_keys: mapping: %s -> %s", k, nk)
+                out[nk] = v
+            else:
+                log.debug("_remap_keys: removing: %s", k)
+        else:
+            out[k] = v
+    return out
+
+
 def _fail(msg: str) -> None:
     raise RuntimeError(msg)
 
@@ -311,44 +328,6 @@ def node_agents(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _f
     return _get_agents(api, cfg, "IMPLEMENT_TYPE_NODE", fail=fail)
 
 
-def get_ping_task_params(cfg: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    _attribute_map = {"timeout": "expiry", "protocol": ""}
-    if not cfg:
-        return cfg
-    out = dict()
-    for k, v in cfg.items():
-        key = _attribute_map.get(k)
-        if key is not None:
-            if key:
-                out[key] = v
-                log.debug("get_ping_task_params: replacing key '%s' with '%s'", k, key)
-            else:
-                log.debug("get_ping_task_params: ignoring key '%s'", k)
-        else:
-            out[k] = v
-    return out
-
-
-def get_trace_task_params(cfg: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    _attribute_map = {
-        "timeout": "expiry",
-    }
-    if not cfg:
-        return cfg
-    out = dict()
-    for k, v in cfg.items():
-        key = _attribute_map.get(k)
-        if key is not None:
-            if key:
-                out[key] = v
-                log.debug("get_trace_task_params: replacing key '%s' with '%s'", k, key)
-            else:
-                log.debug("get_trace_task_params: ignoring key '%s'", k)
-        else:
-            out[k] = v
-    return out
-
-
 # noinspection PyUnusedLocal
 def make_network_grid_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
@@ -374,13 +353,11 @@ def make_agent_test(
 def make_dns_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
-    if len(targets) > 1:
-        fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
     servers = cfg.get("servers", [])
     if not servers:
         fail(f"{cfg['type']} requires 'servers' parameter")
     record_type = DNSRecordType(cfg.get("record_type", "DNS_RECORD_A"))
-    return DNSTest.create(name=name, target=targets[0], agent_ids=agents, servers=servers, record_type=record_type)
+    return DNSTest.create(name=name, targets=targets, agent_ids=agents, servers=servers, record_type=record_type)
 
 
 def make_dns_grid_test(
@@ -408,24 +385,25 @@ def make_mesh_test(
     return MeshTest.create(name=name, agent_ids=agents)
 
 
-def get_test_attributes(required: List, cfg: dict, fail: Callable[[str], None] = _fail) -> dict:
+def get_test_attributes(
+    required: List, cfg: dict, attribute_map: Optional[Dict[str, str]] = None, fail: Callable[[str], None] = _fail
+) -> dict:
     # noinspection PyPep8Naming
     COMMON_TEST_PARAMS = (
         "name",
         "type",
-        "period",
         "ping",
         "trace",
         "health_settings",
-        "protocol",
         "family",
-        "port",
     )
 
     missing = [a for a in required if a not in cfg]
     if missing:
         fail("'{}' requires following configuration attributes: '{}'".format(cfg["type"], ",".join(missing)))
-    return {k: v for k, v in cfg.items() if (k not in COMMON_TEST_PARAMS) or (k in required)}
+    return _remap_keys(
+        {k: v for k, v in cfg.items() if (k not in COMMON_TEST_PARAMS) or (k in required)}, attribute_map
+    )
 
 
 def make_page_load_test(
@@ -433,7 +411,7 @@ def make_page_load_test(
 ) -> SynTest:
     if len(targets) > 1:
         fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    attrs = get_test_attributes([], cfg, fail)
+    attrs = get_test_attributes([], cfg, attribute_map={"timeout": "expiry"}, fail=fail)
     ping = "ping" in cfg
     trace = "trace" in cfg
     if ping ^ trace:
@@ -452,7 +430,7 @@ def make_url_test(
 ) -> SynTest:
     if len(targets) > 1:
         fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    attrs = get_test_attributes([], cfg, fail)
+    attrs = get_test_attributes([], cfg, attribute_map={"timeout": "expiry"}, fail=fail)
     ping = "ping" in cfg
     trace = "trace" in cfg
     if ping ^ trace:
@@ -471,7 +449,7 @@ def make_flow_test(
 ) -> SynTest:
     if len(targets) > 1:
         fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    attrs = get_test_attributes(["target_type", "direction", "inet_direction"], cfg, fail)
+    attrs = get_test_attributes(["target_type", "direction", "inet_direction"], cfg, fail=fail)
     log.debug("make_flow_test: attrs: '%s'", ", ".join(f"{k}:{v}" for k, v in attrs.items()))
     return FlowTest.create(name=name, target=targets[0], agent_ids=agents, **attrs)
 
@@ -491,7 +469,7 @@ def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None]
         if "ping" in test.settings.tasks:
             if not hasattr(test.settings, "ping"):
                 fail(f"'{test.type.value}' test does not support 'ping'")
-            test.settings.ping = PingTask.from_dict(get_ping_task_params(cfg["ping"]))  # type: ignore
+            test.settings.ping = PingTask.from_dict(_remap_keys(cfg["ping"], {"timeout": "expiry"}))  # type: ignore
             log.debug("set_common_test_params: test: '%s' ping: '%s'", test.name, cfg.get("ping"))
             if "protocol" in cfg["ping"]:
                 _global_proto = test.settings.protocol
@@ -518,7 +496,7 @@ def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None]
             log.debug("set_common_test_params: test: '%s' trace: '%s'", test.name, cfg.get("trace"))
             if not hasattr(test.settings, "trace"):
                 fail(f"'{test.type.value} does not support 'trace'")
-            test.settings.trace = TraceTask.from_dict(cfg["trace"])  # type: ignore
+            test.settings.trace = TraceTask.from_dict(_remap_keys(cfg["trace"], {"timeout": "expiry"}))  # type: ignore
     # else:
     #     test.settings.trace = None
     if "health_settings" in cfg:

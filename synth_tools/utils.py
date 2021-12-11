@@ -5,7 +5,7 @@ import inflection
 import typer
 import yaml
 
-from kentik_synth_client import SynTest
+from kentik_synth_client.synth_tests import SynTest
 from synth_tools import log
 from synth_tools.apis import APIs
 
@@ -105,8 +105,8 @@ def test_to_dict(test: SynTest) -> Dict[str, Any]:
     d["id"] = test.id
     d["created"] = test.cdate
     d["modified"] = test.edate
-    if test.created_by:
-        d["created_by"] = test.created_by
+    d["created_by"] = test.created_by
+    d["last_updated_by"] = test.last_updated_by
     return d
 
 

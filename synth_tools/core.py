@@ -10,7 +10,9 @@ from typing import Any, Callable, Dict, List, Optional
 
 import yaml
 
-from kentik_synth_client import KentikAPIRequestError, SynTest, TestStatus
+from kentik_synth_client import KentikAPIRequestError
+from kentik_synth_client.synth_tests import SynTest
+from kentik_synth_client.types import TestStatus
 from synth_tools import log
 from synth_tools.apis import APIs
 from synth_tools.test_factory import TestFactory
@@ -177,22 +179,17 @@ def run_one_shot(api: APIs, test: SynTest, retries: int = 3, delete: bool = True
             log.error("tid: %s Failed to activate test (%s)", t.id, exc)
             return r
 
-    wait_time = max(
-        0.0,
-        t.max_period,
-    )
+    wait_time = float(t.settings.period)
     start = datetime.now(tz=timezone.utc)
     while retries:
-        if wait_time > 0:
-            log.debug("tid: %s: Waiting %s seconds for test to accumulate results", t.id, wait_time)
-            sleep(wait_time)
-        wait_time = t.max_period
+        log.debug("tid: %s: Waiting %s seconds for test to accumulate results", t.id, wait_time)
+        sleep(wait_time)
         now = datetime.now(tz=timezone.utc)
         try:
             r.polls += 1
             health = api.syn.health(
                 [t.id],
-                start=min(start, now - timedelta(seconds=t.max_period)),
+                start=min(start, now - timedelta(seconds=t.settings.period)),
                 end=now,
             )
         except KentikAPIRequestError as exc:
@@ -209,12 +206,13 @@ def run_one_shot(api: APIs, test: SynTest, retries: int = 3, delete: bool = True
             retries -= 1
             continue
         health_ts = datetime.fromisoformat(health[0]["overallHealth"]["time"].replace("Z", "+00:00"))
-        if (health_ts - now).total_seconds() > t.max_period:
+        if health_ts < start:
             log.info(
-                "tid: %s Stale health data after %f second (timestamp: %s)",
+                "tid: %s Stale health data after %f second (timestamp: %s, test start: %s)",
                 t.id,
                 (now - start).total_seconds(),
                 health_ts.isoformat(),
+                start,
             )
             retries -= 1
             continue

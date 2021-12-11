@@ -5,7 +5,9 @@ from urllib.parse import urlparse
 
 from .api_transport import KentikAPITransport
 from .api_transport_http import SynthHTTPTransport
-from .synth_tests import SynTest, TestStatus
+from .synth_tests import SynTest, make_synth_test
+from .types import TestStatus
+
 
 log = logging.getLogger("synth_client")
 
@@ -51,34 +53,34 @@ class KentikSynthClient:
 
     @property
     def tests(self) -> List[SynTest]:
-        return [SynTest.test_from_dict(t) for t in self._transport.req("TestsList")]
+        return [make_synth_test(t) for t in self._transport.req("TestsList")]
 
     def list_tests(self, presets: bool = False, raw: bool = False) -> Any:
         r = self._transport.req("TestsList", params=dict(presets=presets))
         if raw:
             return r
         else:
-            return [SynTest.test_from_dict(t) for t in r]
+            return [make_synth_test(t) for t in r]
 
     def test(self, test: Union[str, SynTest]) -> SynTest:
         if isinstance(test, SynTest):
             test_id = test.id
         else:
             test_id = test
-        return SynTest.test_from_dict(self._transport.req("TestGet", id=test_id))
+        return make_synth_test(self._transport.req("TestGet", id=test_id))
 
     def test_raw(self, test_id: str) -> Any:
         return self._transport.req("TestGet", id=test_id)
 
     def create_test(self, test: SynTest) -> SynTest:
-        return SynTest.test_from_dict(self._transport.req("TestCreate", body=test.to_dict()))
+        return make_synth_test(self._transport.req("TestCreate", body=test.to_dict()))
 
     def patch_test(self, test: SynTest, modified: str) -> SynTest:
         if test.id == 0:
             raise RuntimeError(f"test '{test.name}' has not been created yet (id=0). Cannot patch")
         body = test.to_dict()
         body["mask"] = modified
-        return SynTest.test_from_dict(self._transport.req("TestPatch", id=test.id, body=body))
+        return make_synth_test(self._transport.req("TestPatch", id=test.id, body=body))
 
     def delete_test(self, test: Union[str, SynTest]) -> None:
         if isinstance(test, SynTest):
@@ -126,7 +128,7 @@ class KentikSynthClient:
         if not end:
             end = datetime.now(tz=timezone.utc)
         if not start:
-            start = end - timedelta(seconds=periods * test.max_period)
+            start = end - timedelta(seconds=periods * test.settings.period)
         return self.health([test.id], start=start, end=end, **kwargs)
 
     def trace(
