@@ -1,14 +1,18 @@
 from dataclasses import dataclass, field
-from typing import Dict, Optional, List, Type, TypeVar
+from typing import Dict, List, Optional, Type, TypeVar
+
 from kentik_synth_client.types import *
-from .base import PingTraceTestSettings, PingTraceTest, HTTPTask
+
+from .base import PingTraceTest, PingTraceTestSettings
 
 
 @dataclass
 class PageLoadTestSettings(PingTraceTestSettings):
-    expiry: int = 0
     pageLoad: dict = field(default_factory=dict)
-    http: HTTPTask = field(default_factory=HTTPTask)
+
+    @classmethod
+    def task_name(cls) -> Optional[str]:
+        return "page-load"
 
 
 PageLoadTestType = TypeVar("PageLoadTestType", bound="PageLoadTest")
@@ -25,6 +29,7 @@ class PageLoadTest(PingTraceTest):
         name: str,
         target: str,
         agent_ids: List[str],
+        expiry: int = 5000,
         method: str = "GET",
         headers: Optional[Dict[str, str]] = None,
         body: str = "",
@@ -32,7 +37,7 @@ class PageLoadTest(PingTraceTest):
         ping: bool = False,
         trace: bool = False,
     ) -> PageLoadTestType:
-        tasks: List[str] = ["http"]
+        tasks: List[str] = [PageLoadTestSettings.task_name()]  # type:ignore
         if ping:
             tasks.append("ping")
         if trace:
@@ -41,8 +46,11 @@ class PageLoadTest(PingTraceTest):
             name=name,
             settings=PageLoadTestSettings(
                 agentIds=agent_ids,
-                pageLoad=dict(target=target),
-                tasks=["page-load"],
-                http=HTTPTask(method=method, body=body, headers=headers or {}, ignoreTlsErrors=ignore_tls_errors),
+                pageLoad=dict(
+                    expiry=expiry,
+                    target=target,
+                    http=dict(method=method, body=body, headers=headers or {}, ignoreTlsErrors=ignore_tls_errors),
+                ),
+                tasks=tasks,
             ),
         )

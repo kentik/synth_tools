@@ -1,12 +1,18 @@
 from dataclasses import dataclass, field
-from typing import List, Type, TypeVar
+from typing import List, Optional, Type, TypeVar
+
 from kentik_synth_client.types import *
+
 from .base import SynTest, SynTestSettings
 
 
 @dataclass
 class DNSTestSettings(SynTestSettings):
     dns: dict = field(default_factory=dict)
+
+    @classmethod
+    def task_name(cls) -> Optional[str]:
+        return "dns"
 
 
 DNSTestType = TypeVar("DNSTestType", bound="DNSTest")

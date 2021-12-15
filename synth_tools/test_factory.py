@@ -35,7 +35,7 @@ def _remap_keys(d: Dict[str, Any], attr_map: Optional[Dict[str, str]] = None) ->
     if not attr_map:
         return d
     out: Dict[str, Any] = dict()
-    for k, v in d:
+    for k, v in d.items():
         nk = attr_map.get(k)
         if nk is not None:
             if nk:
@@ -394,6 +394,7 @@ def get_test_attributes(
         "type",
         "ping",
         "trace",
+        "period",
         "health_settings",
         "family",
     )
@@ -459,46 +460,18 @@ def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None]
     if "family" in cfg:
         test.settings.family = IPFamily(cfg.get("family"))
         log.debug("set_common_test_params: test: '%s' family: '%s'", test.name, test.settings.family)
-    if "protocol" in cfg:
-        test.settings.protocol = Protocol(cfg["protocol"])
-        log.debug("set_common_test_params: test: '%s' protocol: '%s'", test.name, test.settings.protocol)
-    if "port" in cfg:
-        test.settings.port = cfg["port"]
-        log.debug("set_common_test_params: test: '%s' port: '%s'", test.name, test.settings.port)
     if "ping" in cfg and type(cfg["ping"]) == dict:
         if "ping" in test.settings.tasks:
             if not hasattr(test.settings, "ping"):
                 fail(f"'{test.type.value}' test does not support 'ping'")
             test.settings.ping = PingTask.from_dict(_remap_keys(cfg["ping"], {"timeout": "expiry"}))  # type: ignore
             log.debug("set_common_test_params: test: '%s' ping: '%s'", test.name, cfg.get("ping"))
-            if "protocol" in cfg["ping"]:
-                _global_proto = test.settings.protocol
-                test.settings.protocol = Protocol(cfg["ping"]["protocol"])
-                log.debug(
-                    "set_common_test_params: test: '%s' ping.protocol: '%s' (overrides global: '%s')",
-                    test.name,
-                    test.settings.protocol,
-                    _global_proto,
-                )
-            if "port" in cfg["ping"]:
-                _global_port = test.settings.port
-                test.settings.port = cfg["ping"]["port"]
-                log.debug(
-                    "set_common_test_params: test: '%s' ping.port: '%s'(overrides global: '%s')",
-                    test.name,
-                    test.settings.port,
-                    _global_port,
-                )
-    # else:
-    #     test.settings.ping = None
     if "trace" in cfg and type(cfg["trace"]) == dict:
         if "traceroute" in test.settings.tasks:
             log.debug("set_common_test_params: test: '%s' trace: '%s'", test.name, cfg.get("trace"))
             if not hasattr(test.settings, "trace"):
                 fail(f"'{test.type.value} does not support 'trace'")
             test.settings.trace = TraceTask.from_dict(_remap_keys(cfg["trace"], {"timeout": "expiry"}))  # type: ignore
-    # else:
-    #     test.settings.trace = None
     if "health_settings" in cfg:
         log.debug("set_common_test_params: test: '%s' health_settings: '%s'", test.name, cfg.get("health_settings"))
         test.settings.healthSettings = HealthSettings.from_dict(

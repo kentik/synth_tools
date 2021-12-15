@@ -20,15 +20,15 @@ class SynthHTTPTransport(KentikAPITransport):
         TestGet=dict(ep="tests", method="get", params="{id}", resp="test"),
         TestCreate=dict(ep="tests", method="post", body="test", resp="test"),
         TestDelete=dict(ep="tests", method="delete", params="{id}"),
-        TestPatch=dict(ep="tests", method="patch", params="{id}", body="test", resp="test"),
+        TestUpdate=dict(ep="tests", method="put", params="{id}", body="test", resp="test"),
         TestStatusUpdate=dict(ep="tests", method="put", params="{id}/status", body="test_status"),
         GetHealthForTests=dict(ep="health", method="post", body="health_request", resp="health"),
         GetTraceForTest=dict(ep="tests", method="post", params="{id}/results/trace", body="trace_request", resp="*"),
     )
     END_POINTS = dict(
-        agents="/synthetics/v202101beta1/agents",
-        tests="/synthetics/v202101beta1/tests",
-        health="/synthetics/v202101beta1/health/tests",
+        agents="/synthetics/v202110beta2/agents",
+        tests="/synthetics/v202110beta2/tests",
+        health="/synthetics/v202110beta2/health/tests",
     )
 
     def __init__(

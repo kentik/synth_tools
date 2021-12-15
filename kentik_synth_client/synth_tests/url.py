@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Type, TypeVar
+
 from kentik_synth_client.types import *
-from .base import SynTest, SynTestSettings, PingTask, TraceTask, HTTPTask
+
+from .base import PingTask, SynTest, SynTestSettings, TraceTask
 
 
 @dataclass
@@ -9,7 +11,10 @@ class UrlTestSettings(SynTestSettings):
     url: dict = field(default_factory=dict)
     ping: PingTask = field(default_factory=PingTask)
     trace: TraceTask = field(default_factory=TraceTask)
-    http: HTTPTask = field(default_factory=HTTPTask)
+
+    @classmethod
+    def task_name(cls) -> Optional[str]:
+        return "http"
 
 
 UrlTestType = TypeVar("UrlTestType", bound="UrlTest")
@@ -26,6 +31,7 @@ class UrlTest(SynTest):
         name: str,
         target: str,
         agent_ids: List[str],
+        expiry: int = 5000,
         method: str = "GET",
         headers: Optional[Dict[str, str]] = None,
         body: str = "",
@@ -42,8 +48,11 @@ class UrlTest(SynTest):
             name=name,
             settings=UrlTestSettings(
                 agentIds=agent_ids,
-                url=dict(target=target),
+                url=dict(
+                    expiry=expiry,
+                    target=target,
+                    http=dict(method=method, body=body, headers=headers or {}, ignoreTlsErrors=ignore_tls_errors),
+                ),
                 tasks=tasks,
-                http=HTTPTask(method=method, body=body, headers=headers or {}, ignoreTlsErrors=ignore_tls_errors),
             ),
         )

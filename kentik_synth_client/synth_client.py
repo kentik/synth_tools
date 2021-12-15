@@ -8,7 +8,6 @@ from .api_transport_http import SynthHTTPTransport
 from .synth_tests import SynTest, make_synth_test
 from .types import TestStatus
 
-
 log = logging.getLogger("synth_client")
 
 
@@ -75,12 +74,14 @@ class KentikSynthClient:
     def create_test(self, test: SynTest) -> SynTest:
         return make_synth_test(self._transport.req("TestCreate", body=test.to_dict()))
 
-    def patch_test(self, test: SynTest, modified: str) -> SynTest:
-        if test.id == 0:
-            raise RuntimeError(f"test '{test.name}' has not been created yet (id=0). Cannot patch")
+    def update_test(self, test: SynTest, tid: Optional[str] = None) -> SynTest:
+        if not test.deployed:
+            if not tid:
+                raise RuntimeError(f"test '{test.name}' has not been deployed yet (id=0) and no test id specified")
+        else:
+            tid = test.id
         body = test.to_dict()
-        body["mask"] = modified
-        return make_synth_test(self._transport.req("TestPatch", id=test.id, body=body))
+        return make_synth_test(self._transport.req("TestUpdate", id=tid, body=body))
 
     def delete_test(self, test: Union[str, SynTest]) -> None:
         if isinstance(test, SynTest):

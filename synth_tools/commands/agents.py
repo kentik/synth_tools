@@ -4,7 +4,7 @@ import typer
 
 from kentik_synth_client import KentikAPIRequestError, KentikSynthClient
 from synth_tools.matchers import all_matcher_from_rules
-from synth_tools.utils import fail, get_api, print_agent, print_agent_brief, sort_id
+from synth_tools.utils import agent_to_dict, fail, get_api, print_agent, print_agent_brief, sort_id
 
 agents_app = typer.Typer()
 
@@ -73,7 +73,7 @@ def match_agent(
     api = get_api(ctx)
     matcher = all_matcher_from_rules(rules)
     try:
-        matching = [a for a in api.syn.agents if matcher.match(a)]
+        matching = [a for a in api.syn.agents if matcher.match(agent_to_dict(a))]
         if not matching:
             typer.echo("No agent matches specified rules")
         else:

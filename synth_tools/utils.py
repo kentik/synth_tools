@@ -1,11 +1,12 @@
 import json
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import inflection
 import typer
 import yaml
 
 from kentik_synth_client.synth_tests import SynTest
+from kentik_synth_client.utils import dict_compare
 from synth_tools import log
 from synth_tools.apis import APIs
 
@@ -90,24 +91,61 @@ def dict_to_json(filename: str, data: Dict[str, Any]) -> None:
         fail(f"Cannot write to file '{filename}' ({ex})")
 
 
-INTERNAL_TEST_SETTINGS = (
-    "tasks",
-    "monitoringSettings",
-    "rollupLevel",
-    "ping.period",
-    "trace.period",
-    "http.period",
-)
-
-
 def test_to_dict(test: SynTest) -> Dict[str, Any]:
-    d = test.to_dict()["test"]
+    d = transform_dict_keys(test.to_dict()["test"], camel_to_snake)
     d["id"] = test.id
     d["created"] = test.cdate
     d["modified"] = test.edate
     d["created_by"] = test.created_by
     d["last_updated_by"] = test.last_updated_by
     return d
+
+
+NON_COMPARABLE_TEST_ATTRS = [
+    "created",
+    "modified",
+    "created_by",
+]
+
+
+INTERNAL_TEST_SETTINGS = [
+    "tasks",
+]
+
+
+def _filter_test_attrs(t: dict, attrs: List[str]) -> None:
+    for attr in attrs:
+        keys = attr.split(".")
+        item = t["settings"]
+        while keys:
+            k = keys.pop(0)
+            if not keys:
+                try:
+                    log.debug(
+                        "print_test: deleting k: '%s' item: '%s' attr: '%s'",
+                        k,
+                        item,
+                        attr,
+                    )
+                    del item[k]
+                except KeyError:
+                    log.debug(
+                        "print_test: test: '%s' does not have internal attr '%s'",
+                        attr,
+                    )
+                    break
+            else:
+                try:
+                    item = item[k]
+                    if not item:
+                        break
+                except KeyError:
+                    log.debug(
+                        "print_test: test: '%s' does not have internal attr '%s'",
+                        t["name"],
+                        attr,
+                    )
+                    break
 
 
 def print_test(
@@ -120,41 +158,7 @@ def print_test(
     if not show_all:
         if not test.deployed:
             del d["status"]
-        del d["deviceId"]
-        for attr in INTERNAL_TEST_SETTINGS:
-            keys = attr.split(".")
-            item = d["settings"]
-            while keys:
-                k = keys.pop(0)
-                if not keys:
-                    try:
-                        log.debug(
-                            "print_test: deleting k: '%s' item: '%s' attr: '%s'",
-                            k,
-                            item,
-                            attr,
-                        )
-                        del item[k]
-                    except KeyError:
-                        log.debug(
-                            "print_test: test: '%s' does not have internal attr '%s'",
-                            test.name,
-                            attr,
-                        )
-                        break
-                else:
-                    try:
-                        item = item[k]
-                        if not item:
-                            break
-                    except KeyError:
-                        log.debug(
-                            "print_test: test: '%s' does not have internal attr '%s'",
-                            test.name,
-                            attr,
-                        )
-                        break
-
+        _filter_test_attrs(d, INTERNAL_TEST_SETTINGS)
     if attributes:
         attr_list = attributes.split(",")
     else:
@@ -166,8 +170,37 @@ def print_test_brief(test: SynTest) -> None:
     typer.echo(f"id: {test.id} name: {test.name} type: {test.type.value}")
 
 
+def print_test_diff(old: SynTest, new: SynTest, show_all=False):
+    o = transform_dict_keys(old.to_dict()["test"], camel_to_snake)
+    n = transform_dict_keys(new.to_dict()["test"], camel_to_snake)
+    if not show_all:
+        del o["status"]
+        del n["status"]
+        _filter_test_attrs(o, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
+        _filter_test_attrs(n, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
+    diffs = dict_compare(o, n)
+    if diffs:
+        typer.echo("Configuration differences:")
+        for d in diffs:
+            if not d[1]:
+                old_val = "<not in existing>"
+            else:
+                old_val = d[1]
+            if not d[2]:
+                new_val = "<not in new>"
+            else:
+                new_val = d[2]
+            typer.echo(f"  {d[0]}: {old_val} -> {new_val}")
+    else:
+        typer.echo("Existing and new configuration are identical")
+
+
 def print_test_results(results: Dict[str, Any]):
     print_struct(transform_dict_keys(results, camel_to_snake))
+
+
+def agent_to_dict(agent: dict) -> Dict[str, Any]:
+    return transform_dict_keys(agent, camel_to_snake)
 
 
 def print_agent(agent: dict, indent_level=0, attributes: Optional[str] = None) -> None:

@@ -1,9 +1,10 @@
 import logging
 from typing import Any, Dict
+
 from kentik_synth_client.types import TestType
 
-from .base import SynTest, HealthSettings, PingTask, TraceTask
 from .agent import AgentTest
+from .base import HealthSettings, PingTask, SynTest, TraceTask
 from .dns import DNSTest
 from .dns_grid import DNSGridTest
 from .flow import FlowTest
@@ -13,7 +14,6 @@ from .mesh import MeshTest
 from .network_grid import NetworkGridTest
 from .page_load import PageLoadTest
 from .url import UrlTest
-
 
 log = logging.getLogger("synth_tests")
 

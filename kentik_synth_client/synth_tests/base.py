@@ -1,11 +1,12 @@
 import logging
-from kentik_synth_client.types import *
+import re
 from dataclasses import dataclass, field, fields
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, TypeVar
 
 import inflection
 
+from kentik_synth_client.types import *
 
 log = logging.getLogger("synth_tests")
 
@@ -73,7 +74,6 @@ class _ConfigElement:
 @dataclass
 class _MonitoringTask(_ConfigElement):
     expiry: int
-    period: int = Defaults.period
 
     @property
     def task_name(self):
@@ -83,39 +83,28 @@ class _MonitoringTask(_ConfigElement):
 @dataclass
 class PingTask(_MonitoringTask):
     count: int = 5
-    expiry: int = 3000
+    expiry: int = 3000  # a.k.a. timeout
+    delay: int = 0  # inter-probe delay
+    protocol: Protocol = Protocol.icmp
+    port: int = 0
 
     @property
     def task_name(self):
-        return "traceroute"
+        return "ping"
 
 
 @dataclass
 class TraceTask(_MonitoringTask):
     count: int = 3
+    expiry: int = 22500  # a.k.a. timeout
+    limit: int = 30  # max. hop count
+    delay: int = 0  # inter-probe delay
     protocol: Protocol = Protocol.icmp
     port: int = 33434
-    expiry: int = 22500
-    limit: int = 30
 
     @property
     def task_name(self):
         return "traceroute"
-
-
-@dataclass
-class HTTPTask(_MonitoringTask):
-    period: int = 0
-    expiry: int = 0
-    method: str = "GET"
-    headers: dict = field(default_factory=dict)
-    body: str = ""
-    ignoreTlsErrors: bool = False
-    cssSelectors: dict = field(default_factory=dict)
-
-    @property
-    def task_name(self):
-        return "http"
 
 
 class _DefaultList(list):
@@ -153,6 +142,7 @@ class HealthSettings(_ConfigElement):
     httpLatencyWarningStddev: int = 0
     httpValidCodes: List[int] = field(default_factory=list)
     dnsValidCodes: List[int] = field(default_factory=list)
+    unhealthySubtestThreshold: int = 1
 
 
 class DefaultTasks(_DefaultList):
@@ -170,11 +160,16 @@ class MonitoringSettings(_ConfigElement):
 
 @dataclass
 class SynTestSettings(_ConfigElement):
+    family: IPFamily = Defaults.family
+    period: int = Defaults.period
     agentIds: List[str] = field(default_factory=list)
     tasks: List[str] = field(default_factory=DefaultTasks)
     healthSettings: HealthSettings = field(default_factory=HealthSettings)
-    period: int = Defaults.period
-    family: IPFamily = Defaults.family
+    notificationChannels: List[str] = field(default_factory=list)
+
+    @classmethod
+    def task_name(cls) -> Optional[str]:
+        return None
 
     def to_dict(self) -> dict:
         def _id(i: str) -> str:
@@ -260,12 +255,17 @@ class SynTest(_ConfigElement):
 
     @property
     def configured_tasks(self) -> Set[str]:
-        return set(
+        tasks = set(
             f.name
             for f in fields(self.settings)
-            if hasattr(f.type, "task_name")
+            if f.name
+            and hasattr(f.type, "task_name")
             and self.settings.__getattribute__(f.name).task_name in self.settings.tasks
         )
+        n = self.settings.task_name()
+        if n:
+            tasks.add(n)
+        return tasks
 
     def undeploy(self):
         self._id = "0"
@@ -285,8 +285,6 @@ class SynTest(_ConfigElement):
 class PingTraceTestSettings(SynTestSettings):
     ping: PingTask = field(default_factory=PingTask)
     trace: TraceTask = field(default_factory=TraceTask)
-    family: IPFamily = IPFamily.dual
-    protocol: Protocol = Protocol.icmp
 
 
 @dataclass
@@ -297,4 +295,3 @@ class PingTraceTest(SynTest):
         for t in self.configured_tasks:
             if not tasks or t in tasks:
                 self.settings.__getattribute__(t).expiry = int(timeout_seconds * 1000)  # API wants it in millis
-

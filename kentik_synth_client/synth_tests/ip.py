@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field
 from typing import List, Type, TypeVar
+
 from kentik_synth_client.types import *
-from .base import PingTraceTestSettings, PingTraceTest
+
+from .base import PingTraceTest, PingTraceTestSettings
 
 
 @dataclass
