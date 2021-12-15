@@ -7,7 +7,7 @@ from itertools import product
 from typing import Any, Callable, Dict, List, Optional
 
 from synth_tools import log
-from synth_tools.utils import fail, snake_to_camel
+from synth_tools.utils import fail
 
 
 class Matcher(ABC):
@@ -97,8 +97,8 @@ class PropertyMatcher(Matcher):
             elif k in obj:  # type: ignore
                 obj = obj[k]  # type: ignore
             else:
-                log.warning(
-                    "%s: object: '%s' does not have property '%s'", self.__class__.__name__, str(data), self.key
+                log.debug(
+                    "%s: object: does not have property '%s'", self.__class__.__name__, self.key
                 )
                 log.debug("%s: ret '%s'", self.__class__.__name__, False)
                 return False
@@ -217,7 +217,11 @@ class SetMatcher(Matcher):
         self.matchers = []
         self.max_matches: Optional[int] = max_matches
         self._done = False
+        if type(data) != list:
+            raise RuntimeError(f"Invalid match specification: {data}")
         for e in data:
+            if type(e) != dict:
+                raise RuntimeError(f"Invalid match specification: {data}")
             for k, v in e.items():
                 if k in self.SPECIAL:
                     matcher = getattr(sys.modules[__name__], self.SPECIAL[k])(v)
