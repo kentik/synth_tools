@@ -215,9 +215,17 @@ def address_targets(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] 
     cfg = cfg["match"]
 
     address_selector = AddressSelector(cfg, fail)
-    device_matcher = AllMatcher(cfg.get("devices", []))
+    try:
+        device_matcher = AllMatcher(cfg.get("devices", []))
+    except RuntimeError as exc:
+        fail(f"Failed to parse target device match: {exc}")
+        return set()  # to make linters happy (fail actually never returns)
     log.debug("load_targets: device_matcher: '%s'", device_matcher)
-    interface_matcher = AllMatcher(cfg.get("interfaces", []))
+    try:
+        interface_matcher = AllMatcher(cfg.get("interfaces", []))
+    except RuntimeError as exc:
+        fail(f"Failed to parse target interface match: {exc}")
+        return set()  # to make linters happy (fail actually never returns)
     log.debug("load_targets: interface_matcher: '%s'", interface_matcher)
 
     target_devices = [d for d in api.mgmt.devices.get_all() if device_matcher.match(d)]
@@ -287,7 +295,11 @@ def _get_agents(api: APIs, cfg, agent_type: Optional[str] = None, fail: Callable
     max_agents = cfg.get("max_matches")
     cfg = cfg["match"]
     log.debug("_get_agents: match: %s (min: %d, max: %s)", cfg, min_agents, max_agents)
-    agents_matcher = AllMatcher(cfg, max_matches=max_agents, property_transformer=snake_to_camel)
+    try:
+        agents_matcher = AllMatcher(cfg, max_matches=max_agents, property_transformer=snake_to_camel)
+    except RuntimeError as exc:
+        fail(f"Failed to parse agent match: {exc}")
+        return set()  # to make linters happy (fail actually never returns)
     agents = set(
         a["id"] for a in api.syn.agents if (not agent_type or a["agentImpl"] == agent_type) and agents_matcher.match(a)
     )

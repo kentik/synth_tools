@@ -4,7 +4,6 @@ test:
   ping:
     protocol: icmp
     timeout: 3000
-  protocol: tcp
   trace:
     protocol: icmp
     timeout: 22500
