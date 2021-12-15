@@ -7,7 +7,7 @@ from itertools import product
 from typing import Any, Callable, Dict, List, Optional
 
 from synth_tools import log
-from synth_tools.utils import fail
+from synth_tools.utils import fail, snake_to_camel
 
 
 class Matcher(ABC):
