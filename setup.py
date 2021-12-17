@@ -179,7 +179,7 @@ setup(
     license="Apache-2.0",
     include_package_data=True,
     python_requires=">=3.7, <4",
-    install_requires=["inflection", "kentik-api>=0.3.1", "pyyaml", "typer", "validators"],
+    install_requires=["inflection", "kentik-api>=0.3.1", "pyyaml", "texttable", "typer", "validators"],
     tests_require=["pytest-runner", "pytest", "mypy"],
     cmdclass={
         "mypy": MypyCmd,

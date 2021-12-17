@@ -1,13 +1,16 @@
 import json
-from typing import Any, Callable, Dict, List, Optional
+import os
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import inflection
 import typer
 import yaml
 
-from kentik_synth_client import SynTest
+from kentik_synth_client.synth_tests import SynTest
+from kentik_synth_client.utils import dict_compare
 from synth_tools import log
 from synth_tools.apis import APIs
+from texttable import Texttable
 
 
 def sort_id(id_str: str) -> str:
@@ -101,13 +104,55 @@ INTERNAL_TEST_SETTINGS = (
 
 
 def test_to_dict(test: SynTest) -> Dict[str, Any]:
-    d = test.to_dict()["test"]
+    d = transform_dict_keys(test.to_dict()["test"], camel_to_snake)
     d["id"] = test.id
     d["created"] = test.cdate
     d["modified"] = test.edate
     if test.created_by:
         d["created_by"] = test.created_by
     return d
+
+
+NON_COMPARABLE_TEST_ATTRS = [
+    "created",
+    "modified",
+    "created_by",
+]
+
+
+def _filter_test_attrs(t: dict, attrs: List[str]) -> None:
+    for attr in attrs:
+        keys = attr.split(".")
+        item = t["settings"]
+        while keys:
+            k = keys.pop(0)
+            if not keys:
+                try:
+                    log.debug(
+                        "print_test: deleting k: '%s' item: '%s' attr: '%s'",
+                        k,
+                        item,
+                        attr,
+                    )
+                    del item[k]
+                except KeyError:
+                    log.debug(
+                        "print_test: test: '%s' does not have internal attr '%s'",
+                        attr,
+                    )
+                    break
+            else:
+                try:
+                    item = item[k]
+                    if not item:
+                        break
+                except KeyError:
+                    log.debug(
+                        "print_test: test: '%s' does not have internal attr '%s'",
+                        t["name"],
+                        attr,
+                    )
+                    break
 
 
 def print_test(
@@ -120,41 +165,7 @@ def print_test(
     if not show_all:
         if not test.deployed:
             del d["status"]
-        del d["deviceId"]
-        for attr in INTERNAL_TEST_SETTINGS:
-            keys = attr.split(".")
-            item = d["settings"]
-            while keys:
-                k = keys.pop(0)
-                if not keys:
-                    try:
-                        log.debug(
-                            "print_test: deleting k: '%s' item: '%s' attr: '%s'",
-                            k,
-                            item,
-                            attr,
-                        )
-                        del item[k]
-                    except KeyError:
-                        log.debug(
-                            "print_test: test: '%s' does not have internal attr '%s'",
-                            test.name,
-                            attr,
-                        )
-                        break
-                else:
-                    try:
-                        item = item[k]
-                        if not item:
-                            break
-                    except KeyError:
-                        log.debug(
-                            "print_test: test: '%s' does not have internal attr '%s'",
-                            test.name,
-                            attr,
-                        )
-                        break
-
+        _filter_test_attrs(d, INTERNAL_TEST_SETTINGS)
     if attributes:
         attr_list = attributes.split(",")
     else:
@@ -166,8 +177,33 @@ def print_test_brief(test: SynTest) -> None:
     typer.echo(f"id: {test.id} name: {test.name} type: {test.type.value}")
 
 
+def print_test_diff(first: SynTest, second: SynTest, show_all=False, labels: Tuple[str, str] = ("FIRST", "SECOND")):
+    o = transform_dict_keys(first.to_dict()["test"], camel_to_snake)
+    n = transform_dict_keys(second.to_dict()["test"], camel_to_snake)
+    if not show_all:
+        del o["status"]
+        del n["status"]
+        _filter_test_attrs(o, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
+        _filter_test_attrs(n, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
+    diffs = dict_compare(o, n)
+    if diffs:
+        table = Texttable(max_width=os.get_terminal_size()[0])
+        table.add_rows([["Attribute", f"{labels[0]}", f"{labels[1]}"]], header=True)
+        table.add_rows(rows=[[d[0], d[1], d[2]] for d in diffs], header=False)
+        typer.echo(f"Configuration differences:")
+        table.set_deco(Texttable.HEADER|Texttable.VLINES)
+        typer.echo(table.draw())
+    else:
+        typer.echo(f"Configurations of {labels[0]} and {labels[1]} are identical")
+        raise typer.Exit(0)
+
+
 def print_test_results(results: Dict[str, Any]):
     print_struct(transform_dict_keys(results, camel_to_snake))
+
+
+def agent_to_dict(agent: dict) -> Dict[str, Any]:
+    return transform_dict_keys(agent, camel_to_snake)
 
 
 def print_agent(agent: dict, indent_level=0, attributes: Optional[str] = None) -> None:
