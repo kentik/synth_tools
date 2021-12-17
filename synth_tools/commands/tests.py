@@ -146,7 +146,7 @@ def update_test(
     if not new:
         return  # not reached, load test does no return without valid test, but we need to make linters happy
     if dry_run:
-        print_test_diff(old, new, show_all)
+        print_test_diff(old, new, labels=("EXISTING", "NEW"), show_all=show_all)
     else:
         test = api.syn.update_test(new, old.id)
         if not test:
@@ -242,6 +242,28 @@ def match_test(
                         show_all=show_all,
                         attributes=fields,
                     )
+
+
+@tests_app.command("compare")
+def compare_test(
+    ctx: typer.Context,
+    test_id1: str = typer.Argument(..., help="Id of the first test to compare"),
+    test_id2: str = typer.Argument(..., help="Id of the second test to compare"),
+    print_config: bool = typer.Option(False, help="Print test configuration"),
+    show_all: bool = typer.Option(False, help="Show all test attributes"),
+) -> None:
+    """
+    Compare configurations of 2 existing tests
+    """
+    api = get_api(ctx)
+    t1 = _get_test_by_id(api.syn, test_id1)
+    t2 = _get_test_by_id(api.syn, test_id2)
+    print_test_diff(t1, t2, labels=(f"test {test_id1}", f"test {test_id2}"), show_all=show_all)
+    if print_config:
+        typer.echo(f"\ntests 1 ({test_id1}):")
+        print_test(t1, indent_level=1, show_all=show_all)
+        typer.echo(f"\ntests 2 ({test_id2}):")
+        print_test(t2, indent_level=1, show_all=show_all)
 
 
 @tests_app.command("pause")

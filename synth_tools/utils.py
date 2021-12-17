@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import inflection
@@ -9,6 +10,7 @@ from kentik_synth_client.synth_tests import SynTest
 from kentik_synth_client.utils import dict_compare
 from synth_tools import log
 from synth_tools.apis import APIs
+from texttable import Texttable
 
 
 def sort_id(id_str: str) -> str:
@@ -170,9 +172,9 @@ def print_test_brief(test: SynTest) -> None:
     typer.echo(f"id: {test.id} name: {test.name} type: {test.type.value}")
 
 
-def print_test_diff(old: SynTest, new: SynTest, show_all=False):
-    o = transform_dict_keys(old.to_dict()["test"], camel_to_snake)
-    n = transform_dict_keys(new.to_dict()["test"], camel_to_snake)
+def print_test_diff(first: SynTest, second: SynTest, show_all=False, labels: Tuple[str, str] = ("FIRST", "SECOND")):
+    o = transform_dict_keys(first.to_dict()["test"], camel_to_snake)
+    n = transform_dict_keys(second.to_dict()["test"], camel_to_snake)
     if not show_all:
         del o["status"]
         del n["status"]
@@ -180,19 +182,15 @@ def print_test_diff(old: SynTest, new: SynTest, show_all=False):
         _filter_test_attrs(n, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
     diffs = dict_compare(o, n)
     if diffs:
-        typer.echo("Configuration differences:")
-        for d in diffs:
-            if not d[1]:
-                old_val = "<not in existing>"
-            else:
-                old_val = d[1]
-            if not d[2]:
-                new_val = "<not in new>"
-            else:
-                new_val = d[2]
-            typer.echo(f"  {d[0]}: {old_val} -> {new_val}")
+        table = Texttable(max_width=os.get_terminal_size()[0])
+        table.add_rows([["Attribute", f"{labels[0]}", f"{labels[1]}"]], header=True)
+        table.add_rows(rows=[[d[0], d[1], d[2]] for d in diffs], header=False)
+        typer.echo(f"Configuration differences:")
+        table.set_deco(Texttable.HEADER|Texttable.VLINES)
+        typer.echo(table.draw())
     else:
-        typer.echo("Existing and new configuration are identical")
+        typer.echo(f"Configurations of {labels[0]} and {labels[1]} are identical")
+        raise typer.Exit(0)
 
 
 def print_test_results(results: Dict[str, Any]):
