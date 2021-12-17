@@ -14,7 +14,7 @@ class SynthHTTPTransport(KentikAPITransport):
     OPS: Dict[str, Dict[str, Any]] = dict(
         AgentsList=dict(ep="agents", method="get", resp="agents"),
         AgentGet=dict(ep="agents", method="get", params="{id}", resp="agent"),
-        AgentPatch=dict(ep="agents", method="patch", params="{id}", body="agent", resp="agent"),
+        AgentUpdate=dict(ep="agents", method="put", params="{id}", body="agent", resp="agent"),
         AgentDelete=dict(ep="agents", method="delete", params="{id}"),
         TestsList=dict(ep="tests", method="get", resp="tests"),
         TestGet=dict(ep="tests", method="get", params="{id}", resp="test"),

@@ -4,7 +4,7 @@ import typer
 
 from kentik_synth_client import KentikAPIRequestError, KentikSynthClient
 from synth_tools.matchers import all_matcher_from_rules
-from synth_tools.utils import agent_to_dict, fail, get_api, print_agent, print_agent_brief, sort_id
+from synth_tools.utils import agent_to_dict, fail, get_api, print_agent, print_agent_brief, snake_to_camel, sort_id
 
 agents_app = typer.Typer()
 
@@ -106,9 +106,9 @@ def activate_agent(
             typer.echo(f"id: {i} agent not pending (status: {a['status']})")
             continue
         a["status"] = "AGENT_STATUS_OK"
-        del a["name"]
+        del a[snake_to_camel("site_name")]
         try:
-            a = api.syn.patch_agent(i, a, "agent.status")
+            a = api.syn.update_agent(i, a)
             if a["status"] != "AGENT_STATUS_OK":
                 typer.echo(f"id: {i} FAILED to activate (status: {a['status']}")
             else:
@@ -132,9 +132,9 @@ def deactivate_agent(
             typer.echo(f"id: {i} agent is not active (status: {a['status']})")
             continue
         a["status"] = "AGENT_STATUS_WAIT"
-        del a["name"]
+        del a[snake_to_camel("site_name")]
         try:
-            a = api.syn.patch_agent(i, a, "agent.status")
+            a = api.syn.update_agent(i, a)
             if a["status"] != "AGENT_STATUS_WAIT":
                 typer.echo(f"id: {i} FAILED to deactivate (status: {a['status']}")
             else:

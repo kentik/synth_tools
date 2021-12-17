@@ -97,9 +97,7 @@ class PropertyMatcher(Matcher):
             elif k in obj:  # type: ignore
                 obj = obj[k]  # type: ignore
             else:
-                log.debug(
-                    "%s: object: does not have property '%s'", self.__class__.__name__, self.key
-                )
+                log.debug("%s: object: does not have property '%s'", self.__class__.__name__, self.key)
                 log.debug("%s: ret '%s'", self.__class__.__name__, False)
                 return False
         if isinstance(obj, Enum):
