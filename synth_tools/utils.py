@@ -5,12 +5,12 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import inflection
 import typer
 import yaml
+from texttable import Texttable
 
 from kentik_synth_client.synth_tests import SynTest
 from kentik_synth_client.utils import dict_compare
 from synth_tools import log
 from synth_tools.apis import APIs
-from texttable import Texttable
 
 
 def sort_id(id_str: str) -> str:
@@ -186,7 +186,7 @@ def print_test_diff(first: SynTest, second: SynTest, show_all=False, labels: Tup
         table.add_rows([["Attribute", f"{labels[0]}", f"{labels[1]}"]], header=True)
         table.add_rows(rows=[[d[0], d[1], d[2]] for d in diffs], header=False)
         typer.echo(f"Configuration differences:")
-        table.set_deco(Texttable.HEADER|Texttable.VLINES)
+        table.set_deco(Texttable.HEADER | Texttable.VLINES)
         typer.echo(table.draw())
     else:
         typer.echo(f"Configurations of {labels[0]} and {labels[1]} are identical")
