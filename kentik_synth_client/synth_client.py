@@ -37,9 +37,12 @@ class KentikSynthClient:
         else:
             self._transport = SynthHTTPTransport(credentials, url=self._url, proxy=proxy)
 
+    def list_agents(self) -> List[Dict]:
+        return self._transport.req("AgentsList")
+
     @property
     def agents(self) -> List[Dict]:
-        return self._transport.req("AgentsList")
+        return self.list_agents()
 
     def agent(self, agent_id: str) -> Dict:
         return self._transport.req("AgentGet", id=agent_id)
@@ -52,7 +55,7 @@ class KentikSynthClient:
 
     @property
     def tests(self) -> List[SynTest]:
-        return [make_synth_test(t) for t in self._transport.req("TestsList")]
+        return self.list_tests()
 
     def list_tests(self, presets: bool = False, raw: bool = False) -> Any:
         r = self._transport.req("TestsList", params=dict(presets=presets))
@@ -134,17 +137,28 @@ class KentikSynthClient:
 
     def trace(
         self,
-        test_id: str,
-        start: datetime,
-        end: datetime,
+        test: Union[str, SynTest],
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        periods: int = 3,
         agent_ids: Optional[List[str]] = None,
         ips: Optional[List[str]] = None,
     ):
+        if isinstance(test, SynTest):
+            t = test
+        else:
+            t = self.test(test)
+        if not t.deployed:
+            raise RuntimeError(f"Test '{t.name}[id: {t.id}] is not deployed yet")
+        if not end:
+            end = datetime.now(tz=timezone.utc)
+        if not start:
+            start = end - timedelta(seconds=periods * t.settings.period)
         return self._transport.req(
             "GetTraceForTest",
-            id=test_id,
+            id=t.id,
             body=dict(
-                id=test_id,
+                id=t.id,
                 startTime=start.isoformat(),
                 endTime=end.isoformat(),
                 agentIds=agent_ids if agent_ids else [],

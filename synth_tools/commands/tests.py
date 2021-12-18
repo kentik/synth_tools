@@ -10,14 +10,15 @@ from synth_tools import log
 from synth_tools.core import TestResults, load_test, run_one_shot
 from synth_tools.matchers import all_matcher_from_rules
 from synth_tools.utils import (
+    api_request,
     dict_to_json,
     fail,
     get_api,
     print_struct,
     print_test,
-    print_test_brief,
     print_test_diff,
     print_test_results,
+    print_tests_brief,
     sort_id,
     test_to_dict,
 )
@@ -109,9 +110,9 @@ def create_test(
     if dry_run:
         print_test(test, show_all=show_all, attributes=fields)
     else:
-        test = api.syn.create_test(test)
+        test = api_request(api.syn.create_test, "TestCreate", test)
         if not test:
-            return  # not reached, load test does no return without valid test, but we need to make linters happy
+            return  # to make linters happy - api_request does not return on failure
         typer.echo(f"Created new test: id {test.id}")
         if print_config:
             print_test(test, show_all=show_all)
@@ -148,10 +149,8 @@ def update_test(
     if dry_run:
         print_test_diff(old, new, labels=("EXISTING", "NEW"), show_all=show_all)
     else:
-        test = api.syn.update_test(new, old.id)
-        if not test:
-            return  # not reached, load test does no return without valid test, but we need to make linters happy
-        typer.echo(f"Updated test: id {test.id}")
+        test = api_request(api.syn.update_test, "TestUpdate", new, old.id)
+        typer.echo(f"Updated test: id {test_id}")
         if print_config:
             print_test(test, show_all=show_all)
 
@@ -165,7 +164,7 @@ def delete_test(ctx: typer.Context, test_ids: List[str] = typer.Argument(..., he
     for i in test_ids:
         # Try to fetch test first in order to provide better error message if the test does not exist
         _get_test_by_id(api.syn, i)
-        api.syn.delete_test(i)
+        api_request(api.syn.delete_test, "TestDelete", i)
         typer.echo(f"Deleted test: id: {i}")
 
 
@@ -180,10 +179,11 @@ def list_tests(
     List all tests
     """
     api = get_api(ctx)
-    for t in sorted(api.syn.tests, key=lambda x: sort_id(x.id)):
-        if brief:
-            print_test_brief(t)
-        else:
+    tests = api_request(api.syn.list_tests, "ListTests")
+    if brief:
+        print_tests_brief(sorted(tests, key=lambda x: sort_id(x.id)))
+    else:
+        for t in sorted(tests, key=lambda x: sort_id(x.id)):
             if fields == "id":
                 typer.echo(t.id)
             else:
@@ -195,6 +195,7 @@ def list_tests(
 def get_test(
     ctx: typer.Context,
     test_ids: List[str],
+    brief: bool = typer.Option(False, "-b", "--brief", help="Print only id, name and type"),
     fields: Optional[str] = typer.Option(None, "-f", "--fields", help="Config attributes to print"),
     show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
@@ -202,12 +203,15 @@ def get_test(
     Print test configuration
     """
     api = get_api(ctx)
-    print_id = len(test_ids) > 1 and (not fields or "id" not in fields.split(","))
-    for i in test_ids:
-        t = _get_test_by_id(api.syn, i)
-        if print_id:
-            typer.echo(f"id: {t.id}")
-        print_test(t, show_all=show_all, attributes=fields)
+    tests = [_get_test_by_id(api.syn, i) for i in test_ids]
+    print_id = len(tests) > 1 and (not fields or "id" not in fields.split(","))
+    if brief:
+        print_tests_brief(tests)
+    else:
+        for t in tests:
+            if print_id:
+                typer.echo(f"id: {t.id}")
+            print_test(t, show_all=show_all, attributes=fields)
 
 
 @tests_app.command("match")
@@ -223,15 +227,16 @@ def match_test(
     """
     api = get_api(ctx)
     matcher = all_matcher_from_rules(rules)
-    matching = [t for t in api.syn.tests if matcher.match(test_to_dict(t))]
+    tests = api_request(api.syn.list_tests, "ListTests")
+    matching = [t for t in tests if matcher.match(test_to_dict(t))]
     if not matching:
         typer.echo("No test matches specified rules")
     else:
         matching.sort(key=lambda x: sort_id(x.id))
-        for t in matching:
-            if brief:
-                print_test_brief(t)
-            else:
+        if brief:
+            print_tests_brief(matching)
+        else:
+            for t in matching:
                 if fields == "id":
                     typer.echo(t.id)
                 else:
@@ -274,7 +279,7 @@ def pause_test(ctx: typer.Context, test_id: str) -> None:
     api = get_api(ctx)
     # Try to fetch test first in order to provide better error message if the test does not exist
     _get_test_by_id(api.syn, test_id)
-    api.syn.set_test_status(test_id, TestStatus.paused)
+    api_request(api.syn.set_test_status, "TestStatusUpdate", test_id, TestStatus.paused)
     typer.echo(f"test id: {test_id} has been paused")
 
 
@@ -286,7 +291,7 @@ def resume_test(ctx: typer.Context, test_id: str) -> None:
     api = get_api(ctx)
     # Try to fetch test first in order to provide better error message if the test does not exist
     _get_test_by_id(api.syn, test_id)
-    api.syn.set_test_status(test_id, TestStatus.active)
+    api_request(api.syn.set_test_status, "TestStatusUpdate", test_id, TestStatus.active)
     typer.echo(f"test id: {test_id} has been resumed")
 
 
@@ -303,12 +308,7 @@ def get_test_health(
     """
     api = get_api(ctx)
     t = _get_test_by_id(api.syn, test_id)
-    try:
-        health = api.syn.results(t, periods=periods)
-    except Exception as exc:
-        fail(f"Failed to get results ({exc}")
-        health = None  # to make linters happy (this line is never reached)
-
+    health = api_request(api.syn.results, "GetHealthForTests", t, periods=periods)
     if not health:
         fail(f"Test '{test_id}' did not produce any health data")
 
@@ -321,3 +321,25 @@ def get_test_health(
         log.info("Writing results to %s", json_out)
         dict_to_json(json_out, results.to_dict())
     print_test_results(results.to_dict()["execution"]["results"])
+
+
+@tests_app.command("trace")
+def get_test_trace(
+    ctx: typer.Context,
+    test_id: str,
+    targets: Optional[List[str]] = typer.Argument(None, help="Target IP addresses for which to retrieve trace data"),
+    raw_out: Optional[str] = typer.Option("", help="Path to file to store raw API response in JSON format"),
+    periods: int = typer.Option(3, help="Number of test periods to request"),
+) -> None:
+    """
+    Print test trace data
+    """
+    api = get_api(ctx)
+    t = _get_test_by_id(api.syn, test_id)
+    trace = api_request(api.syn.trace, "GetTraceForTests", t, periods=periods, ips=targets)
+    if not trace:
+        fail(f"Test '{test_id}' did not produce any trace data")
+    if raw_out:
+        log.info("Writing trace data to %s", raw_out)
+        dict_to_json(raw_out, trace)
+    print_struct(trace)

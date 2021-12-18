@@ -7,6 +7,7 @@ import typer
 import yaml
 from texttable import Texttable
 
+from kentik_synth_client import KentikAPIRequestError
 from kentik_synth_client.synth_tests import SynTest
 from kentik_synth_client.utils import dict_compare
 from synth_tools import log
@@ -60,6 +61,13 @@ def get_api(ctx: typer.Context) -> APIs:
     if not api:
         raise RuntimeError("Cannot find APIs in context")
     return api
+
+
+def api_request(req: Callable, name: str, *args, **kwargs) -> Any:
+    try:
+        return req(*args, **kwargs)
+    except KentikAPIRequestError as exc:
+        fail(f"API {name} request failed - {exc}")
 
 
 def filter_dict(data: dict, attr_list: Optional[List[str]] = None) -> Dict[str, Any]:
@@ -168,8 +176,13 @@ def print_test(
     print_struct(filter_dict(d, attr_list), indent_level=indent_level)
 
 
-def print_test_brief(test: SynTest) -> None:
-    typer.echo(f"id: {test.id} name: {test.name} type: {test.type.value}")
+def print_tests_brief(tests: List[SynTest]) -> None:
+    # typer.echo(f"id: {test.id} name: {test.name} type: {test.type.value}")
+    table = Texttable(max_width=os.get_terminal_size()[0])
+    for t in tests:
+        table.add_row([f"{x[0]}: {x[1]}" for x in (("id", t.id), ("name", t.name), ("type", t.type.value))])
+    table.set_deco(Texttable.HEADER | Texttable.VLINES)
+    typer.echo(table.draw())
 
 
 def print_test_diff(first: SynTest, second: SynTest, show_all=False, labels: Tuple[str, str] = ("FIRST", "SECOND")):
@@ -211,5 +224,21 @@ def print_agent(agent: dict, indent_level=0, attributes: Optional[str] = None) -
     print_struct(filter_dict(a, attr_list), indent_level=indent_level)
 
 
-def print_agent_brief(agent: dict) -> None:
-    typer.echo(f"id: {agent['id']} name: {agent['name']} alias: {agent['alias']} type: {agent['type']}")
+def print_agents_brief(agents: List[Dict[str, Any]]) -> None:
+    table = Texttable(max_width=os.get_terminal_size()[0])
+    for agent in agents:
+        a = agent_to_dict(agent)
+        table.add_row(
+            [
+                f"{k}: {v}"
+                for k, v in (
+                    ("id", a["id"]),
+                    ("site_name", a["site_name"]),
+                    ("alias", a["alias"]),
+                    ("type", a["type"]),
+                    ("nr_tests", len(a["test_ids"])),
+                )
+            ]
+        )
+    table.set_deco(Texttable.HEADER | Texttable.VLINES)
+    typer.echo(table.draw())

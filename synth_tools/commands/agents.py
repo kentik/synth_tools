@@ -4,7 +4,16 @@ import typer
 
 from kentik_synth_client import KentikAPIRequestError, KentikSynthClient
 from synth_tools.matchers import all_matcher_from_rules
-from synth_tools.utils import agent_to_dict, fail, get_api, print_agent, print_agent_brief, snake_to_camel, sort_id
+from synth_tools.utils import (
+    agent_to_dict,
+    api_request,
+    fail,
+    get_api,
+    print_agent,
+    print_agents_brief,
+    snake_to_camel,
+    sort_id,
+)
 
 agents_app = typer.Typer()
 
@@ -30,34 +39,36 @@ def list_agents(
     List all agents
     """
     api = get_api(ctx)
-    try:
-        for a in sorted(api.syn.agents, key=lambda x: sort_id(x["id"])):
-            if brief:
-                print_agent_brief(a)
+    agents = api_request(api.syn.list_agents, "AgentsList")
+    if brief:
+        print_agents_brief(sorted(agents, key=lambda x: sort_id(x["id"])))
+    else:
+        for a in sorted(agents, key=lambda x: sort_id(x["id"])):
+            if fields == "id":
+                typer.echo(a["id"])
             else:
-                if fields == "id":
-                    typer.echo(a["id"])
-                else:
-                    typer.echo(f"id: {a['id']}")
-                    print_agent(a, indent_level=1, attributes=fields)
-    except KentikAPIRequestError as exc:
-        fail(f"{exc}")
+                typer.echo(f"id: {a['id']}")
+                print_agent(a, indent_level=1, attributes=fields)
 
 
 @agents_app.command("get")
 def get_agent(
     ctx: typer.Context,
     agent_ids: List[str],
+    brief: bool = typer.Option(False, "-b", "--brief", help="Print only id, name, alias and type"),
     fields: Optional[str] = typer.Option(None, "-f", "--fields", help="Config attributes to print"),
 ) -> None:
     """
     Print agent configuration
     """
     api = get_api(ctx)
-    for i in agent_ids:
-        a = _get_agent_by_id(api.syn, i)
-        typer.echo(f"id: {i}")
-        print_agent(a, indent_level=1, attributes=fields)
+    agents = [_get_agent_by_id(api.syn, i) for i in agent_ids]
+    if brief:
+        print_agents_brief(agents)
+    else:
+        for a in agents:
+            typer.echo(f"id: {a['id']}")
+            print_agent(a, indent_level=1, attributes=fields)
 
 
 @agents_app.command("match")
@@ -72,23 +83,21 @@ def match_agent(
     """
     api = get_api(ctx)
     matcher = all_matcher_from_rules(rules)
-    try:
-        matching = [a for a in api.syn.agents if matcher.match(agent_to_dict(a))]
-        if not matching:
-            typer.echo("No agent matches specified rules")
+    agents = api_request(api.syn.list_agents, "AgentsList")
+    matching = [a for a in agents if matcher.match(agent_to_dict(a))]
+    if not matching:
+        typer.echo("No agent matches specified rules")
+    else:
+        matching.sort(key=lambda x: sort_id(x["id"]))
+        if brief:
+            print_agents_brief(matching)
         else:
-            matching.sort(key=lambda x: sort_id(x["id"]))
             for a in matching:
-                if brief:
-                    print_agent_brief(a)
+                if fields == "id":
+                    typer.echo(a["id"])
                 else:
-                    if fields == "id":
-                        typer.echo(a["id"])
-                    else:
-                        typer.echo(f"id: {a['id']}")
-                        print_agent(a, indent_level=1, attributes=fields)
-    except KentikAPIRequestError as exc:
-        fail(f"{exc}")
+                    typer.echo(f"id: {a['id']}")
+                    print_agent(a, indent_level=1, attributes=fields)
 
 
 @agents_app.command("activate")
@@ -107,14 +116,11 @@ def activate_agent(
             continue
         a["status"] = "AGENT_STATUS_OK"
         del a[snake_to_camel("site_name")]
-        try:
-            a = api.syn.update_agent(i, a)
-            if a["status"] != "AGENT_STATUS_OK":
-                typer.echo(f"id: {i} FAILED to activate (status: {a['status']}")
-            else:
-                typer.echo(f"id: {i} agent activated")
-        except KentikAPIRequestError as exc:
-            fail(f"{exc}")
+        a = api_request(api.syn.update_agent, "AgentUpdate", i, a)
+        if a["status"] != "AGENT_STATUS_OK":
+            typer.echo(f"id: {i} FAILED to activate (status: {a['status']}")
+        else:
+            typer.echo(f"id: {i} agent activated")
 
 
 @agents_app.command("deactivate")
@@ -133,14 +139,11 @@ def deactivate_agent(
             continue
         a["status"] = "AGENT_STATUS_WAIT"
         del a[snake_to_camel("site_name")]
-        try:
-            a = api.syn.update_agent(i, a)
-            if a["status"] != "AGENT_STATUS_WAIT":
-                typer.echo(f"id: {i} FAILED to deactivate (status: {a['status']}")
-            else:
-                typer.echo(f"id: {i} agent deactivated")
-        except KentikAPIRequestError as exc:
-            fail(f"{exc}")
+        a = api_request(api.syn.update_agent, "AgentUpdate", i, a)
+        if a["status"] != "AGENT_STATUS_WAIT":
+            typer.echo(f"id: {i} FAILED to deactivate (status: {a['status']}")
+        else:
+            typer.echo(f"id: {i} agent deactivated")
 
 
 @agents_app.command("delete")
@@ -160,4 +163,4 @@ def delete_agent(
             if exc.response.status_code == 404:
                 fail(f"Agent with id '{i}' not found")
             else:
-                fail(f"{exc}")
+                fail(f"API request AgentDelete failed - {exc}")
