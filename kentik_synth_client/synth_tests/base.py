@@ -1,5 +1,4 @@
 import logging
-import re
 from dataclasses import dataclass, field, fields
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, TypeVar
@@ -126,20 +125,20 @@ class DefaultDNSValidCodes(_DefaultList):
 
 @dataclass
 class HealthSettings(_ConfigElement):
-    latencyCritical: int = 0
-    latencyWarning: int = 0
-    latencyCriticalStddev: int = 0
-    latencyWarningStddev: int = 0
+    latencyCritical: float = 0.0
+    latencyWarning: float = 0.0
+    latencyCriticalStddev: float = 0.0
+    latencyWarningStddev: float = 0.0
     packetLossCritical: int = 0
     packetLossWarning: int = 0
-    jitterCritical: int = 0
-    jitterWarning: int = 0
-    jitterCriticalStddev: int = 0
-    jitterWarningStddev: int = 0
-    httpLatencyCritical: int = 0
-    httpLatencyWarning: int = 0
-    httpLatencyCriticalStddev: int = 0
-    httpLatencyWarningStddev: int = 0
+    jitterCritical: float = 0.0
+    jitterWarning: float = 0.0
+    jitterCriticalStddev: float = 0.0
+    jitterWarningStddev: float = 0.0
+    httpLatencyCritical: float = 0.0
+    httpLatencyWarning: float = 0.0
+    httpLatencyCriticalStddev: float = 0.0
+    httpLatencyWarningStddev: float = 0.0
     httpValidCodes: List[int] = field(default_factory=list)
     dnsValidCodes: List[int] = field(default_factory=list)
     unhealthySubtestThreshold: int = 1

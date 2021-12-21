@@ -435,7 +435,7 @@ def make_page_load_test(
         )
     log.debug("make_page_load_test: ping: '%s', trace: '%s'", ping, trace)
     log.debug("make_page_load_test: attrs: '%s'", ", ".join(f"{k}:{v}" for k, v in attrs.items()))
-    return PageLoadTest.create(name=name, target=targets[0], agent_ids=agents, **attrs)
+    return PageLoadTest.create(name=name, target=targets[0], agent_ids=agents, ping=ping, trace=trace, **attrs)
 
 
 def make_url_test(

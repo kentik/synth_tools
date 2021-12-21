@@ -34,6 +34,7 @@ class UrlTest(SynTest):
         expiry: int = 5000,
         method: str = "GET",
         headers: Optional[Dict[str, str]] = None,
+        css_selectors: Optional[Dict[str, str]] = None,
         body: str = "",
         ignore_tls_errors: bool = False,
         ping: bool = False,
@@ -51,7 +52,13 @@ class UrlTest(SynTest):
                 url=dict(
                     expiry=expiry,
                     target=target,
-                    http=dict(method=method, body=body, headers=headers or {}, ignoreTlsErrors=ignore_tls_errors),
+                    http=dict(
+                        method=method,
+                        body=body,
+                        headers=headers or {},
+                        css_selectors=css_selectors or {},
+                        ignoreTlsErrors=ignore_tls_errors,
+                    ),
                 ),
                 tasks=tasks,
             ),

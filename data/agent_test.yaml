@@ -2,11 +2,9 @@ test:
   type: agent
   period: 600
   ping:
-    protocol: tcp
-    port: 80
-    delay: 200
+    protocol: icmp
   trace:
-    protocol: udp
+    protocol: icmp
   health_settings:
     packet_loss_critical: 60
 

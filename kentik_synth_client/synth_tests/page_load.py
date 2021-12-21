@@ -3,12 +3,14 @@ from typing import Dict, List, Optional, Type, TypeVar
 
 from kentik_synth_client.types import *
 
-from .base import PingTraceTest, PingTraceTestSettings
+from .base import PingTask, PingTraceTest, PingTraceTestSettings, TraceTask
 
 
 @dataclass
 class PageLoadTestSettings(PingTraceTestSettings):
     pageLoad: dict = field(default_factory=dict)
+    ping: PingTask = field(default_factory=PingTask)
+    trace: TraceTask = field(default_factory=TraceTask)
 
     @classmethod
     def task_name(cls) -> Optional[str]:
@@ -32,6 +34,7 @@ class PageLoadTest(PingTraceTest):
         expiry: int = 5000,
         method: str = "GET",
         headers: Optional[Dict[str, str]] = None,
+        css_selectors: Optional[Dict[str, str]] = None,
         body: str = "",
         ignore_tls_errors: bool = False,
         ping: bool = False,
@@ -49,7 +52,13 @@ class PageLoadTest(PingTraceTest):
                 pageLoad=dict(
                     expiry=expiry,
                     target=target,
-                    http=dict(method=method, body=body, headers=headers or {}, ignoreTlsErrors=ignore_tls_errors),
+                    http=dict(
+                        method=method,
+                        body=body,
+                        headers=headers or {},
+                        css_selectors=css_selectors or {},
+                        ignoreTlsErrors=ignore_tls_errors,
+                    ),
                 ),
                 tasks=tasks,
             ),

@@ -185,15 +185,23 @@ def print_tests_brief(tests: List[SynTest]) -> None:
     typer.echo(table.draw())
 
 
+def _remove_unused_test_settings(test: dict):
+    for task, cfg in (("ping", "ping"), ("traceroute", "trace")):
+        if task not in test["settings"]["tasks"] and cfg in test["settings"]:
+            del test["settings"][cfg]
+
+
 def print_test_diff(first: SynTest, second: SynTest, show_all=False, labels: Tuple[str, str] = ("FIRST", "SECOND")):
-    o = transform_dict_keys(first.to_dict()["test"], camel_to_snake)
-    n = transform_dict_keys(second.to_dict()["test"], camel_to_snake)
+    f = transform_dict_keys(first.to_dict()["test"], camel_to_snake)
+    s = transform_dict_keys(second.to_dict()["test"], camel_to_snake)
     if not show_all:
-        del o["status"]
-        del n["status"]
-        _filter_test_attrs(o, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
-        _filter_test_attrs(n, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
-    diffs = dict_compare(o, n)
+        del f["status"]
+        del s["status"]
+        _remove_unused_test_settings(f)
+        _remove_unused_test_settings(s)
+        _filter_test_attrs(f, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
+        _filter_test_attrs(s, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
+    diffs = dict_compare(f, s)
     if diffs:
         table = Texttable(max_width=os.get_terminal_size()[0])
         table.add_rows([["Attribute", f"{labels[0]}", f"{labels[1]}"]], header=True)
