@@ -31,12 +31,8 @@ def fake_req(fixture_file):
     [
         # Expects to see all fields of an agent in a successful list request
         (["agent", "list"], 0, ["AGENT_STATUS_OK", "country:"], [], ["../fixtures/agents/get_agents.json"]),
-        # Expects to NOT print status and country fields in a list request with --brief flag
-        (["agent", "list", "--brief"], 0, [], ["AGENT_STATUS_OK", "country:"], ["../fixtures/agents/get_agents.json"]),
         # Expects to print the id output for a successful request to an existent agent
         (["agent", "get", "593"], 0, ["id: 593", ""], [], ["../fixtures/agents/get_agent.json"]),
-        # Expects to print just the id when API returns and "empty" agent
-        (["agent", "get", "999"], 1, ["id: 999"], ["name: "], ["../fixtures/empty_dict.json"]),
     ],
 )
 @mock.patch.object(SynthHTTPTransport, "req")
