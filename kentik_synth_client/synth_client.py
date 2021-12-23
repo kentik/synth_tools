@@ -77,12 +77,10 @@ class KentikSynthClient:
     def create_test(self, test: SynTest) -> SynTest:
         return SynTest.test_from_dict(self._transport.req("TestCreate", body=test.to_dict()))
 
-    def patch_test(self, test: SynTest, modified: str) -> SynTest:
-        if test.id == 0:
-            raise RuntimeError(f"test '{test.name}' has not been created yet (id=0). Cannot patch")
+    def patch_test(self, test: SynTest, test_id, modified: str) -> SynTest:
         body = test.to_dict()
         body["mask"] = modified
-        return SynTest.test_from_dict(self._transport.req("TestPatch", id=test.id, body=body))
+        return SynTest.test_from_dict(self._transport.req("TestPatch", id=test_id, body=body))
 
     def delete_test(self, test: Union[str, SynTest]) -> None:
         if isinstance(test, SynTest):
@@ -151,7 +149,7 @@ class KentikSynthClient:
         if not end:
             end = datetime.now(tz=timezone.utc)
         if not start:
-            start = end - timedelta(seconds=periods * t.settings.period)
+            start = end - timedelta(seconds=periods * t.max_period)
         return self._transport.req(
             "GetTraceForTest",
             id=t.id,

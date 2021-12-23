@@ -101,14 +101,36 @@ def dict_to_json(filename: str, data: Dict[str, Any]) -> None:
         fail(f"Cannot write to file '{filename}' ({ex})")
 
 
-INTERNAL_TEST_SETTINGS = (
-    "tasks",
-    "monitoringSettings",
-    "rollupLevel",
-    "ping.period",
-    "trace.period",
-    "http.period",
-)
+INTERNAL_TEST_SETTINGS = [
+    "device_id",
+    "setting.tasks",
+    "setting.monitoringSettings",
+    "setting.rollupLevel",
+    "setting.ping.period",
+    "setting.trace.period",
+    "setting.http.period",
+]
+
+NON_COMPARABLE_TEST_ATTRS = [
+    "id",
+    "created",
+    "modified",
+    "created_by",
+]
+
+READONLY_TEST_ATTRS = {
+    "settings.hostname.target",
+    "settings.ip.targets",
+    "settings.network_grid.targets",
+    "settings.dns_grid.targets",
+    "settings.dns.targets",
+    "settings.agent.target",
+    "settings.url.target",
+    "settings.page_load.target",
+    "settings.flow.target",
+    "settings.flow.type",
+    "settings.ping.protocol",
+}
 
 
 def test_to_dict(test: SynTest) -> Dict[str, Any]:
@@ -118,20 +140,15 @@ def test_to_dict(test: SynTest) -> Dict[str, Any]:
     d["modified"] = test.edate
     if test.created_by:
         d["created_by"] = test.created_by
+    if not d["settings"]["period"] and "ping" in d["settings"]:
+        d["settings"]["period"] = d["settings"]["ping"]["period"]
     return d
-
-
-NON_COMPARABLE_TEST_ATTRS = [
-    "created",
-    "modified",
-    "created_by",
-]
 
 
 def _filter_test_attrs(t: dict, attrs: List[str]) -> None:
     for attr in attrs:
         keys = attr.split(".")
-        item = t["settings"]
+        item = t
         while keys:
             k = keys.pop(0)
             if not keys:
@@ -145,7 +162,7 @@ def _filter_test_attrs(t: dict, attrs: List[str]) -> None:
                     del item[k]
                 except KeyError:
                     log.debug(
-                        "print_test: test: '%s' does not have internal attr '%s'",
+                        "print_test: test does not have internal attr '%s'",
                         attr,
                     )
                     break
@@ -156,7 +173,7 @@ def _filter_test_attrs(t: dict, attrs: List[str]) -> None:
                         break
                 except KeyError:
                     log.debug(
-                        "print_test: test: '%s' does not have internal attr '%s'",
+                        "print_test: test does not have internal attr '%s'",
                         t["name"],
                         attr,
                     )
@@ -190,9 +207,25 @@ def print_tests_brief(tests: List[SynTest]) -> None:
     typer.echo(table.draw())
 
 
+def make_mod_mask(old: SynTest, new: SynTest) -> str:
+    o = test_to_dict(old)
+    n = test_to_dict(new)
+    del o["status"]
+    del n["status"]
+    _filter_test_attrs(o, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
+    _filter_test_attrs(n, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
+    diffs = set(d[0] for d in dict_compare(o, n))
+    bad = diffs.intersection(READONLY_TEST_ATTRS)
+    if bad:
+        fail("Following test attributes cannot be modified after creation: {}".format(",".join(bad)))
+    mask = ",".join(snake_to_camel(d) for d in diffs)
+    log.debug("make_mod_mask: mask: %s", mask)
+    return mask
+
+
 def print_test_diff(first: SynTest, second: SynTest, show_all=False, labels: Tuple[str, str] = ("FIRST", "SECOND")):
-    o = transform_dict_keys(first.to_dict()["test"], camel_to_snake)
-    n = transform_dict_keys(second.to_dict()["test"], camel_to_snake)
+    o = test_to_dict(first)
+    n = test_to_dict(second)
     if not show_all:
         del o["status"]
         del n["status"]
@@ -238,7 +271,7 @@ def print_agents_brief(agents: List[Dict[str, Any]]) -> None:
                 f"{k}: {v}"
                 for k, v in (
                     ("id", a["id"]),
-                    ("site_name", a["site_name"]),
+                    ("site_name", a["name"]),
                     ("alias", a["alias"]),
                     ("type", a["type"]),
                     ("nr_tests", len(a["test_ids"])),
