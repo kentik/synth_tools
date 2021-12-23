@@ -2,5 +2,6 @@ grpcio
 inflection
 kentik-api >= 0.3.1
 pyyaml<6.0.0,>=5.3.1
+texttable
 typer
 validators

@@ -1,11 +1,15 @@
 import json
-from typing import Any, Callable, Dict, List, Optional
+import os
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import inflection
 import typer
 import yaml
+from texttable import Texttable
 
-from kentik_synth_client import SynTest
+from kentik_synth_client import KentikAPIRequestError
+from kentik_synth_client.synth_tests import SynTest
+from kentik_synth_client.utils import dict_compare
 from synth_tools import log
 from synth_tools.apis import APIs
 
@@ -59,6 +63,13 @@ def get_api(ctx: typer.Context) -> APIs:
     return api
 
 
+def api_request(req: Callable, name: str, *args, **kwargs) -> Any:
+    try:
+        return req(*args, **kwargs)
+    except KentikAPIRequestError as exc:
+        fail(f"API {name} request failed - {exc}")
+
+
 def filter_dict(data: dict, attr_list: Optional[List[str]] = None) -> Dict[str, Any]:
     out: Dict[str, Any] = dict()
     if attr_list is None:
@@ -90,24 +101,83 @@ def dict_to_json(filename: str, data: Dict[str, Any]) -> None:
         fail(f"Cannot write to file '{filename}' ({ex})")
 
 
-INTERNAL_TEST_SETTINGS = (
-    "tasks",
-    "monitoringSettings",
-    "rollupLevel",
-    "ping.period",
-    "trace.period",
-    "http.period",
-)
+INTERNAL_TEST_SETTINGS = [
+    "device_id",
+    "setting.tasks",
+    "setting.monitoringSettings",
+    "setting.rollupLevel",
+    "setting.ping.period",
+    "setting.trace.period",
+    "setting.http.period",
+]
+
+NON_COMPARABLE_TEST_ATTRS = [
+    "id",
+    "created",
+    "modified",
+    "created_by",
+]
+
+READONLY_TEST_ATTRS = {
+    "settings.hostname.target",
+    "settings.ip.targets",
+    "settings.network_grid.targets",
+    "settings.dns_grid.targets",
+    "settings.dns.targets",
+    "settings.agent.target",
+    "settings.url.target",
+    "settings.page_load.target",
+    "settings.flow.target",
+    "settings.flow.type",
+    "settings.ping.protocol",
+}
 
 
 def test_to_dict(test: SynTest) -> Dict[str, Any]:
-    d = test.to_dict()["test"]
+    d = transform_dict_keys(test.to_dict()["test"], camel_to_snake)
     d["id"] = test.id
     d["created"] = test.cdate
     d["modified"] = test.edate
     if test.created_by:
         d["created_by"] = test.created_by
+    if not d["settings"]["period"] and "ping" in d["settings"]:
+        d["settings"]["period"] = d["settings"]["ping"]["period"]
     return d
+
+
+def _filter_test_attrs(t: dict, attrs: List[str]) -> None:
+    for attr in attrs:
+        keys = attr.split(".")
+        item = t
+        while keys:
+            k = keys.pop(0)
+            if not keys:
+                try:
+                    log.debug(
+                        "print_test: deleting k: '%s' item: '%s' attr: '%s'",
+                        k,
+                        item,
+                        attr,
+                    )
+                    del item[k]
+                except KeyError:
+                    log.debug(
+                        "print_test: test does not have internal attr '%s'",
+                        attr,
+                    )
+                    break
+            else:
+                try:
+                    item = item[k]
+                    if not item:
+                        break
+                except KeyError:
+                    log.debug(
+                        "print_test: test does not have internal attr '%s'",
+                        t["name"],
+                        attr,
+                    )
+                    break
 
 
 def print_test(
@@ -120,41 +190,7 @@ def print_test(
     if not show_all:
         if not test.deployed:
             del d["status"]
-        del d["deviceId"]
-        for attr in INTERNAL_TEST_SETTINGS:
-            keys = attr.split(".")
-            item = d["settings"]
-            while keys:
-                k = keys.pop(0)
-                if not keys:
-                    try:
-                        log.debug(
-                            "print_test: deleting k: '%s' item: '%s' attr: '%s'",
-                            k,
-                            item,
-                            attr,
-                        )
-                        del item[k]
-                    except KeyError:
-                        log.debug(
-                            "print_test: test: '%s' does not have internal attr '%s'",
-                            test.name,
-                            attr,
-                        )
-                        break
-                else:
-                    try:
-                        item = item[k]
-                        if not item:
-                            break
-                    except KeyError:
-                        log.debug(
-                            "print_test: test: '%s' does not have internal attr '%s'",
-                            test.name,
-                            attr,
-                        )
-                        break
-
+        _filter_test_attrs(d, INTERNAL_TEST_SETTINGS)
     if attributes:
         attr_list = attributes.split(",")
     else:
@@ -162,12 +198,58 @@ def print_test(
     print_struct(filter_dict(d, attr_list), indent_level=indent_level)
 
 
-def print_test_brief(test: SynTest) -> None:
-    typer.echo(f"id: {test.id} name: {test.name} type: {test.type.value}")
+def print_tests_brief(tests: List[SynTest]) -> None:
+    # typer.echo(f"id: {test.id} name: {test.name} type: {test.type.value}")
+    table = Texttable(max_width=os.get_terminal_size()[0])
+    for t in tests:
+        table.add_row([f"{x[0]}: {x[1]}" for x in (("id", t.id), ("name", t.name), ("type", t.type.value))])
+    table.set_deco(Texttable.HEADER | Texttable.VLINES)
+    typer.echo(table.draw())
+
+
+def make_mod_mask(old: SynTest, new: SynTest) -> str:
+    o = test_to_dict(old)
+    n = test_to_dict(new)
+    del o["status"]
+    del n["status"]
+    _filter_test_attrs(o, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
+    _filter_test_attrs(n, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
+    diffs = set(d[0] for d in dict_compare(o, n))
+    bad = diffs.intersection(READONLY_TEST_ATTRS)
+    if bad:
+        fail("Following test attributes cannot be modified after creation: {}".format(",".join(bad)))
+    mask = ",".join(snake_to_camel(d) for d in diffs)
+    log.debug("make_mod_mask: mask: %s", mask)
+    return mask
+
+
+def print_test_diff(first: SynTest, second: SynTest, show_all=False, labels: Tuple[str, str] = ("FIRST", "SECOND")):
+    o = test_to_dict(first)
+    n = test_to_dict(second)
+    if not show_all:
+        del o["status"]
+        del n["status"]
+        _filter_test_attrs(o, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
+        _filter_test_attrs(n, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
+    diffs = dict_compare(o, n)
+    if diffs:
+        table = Texttable(max_width=os.get_terminal_size()[0])
+        table.add_rows([["Attribute", f"{labels[0]}", f"{labels[1]}"]], header=True)
+        table.add_rows(rows=[[d[0], d[1], d[2]] for d in diffs], header=False)
+        typer.echo(f"Configuration differences:")
+        table.set_deco(Texttable.HEADER | Texttable.VLINES)
+        typer.echo(table.draw())
+    else:
+        typer.echo(f"Configurations of {labels[0]} and {labels[1]} are identical")
+        raise typer.Exit(0)
 
 
 def print_test_results(results: Dict[str, Any]):
     print_struct(transform_dict_keys(results, camel_to_snake))
+
+
+def agent_to_dict(agent: dict) -> Dict[str, Any]:
+    return transform_dict_keys(agent, camel_to_snake)
 
 
 def print_agent(agent: dict, indent_level=0, attributes: Optional[str] = None) -> None:
@@ -180,5 +262,21 @@ def print_agent(agent: dict, indent_level=0, attributes: Optional[str] = None) -
     print_struct(filter_dict(a, attr_list), indent_level=indent_level)
 
 
-def print_agent_brief(agent: dict) -> None:
-    typer.echo(f"id: {agent['id']} name: {agent['name']} alias: {agent['alias']} type: {agent['type']}")
+def print_agents_brief(agents: List[Dict[str, Any]]) -> None:
+    table = Texttable(max_width=os.get_terminal_size()[0])
+    for agent in agents:
+        a = agent_to_dict(agent)
+        table.add_row(
+            [
+                f"{k}: {v}"
+                for k, v in (
+                    ("id", a["id"]),
+                    ("site_name", a["name"]),
+                    ("alias", a["alias"]),
+                    ("type", a["type"]),
+                    ("nr_tests", len(a["test_ids"])),
+                )
+            ]
+        )
+    table.set_deco(Texttable.HEADER | Texttable.VLINES)
+    typer.echo(table.draw())

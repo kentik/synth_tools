@@ -240,7 +240,39 @@ def run_one_shot(api: APIs, test: SynTest, retries: int = 3, delete: bool = True
     return r
 
 
-def load_test(api: APIs, file: Path, fail: Callable[[str], None] = _fail) -> Optional[SynTest]:
+def expand_values(data: dict, subs: Dict[str, str]) -> None:
+    def _expand(d: Any) -> Any:
+        if type(d) == dict:
+            for k, v in d.items():
+                d[k] = _expand(v)
+            return d
+        elif type(d) == list:
+            out = list()
+            for e in d:
+                out.append(_expand(e))
+            return out
+        elif type(d) == str:
+            log.debug("d: %s", d)
+            n = d
+            for k, v in subs.items():
+                n = n.replace(k, v)
+            if d != n:
+                log.debug(
+                    "expanded: '%s' to '%s'",
+                    d,
+                    n,
+                )
+            return n
+        else:
+            return d
+
+    log.debug("expand_values: subs: %s", " ".join(f"{k}:{v}" for k, v in subs.items()))
+    _expand(data)
+
+
+def load_test(
+    api: APIs, file: Path, subs: Optional[Dict[str, str]] = None, fail: Callable[[str], None] = _fail
+) -> Optional[SynTest]:
     if file.exists():
         if not file.is_file():
             fail(f"Test configuration '{file.as_posix()}' is not a file")
@@ -252,6 +284,8 @@ def load_test(api: APIs, file: Path, fail: Callable[[str], None] = _fail) -> Opt
             cfg = yaml.safe_load(f)
     except Exception as ex:
         fail(f"Failed to load test config: {ex}")
+    if subs:
+        expand_values(cfg, subs)
     test = TestFactory().create(api, file.stem, cfg, fail)
     if not test:
         log.debug("Failed to create test")  # never reached, TestFactory.create does not return without valid test
