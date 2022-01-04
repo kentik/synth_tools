@@ -114,6 +114,9 @@ class _DefaultList(list):
         for v in self._values:
             self.append(v)
 
+    def to_dict(self):
+        return list(self._values)
+
 
 class DefaultHTTPValidCodes(_DefaultList):
     _values = (200, 201)

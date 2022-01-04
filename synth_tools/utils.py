@@ -140,7 +140,7 @@ def _filter_test_attrs(t: dict, attrs: List[str]) -> None:
                     del item[k]
                 except KeyError:
                     log.debug(
-                        "print_test: test: '%s' does not have internal attr '%s'",
+                        "print_test: test does not have internal attr '%s'",
                         attr,
                     )
                     break
@@ -151,8 +151,7 @@ def _filter_test_attrs(t: dict, attrs: List[str]) -> None:
                         break
                 except KeyError:
                     log.debug(
-                        "print_test: test: '%s' does not have internal attr '%s'",
-                        t["name"],
+                        "print_test: test does not have internal attr '%s'",
                         attr,
                     )
                     break

@@ -28,7 +28,7 @@ class SynthHTTPTransport(KentikAPITransport):
     END_POINTS = dict(
         agents="/synthetics/v202110beta2/agents",
         tests="/synthetics/v202110beta2/tests",
-        health="/synthetics/v202110beta2/health/tests",
+        health="/synthetics/v202110beta2/results/health",
     )
 
     def __init__(
