@@ -92,6 +92,8 @@ class PropertyMatcher(Matcher):
         while key_path:
             k = key_path.pop(0)
             log.debug("%s: matching k: '%s', obj: '%s'", self.__class__.__name__, k, str(obj))
+            if obj is None:
+                return False
             if hasattr(obj, k):
                 obj = getattr(obj, k)
             elif k in obj:  # type: ignore
