@@ -7,7 +7,7 @@ from itertools import product
 from typing import Any, Callable, Dict, List, Optional
 
 from synth_tools import log
-from synth_tools.utils import fail, snake_to_camel
+from synth_tools.utils import fail
 
 
 class Matcher(ABC):
@@ -306,4 +306,4 @@ def all_matcher_from_rules(rules: List[str]) -> AllMatcher:
         if len(parts) != 2:
             fail(f"Invalid match spec: {r} (must have format: '<property>:<value>')")
         matchers.append({parts[0]: parts[1]})
-    return AllMatcher(matchers, property_transformer=snake_to_camel)
+    return AllMatcher(matchers)
