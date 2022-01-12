@@ -109,6 +109,7 @@ INTERNAL_TEST_SETTINGS = [
     "setting.ping.period",
     "setting.trace.period",
     "setting.http.period",
+    "settings.monitoring_settings",
 ]
 
 NON_COMPARABLE_TEST_ATTRS = [
