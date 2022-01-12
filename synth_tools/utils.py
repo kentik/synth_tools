@@ -176,7 +176,6 @@ def print_test(
 
 
 def print_tests_brief(tests: List[SynTest]) -> None:
-    # typer.echo(f"id: {test.id} name: {test.name} type: {test.type.value}")
     table = Texttable(max_width=os.get_terminal_size()[0])
     for t in tests:
         table.add_row([f"{x[0]}: {x[1]}" for x in (("id", t.id), ("name", t.name), ("type", t.type.value))])

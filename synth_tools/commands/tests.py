@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import typer
 
@@ -37,6 +37,18 @@ def _get_test_by_id(api: KentikSynthClient, test_id: str) -> SynTest:
     return SynTest(name="non-existent")  # never reached, because fail function (or other exception) terminates the app
 
 
+def _parse_substitution(substitutions: Optional[str]) -> Optional[Dict[str, str]]:
+    subs: Optional[Dict[str, str]] = None
+    if substitutions:
+        subs = dict()
+        for e in substitutions.split(","):
+            f = e.split(":")
+            if len(f) != 2:
+                fail(f"Invalid substitution item '{e}' in substitutions ('{substitutions}')")
+            subs[f"@{f[0]}@"] = f[1]
+    return subs
+
+
 @tests_app.command()
 def one_shot(
     ctx: typer.Context,
@@ -47,12 +59,15 @@ def one_shot(
     print_config: bool = typer.Option(False, help="Print test configuration"),
     show_all: bool = typer.Option(False, help="Show all test attributes"),
     json_out: Optional[str] = typer.Option(None, help="Path to store test results in JSON format"),
+    substitutions: Optional[str] = typer.Option(
+        None, "-s", "--substitute", help="Comma separated list of substitutions in the form of 'var:value'"
+    ),
 ) -> None:
     """
     Create test, wait until it produces results and delete or disable it
     """
     api = get_api(ctx)
-    test = load_test(api, test_config, fail=fail)
+    test = load_test(api, test_config, _parse_substitution(substitutions), fail=fail)
     if not test:
         return  # not reached, load test does no return without valid test, but we need to make linters happy
     if print_config:
@@ -96,15 +111,7 @@ def create_test(
     Create test
     """
     api = get_api(ctx)
-    subs: Optional[dict] = None
-    if substitutions:
-        subs = dict()
-        for e in substitutions.split(","):
-            f = e.split(":")
-            if len(f) != 2:
-                fail(f"Invalid substitution item '{e}' in substitutions ('{substitutions}')")
-            subs[f"@{f[0]}@"] = f[1]
-    test = load_test(api, test_config, subs, fail)
+    test = load_test(api, test_config, _parse_substitution(substitutions), fail)
     if not test:
         return  # not reached, load test does no return without valid test, but we need to make linters happy
     if dry_run:
@@ -135,15 +142,7 @@ def update_test(
     """
     api = get_api(ctx)
     old = _get_test_by_id(api.syn, test_id)
-    subs: Optional[dict] = None
-    if substitutions:
-        subs = dict()
-        for e in substitutions.split(","):
-            f = e.split(":")
-            if len(f) != 2:
-                fail(f"Invalid substitution item '{e}' in substitutions ('{substitutions}')")
-            subs[f"@{f[0]}@"] = f[1]
-    new = load_test(api, test_config, subs, fail)
+    new = load_test(api, test_config, _parse_substitution(substitutions), fail)
     if not new:
         return  # not reached, load test does no return without valid test, but we need to make linters happy
     if dry_run:
@@ -265,9 +264,9 @@ def compare_test(
     t2 = _get_test_by_id(api.syn, test_id2)
     print_test_diff(t1, t2, labels=(f"test {test_id1}", f"test {test_id2}"), show_all=show_all)
     if print_config:
-        typer.echo(f"\ntests 1 ({test_id1}):")
+        typer.echo(f"\ntest 1 ({test_id1}):")
         print_test(t1, indent_level=1, show_all=show_all)
-        typer.echo(f"\ntests 2 ({test_id2}):")
+        typer.echo(f"\ntest 2 ({test_id2}):")
         print_test(t2, indent_level=1, show_all=show_all)
 
 
