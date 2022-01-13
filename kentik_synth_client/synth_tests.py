@@ -601,13 +601,14 @@ class PageLoadTest(PingTraceTest):
         headers: Optional[Dict[str, str]] = None,
         body: str = "",
         ignore_tls_errors: bool = False,
+        ping_and_trace: bool = False,
     ) -> PageLoadTestType:
         return cls(
             name=name,
             settings=PageLoadTestSettings(
                 agentIds=agent_ids,
                 pageLoad=dict(target=target),
-                tasks=["page-load"],
+                tasks=["page-load"] if not ping_and_trace else ["page-load", "ping", "traceroute"],
                 http=HTTPTask(method=method, body=body, headers=headers or {}, ignoreTlsErrors=ignore_tls_errors),
             ),
         )
