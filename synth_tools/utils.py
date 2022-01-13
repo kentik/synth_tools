@@ -103,13 +103,12 @@ def dict_to_json(filename: str, data: Dict[str, Any]) -> None:
 
 INTERNAL_TEST_SETTINGS = [
     "device_id",
-    "setting.tasks",
-    "setting.monitoringSettings",
-    "setting.rollupLevel",
-    "setting.ping.period",
-    "setting.trace.period",
-    "setting.http.period",
     "settings.monitoring_settings",
+    "settings.tasks",
+    "settings.rollup_level",
+    "settings.ping.period",
+    "settings.trace.period",
+    "settings.http.period",
 ]
 
 NON_COMPARABLE_TEST_ATTRS = [
@@ -175,7 +174,6 @@ def _filter_test_attrs(t: dict, attrs: List[str]) -> None:
                 except KeyError:
                     log.debug(
                         "print_test: test does not have internal attr '%s'",
-                        t["name"],
                         attr,
                     )
                     break
@@ -200,7 +198,6 @@ def print_test(
 
 
 def print_tests_brief(tests: List[SynTest]) -> None:
-    # typer.echo(f"id: {test.id} name: {test.name} type: {test.type.value}")
     table = Texttable(max_width=os.get_terminal_size()[0])
     for t in tests:
         table.add_row([f"{x[0]}: {x[1]}" for x in (("id", t.id), ("name", t.name), ("type", t.type.value))])
