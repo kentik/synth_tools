@@ -4,15 +4,7 @@ import typer
 
 from kentik_synth_client import KentikAPIRequestError, KentikSynthClient
 from synth_tools.matchers import all_matcher_from_rules
-from synth_tools.utils import (
-    agent_to_dict,
-    api_request,
-    fail,
-    get_api,
-    print_agent,
-    print_agents_brief,
-    sort_id,
-)
+from synth_tools.utils import agent_to_dict, api_request, fail, get_api, print_agent, print_agents_brief, sort_id
 
 agents_app = typer.Typer()
 
