@@ -11,7 +11,6 @@ from synth_tools.utils import (
     get_api,
     print_agent,
     print_agents_brief,
-    snake_to_camel,
     sort_id,
 )
 
@@ -115,8 +114,8 @@ def activate_agent(
             typer.echo(f"id: {i} agent not pending (status: {a['status']})")
             continue
         a["status"] = "AGENT_STATUS_OK"
-        del a[snake_to_camel("site_name")]
-        a = api_request(api.syn.update_agent, "AgentUpdate", i, a)
+        del a["name"]
+        a = api_request(api.syn.patch_agent, "AgentPatch", i, a, "agent.status")
         if a["status"] != "AGENT_STATUS_OK":
             typer.echo(f"id: {i} FAILED to activate (status: {a['status']}")
         else:
@@ -138,8 +137,8 @@ def deactivate_agent(
             typer.echo(f"id: {i} agent is not active (status: {a['status']})")
             continue
         a["status"] = "AGENT_STATUS_WAIT"
-        del a[snake_to_camel("site_name")]
-        a = api_request(api.syn.patch_agent, "AgentPatch", i, a)
+        del a["name"]
+        a = api_request(api.syn.patch_agent, "AgentPatch", i, a, "agent.status")
         if a["status"] != "AGENT_STATUS_WAIT":
             typer.echo(f"id: {i} FAILED to deactivate (status: {a['status']}")
         else:
