@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -47,6 +48,17 @@ def _parse_substitution(substitutions: Optional[str]) -> Optional[Dict[str, str]
                 fail(f"Invalid substitution item '{e}' in substitutions ('{substitutions}')")
             subs[f"@{f[0]}@"] = f[1]
     return subs
+
+
+def _parse_timestamp(ts: str) -> datetime:
+    try:
+        t = datetime.fromisoformat(ts)
+        if not t.tzname():
+            return datetime.fromisoformat(t.isoformat() + "+00:00")
+        else:
+            return t
+    except ValueError as exc:
+        fail(f"Failed to parse timestamp: {exc}")
 
 
 @tests_app.command()
@@ -294,16 +306,36 @@ def get_test_results(
     test_id: str,
     raw_out: Optional[str] = typer.Option("", help="Path to file to store raw test results API response"),
     json_out: Optional[str] = typer.Option(None, help="Path to file to store test results in JSON format"),
-    periods: int = typer.Option(3, help="Number of test periods to request"),
+    start: Optional[str] = typer.Option(
+        None,
+        "-f",
+        "--from",
+        help="Timestamp (in ISO format) of the earliest sample to return. UTC timezone is assumed if none is specified",
+    ),
+    end: Optional[str] = typer.Option(
+        None,
+        "-t",
+        "--to",
+        help="Timestamp (in ISO format) of the newest sample to return. UTC timezone is assumed if none is specified",
+    ),
+    periods: int = typer.Option(3, help="Number of test periods to the past to request (alternative to from/to)"),
 ) -> None:
     """
     Print test results and health status
     """
+    if start:
+        start_time = _parse_timestamp(start)
+    else:
+        start_time = None
+    if end:
+        end_time = _parse_timestamp(end)
+    else:
+        end_time = None
     api = get_api(ctx)
     t = _get_test_by_id(api.syn, test_id)
-    data = api_request(api.syn.results, "GetResultsForTests", t, periods=periods)
+    data = api_request(api.syn.results, "GetResultsForTests", t, start=start_time, end=end_time, periods=periods)
     if not data:
-        fail(f"Test '{test_id}' did not produce any results data")
+        fail(f"Test '{test_id}' did not produce any results")
     if raw_out:
         log.info("Writing results data to %s", raw_out)
         dict_to_json(raw_out, data)
@@ -321,14 +353,36 @@ def get_test_trace(
     test_id: str,
     targets: Optional[List[str]] = typer.Argument(None, help="Target IP addresses for which to retrieve trace data"),
     raw_out: Optional[str] = typer.Option("", help="Path to file to store raw API response in JSON format"),
+    start: Optional[str] = typer.Option(
+        None,
+        "-f",
+        "--from",
+        help="Timestamp (in ISO format) of the earliest sample to return. UTC timezone is assumed if none is specified",
+    ),
+    end: Optional[str] = typer.Option(
+        None,
+        "-t",
+        "--to",
+        help="Timestamp (in ISO format) of the newest sample to return. UTC timezone is assumed if none is specified",
+    ),
     periods: int = typer.Option(3, help="Number of test periods to request"),
 ) -> None:
     """
     Print test trace data
     """
+    if start:
+        start_time = _parse_timestamp(start)
+    else:
+        start_time = None
+    if end:
+        end_time = _parse_timestamp(end)
+    else:
+        end_time = None
     api = get_api(ctx)
     t = _get_test_by_id(api.syn, test_id)
-    trace = api_request(api.syn.trace, "GetTraceForTests", t, periods=periods, ips=targets)
+    trace = api_request(
+        api.syn.trace, "GetTraceForTests", t, start=start_time, end=end_time, periods=periods, ips=targets
+    )
     if not trace:
         fail(f"Test '{test_id}' did not produce any trace data")
     if raw_out:
