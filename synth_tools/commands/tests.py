@@ -54,7 +54,7 @@ def _parse_timestamp(ts: str) -> datetime:
     try:
         t = datetime.fromisoformat(ts)
         if not t.tzname():
-            return datetime.fromisoformat(t.isoformat()+"+00:00")
+            return datetime.fromisoformat(t.isoformat() + "+00:00")
         else:
             return t
     except ValueError as exc:
