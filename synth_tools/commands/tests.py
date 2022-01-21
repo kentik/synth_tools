@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -54,7 +54,7 @@ def _parse_timestamp(ts: str) -> datetime:
     try:
         t = datetime.fromisoformat(ts)
         if not t.tzname():
-            return t.astimezone(timezone.utc)
+            return datetime.fromisoformat(t.isoformat()+"+00:00")
         else:
             return t
     except ValueError as exc:
@@ -353,8 +353,6 @@ def get_test_health(
     """
     Print test results and health status
     """
-    api = get_api(ctx)
-    t = _get_test_by_id(api.syn, test_id)
     if start:
         start_time = _parse_timestamp(start)
     else:
@@ -363,6 +361,8 @@ def get_test_health(
         end_time = _parse_timestamp(end)
     else:
         end_time = None
+    api = get_api(ctx)
+    t = _get_test_by_id(api.syn, test_id)
     health = api_request(api.syn.results, "GetHealthForTests", t, start=start_time, end=end_time, periods=periods)
     if not health:
         fail(f"Test '{test_id}' did not produce any health data")
@@ -401,8 +401,6 @@ def get_test_trace(
     """
     Print test trace data
     """
-    api = get_api(ctx)
-    t = _get_test_by_id(api.syn, test_id)
     if start:
         start_time = _parse_timestamp(start)
     else:
@@ -411,6 +409,8 @@ def get_test_trace(
         end_time = _parse_timestamp(end)
     else:
         end_time = None
+    api = get_api(ctx)
+    t = _get_test_by_id(api.syn, test_id)
     trace = api_request(
         api.syn.trace, "GetTraceForTests", t, start=start_time, end=end_time, periods=periods, ips=targets
     )
