@@ -424,7 +424,7 @@ def make_page_load_test(
 ) -> SynTest:
     if len(targets) > 1:
         fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    attrs = get_test_attributes([], cfg, attribute_map={"timeout": "expiry"}, fail=fail)
+    attrs = get_test_attributes([], cfg, fail=fail)
     ping = "ping" in cfg
     trace = "trace" in cfg
     if ping ^ trace:
@@ -443,7 +443,7 @@ def make_url_test(
 ) -> SynTest:
     if len(targets) > 1:
         fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    attrs = get_test_attributes([], cfg, attribute_map={"timeout": "expiry"}, fail=fail)
+    attrs = get_test_attributes([], cfg, fail=fail)
     ping = "ping" in cfg
     trace = "trace" in cfg
     if ping ^ trace:
@@ -476,14 +476,14 @@ def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None]
         if "ping" in test.settings.tasks:
             if not hasattr(test.settings, "ping"):
                 fail(f"'{test.type.value}' test does not support 'ping'")
-            test.settings.ping = PingTask.from_dict(_remap_keys(cfg["ping"], {"timeout": "expiry"}))  # type: ignore
+            test.settings.ping = PingTask.from_dict(cfg["ping"])  # type: ignore
             log.debug("set_common_test_params: test: '%s' ping: '%s'", test.name, cfg.get("ping"))
     if "trace" in cfg and type(cfg["trace"]) == dict:
         if "traceroute" in test.settings.tasks:
             log.debug("set_common_test_params: test: '%s' trace: '%s'", test.name, cfg.get("trace"))
             if not hasattr(test.settings, "trace"):
                 fail(f"'{test.type.value} does not support 'trace'")
-            test.settings.trace = TraceTask.from_dict(_remap_keys(cfg["trace"], {"timeout": "expiry"}))  # type: ignore
+            test.settings.trace = TraceTask.from_dict(cfg["trace"])  # type: ignore
     if "health_settings" in cfg:
         log.debug("set_common_test_params: test: '%s' health_settings: '%s'", test.name, cfg.get("health_settings"))
         test.settings.healthSettings = HealthSettings.from_dict(

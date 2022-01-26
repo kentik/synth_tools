@@ -96,24 +96,22 @@ class KentikSynthClient:
             test.undeploy()
 
     def set_test_status(self, test_id: str, status: TestStatus) -> dict:
-        return self._transport.req("TestStatusUpdate", id=test_id, body=dict(id=test_id, status=status.value))
+        return self._transport.req("SetTestStatus", id=test_id, body=dict(id=test_id, status=status.value))
 
-    def health(
+    def get_results(
         self,
         test_ids: List[str],
         start: datetime,
         end: datetime,
-        augment: bool = False,
         agent_ids: Optional[List[str]] = None,
         task_ids: Optional[List[str]] = None,
     ) -> List[Dict]:
         return self._transport.req(
-            "GetHealthForTests",
+            "GetResultsForTests",
             body=dict(
                 ids=test_ids,
                 startTime=start.isoformat(),
                 endTime=end.isoformat(),
-                augment=augment,
                 agentIds=agent_ids if agent_ids else [],
                 taskIds=task_ids if task_ids else [],
             ),
@@ -133,7 +131,7 @@ class KentikSynthClient:
             end = datetime.now(tz=timezone.utc)
         if not start:
             start = end - timedelta(seconds=periods * test.settings.period)
-        return self.health([test.id], start=start, end=end, **kwargs)
+        return self.get_results([test.id], start=start, end=end, **kwargs)
 
     def trace(
         self,

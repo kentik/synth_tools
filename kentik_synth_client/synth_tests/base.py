@@ -13,7 +13,7 @@ log = logging.getLogger("synth_tests")
 @dataclass
 class Defaults:
     period: int = 60
-    expiry: int = 5000
+    timeout: int = 5000
     family: IPFamily = IPFamily.dual
 
 
@@ -72,7 +72,7 @@ class _ConfigElement:
 
 @dataclass
 class _MonitoringTask(_ConfigElement):
-    expiry: int
+    timeout: int
 
     @property
     def task_name(self):
@@ -82,7 +82,7 @@ class _MonitoringTask(_ConfigElement):
 @dataclass
 class PingTask(_MonitoringTask):
     count: int = 5
-    expiry: int = 3000  # a.k.a. timeout
+    timeout: int = 3000
     delay: int = 0  # inter-probe delay
     protocol: Protocol = Protocol.icmp
     port: int = 0
@@ -95,7 +95,7 @@ class PingTask(_MonitoringTask):
 @dataclass
 class TraceTask(_MonitoringTask):
     count: int = 3
-    expiry: int = 22500  # a.k.a. timeout
+    timeout: int = 22500
     limit: int = 30  # max. hop count
     delay: int = 0  # inter-probe delay
     protocol: Protocol = Protocol.icmp
@@ -278,9 +278,8 @@ class SynTest(_ConfigElement):
     def set_period(self, period_seconds: int):
         self.settings.period = period_seconds
 
-    def set_timeout(self, timeout_seconds: float):
-        if hasattr(self.settings, "expiry"):
-            setattr(self.settings, "expiry", timeout_seconds * 1000)
+    def set_timeout(self, timeout: int):
+        pass
 
 
 @dataclass
@@ -292,8 +291,3 @@ class PingTraceTestSettings(SynTestSettings):
 @dataclass
 class PingTraceTest(SynTest):
     settings: PingTraceTestSettings = field(default_factory=PingTraceTestSettings)
-
-    def set_timeout(self, timeout_seconds: float, tasks: Optional[List[str]] = None):
-        for t in self.configured_tasks:
-            if not tasks or t in tasks:
-                self.settings.__getattribute__(t).expiry = int(timeout_seconds * 1000)  # API wants it in millis

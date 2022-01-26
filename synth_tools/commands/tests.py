@@ -295,7 +295,7 @@ def resume_test(ctx: typer.Context, test_id: str) -> None:
 
 
 @tests_app.command("results")
-def get_test_health(
+def get_test_results(
     ctx: typer.Context,
     test_id: str,
     raw_out: Optional[str] = typer.Option("", help="Path to file to store raw test results API response"),
@@ -307,15 +307,14 @@ def get_test_health(
     """
     api = get_api(ctx)
     t = _get_test_by_id(api.syn, test_id)
-    health = api_request(api.syn.results, "GetHealthForTests", t, periods=periods)
-    if not health:
-        fail(f"Test '{test_id}' did not produce any health data")
-
-    results = TestResults(t)
-    results.set_health(health[0])
+    data = api_request(api.syn.results, "GetResultsForTests", t, periods=periods)
+    if not data:
+        fail(f"Test '{test_id}' did not produce any results data")
     if raw_out:
-        log.info("Writing health data to %s", raw_out)
-        dict_to_json(raw_out, health)
+        log.info("Writing results data to %s", raw_out)
+        dict_to_json(raw_out, data)
+    results = TestResults(t)
+    results.set_results(data)
     if json_out:
         log.info("Writing results to %s", json_out)
         dict_to_json(json_out, results.to_dict())

@@ -31,10 +31,16 @@ class DNSTest(SynTest):
         agent_ids: List[str],
         servers: List[str],
         record_type: DNSRecordType = DNSRecordType.A,
+        timeout: int = 5000,
     ) -> DNSTestType:
         return cls(
             name=name,
             settings=DNSTestSettings(
-                agentIds=agent_ids, dns=dict(targets=targets, type=record_type, servers=servers), tasks=["dns"]
+                agentIds=agent_ids,
+                tasks=["dns"],
+                dns=dict(targets=targets, type=record_type, servers=servers, timeout=timeout),
             ),
         )
+
+    def set_timeout(self, timeout: int):
+        self.settings.dns["dns"]["timeout"] = timeout

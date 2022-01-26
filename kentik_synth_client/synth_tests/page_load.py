@@ -31,7 +31,7 @@ class PageLoadTest(PingTraceTest):
         name: str,
         target: str,
         agent_ids: List[str],
-        expiry: int = 5000,
+        timeout: int = 5000,
         method: str = "GET",
         headers: Optional[Dict[str, str]] = None,
         css_selectors: Optional[Dict[str, str]] = None,
@@ -50,9 +50,9 @@ class PageLoadTest(PingTraceTest):
             settings=PageLoadTestSettings(
                 agentIds=agent_ids,
                 pageLoad=dict(
-                    expiry=expiry,
                     target=target,
                     http=dict(
+                        timeout=timeout,
                         method=method,
                         body=body,
                         headers=headers or {},
@@ -63,3 +63,6 @@ class PageLoadTest(PingTraceTest):
                 tasks=tasks,
             ),
         )
+
+    def set_timeout(self, timeout: int):
+        self.settings.pageLoad["http"]["timeout"] = timeout

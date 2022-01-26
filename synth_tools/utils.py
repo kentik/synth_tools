@@ -33,22 +33,13 @@ def snake_to_camel(name: str) -> str:
     return inflection.camelize(name, False)
 
 
-def transform_dict_keys(d: Dict[str, Any], fn: Callable[[str], str]) -> Dict[str, Any]:
-    out: Dict[str, Any] = dict()
-    for k, v in d.items():
-        if type(v) == dict:
-            out[fn(k)] = transform_dict_keys(v, fn)
-        elif type(v) == list:
-            out_value = []
-            for e in v:
-                if type(e) == dict:
-                    out_value.append(transform_dict_keys(e, fn))
-                else:
-                    out_value.append(e)
-            out[fn(k)] = out_value
-        else:
-            out[fn(k)] = v
-    return out
+def transform_dict_keys(data: Any, fn: Callable[[str], str]) -> Any:
+    if type(data) == dict:
+        return {fn(k): transform_dict_keys(v, fn) for k, v in data.items()}
+    elif type(data) == list:
+        return [transform_dict_keys(e, fn) for e in data]
+    else:
+        return data
 
 
 def fail(msg: str) -> None:
@@ -213,7 +204,7 @@ def print_test_diff(first: SynTest, second: SynTest, show_all=False, labels: Tup
 
 
 def print_test_results(results: Dict[str, Any]):
-    print_struct(transform_dict_keys(results, camel_to_snake))
+    print_struct(results)
 
 
 def agent_to_dict(agent: dict) -> Dict[str, Any]:

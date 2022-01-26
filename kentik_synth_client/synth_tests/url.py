@@ -31,7 +31,7 @@ class UrlTest(SynTest):
         name: str,
         target: str,
         agent_ids: List[str],
-        expiry: int = 5000,
+        timeout: int = 5000,
         method: str = "GET",
         headers: Optional[Dict[str, str]] = None,
         css_selectors: Optional[Dict[str, str]] = None,
@@ -50,9 +50,9 @@ class UrlTest(SynTest):
             settings=UrlTestSettings(
                 agentIds=agent_ids,
                 url=dict(
-                    expiry=expiry,
                     target=target,
                     http=dict(
+                        timeout=timeout,
                         method=method,
                         body=body,
                         headers=headers or {},
@@ -63,3 +63,6 @@ class UrlTest(SynTest):
                 tasks=tasks,
             ),
         )
+
+    def set_timeout(self, timeout: int):
+        self.settings.url["http"]["timeout"] = timeout

@@ -27,12 +27,16 @@ class DNSGridTest(SynTest):
         agent_ids: List[str],
         servers: List[str],
         record_type: DNSRecordType = DNSRecordType.A,
+        timeout: int = 5000,
     ) -> DNSGridTestType:
         return cls(
             name=name,
             settings=DNSGridTestSettings(
                 agentIds=agent_ids,
-                dnsGrid=dict(targets=targets, type=record_type, servers=servers),
                 tasks=["dns"],
+                dnsGrid=dict(targets=targets, type=record_type, servers=servers, timeout=timeout),
             ),
         )
+
+    def set_timeout(self, timeout: int):
+        self.settings.dnsGrid["dns"]["timeout"] = timeout
