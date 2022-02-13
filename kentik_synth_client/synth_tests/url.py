@@ -26,6 +26,11 @@ class UrlTest(SynTest):
     settings: UrlTestSettings = field(default_factory=UrlTestSettings)
 
     @classmethod
+    def validate_http_timeout(cls: Type[UrlTestType], timeout: int):
+        if timeout < 5000:
+            raise RuntimeError(f"Invalid parameter value ({timeout}): {cls.type.value} test timeout must be >= 5000ms")
+
+    @classmethod
     def create(
         cls: Type[UrlTestType],
         name: str,
@@ -45,14 +50,15 @@ class UrlTest(SynTest):
             tasks.append("ping")
         if trace:
             tasks.append("traceroute")
+        cls.validate_http_timeout(timeout)
         return cls(
             name=name,
             settings=UrlTestSettings(
                 agentIds=agent_ids,
                 url=dict(
                     target=target,
+                    timeout=timeout,
                     http=dict(
-                        timeout=timeout,
                         method=method,
                         body=body,
                         headers=headers or {},
@@ -65,4 +71,5 @@ class UrlTest(SynTest):
         )
 
     def set_timeout(self, timeout: int):
-        self.settings.url["http"]["timeout"] = timeout
+        self.validate_http_timeout(timeout)
+        self.settings.url["timeout"] = timeout

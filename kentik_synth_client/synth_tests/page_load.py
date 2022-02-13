@@ -26,6 +26,11 @@ class PageLoadTest(PingTraceTest):
     settings: PageLoadTestSettings = field(default_factory=PageLoadTestSettings)
 
     @classmethod
+    def validate_http_timeout(cls: Type[PageLoadTestType], timeout: int):
+        if timeout < 5000:
+            raise RuntimeError(f"Invalid parameter value ({timeout}): {cls.type.value} test timeout must be >= 5000ms")
+
+    @classmethod
     def create(
         cls: Type[PageLoadTestType],
         name: str,
@@ -45,14 +50,15 @@ class PageLoadTest(PingTraceTest):
             tasks.append("ping")
         if trace:
             tasks.append("traceroute")
+        cls.validate_http_timeout(timeout)
         return cls(
             name=name,
             settings=PageLoadTestSettings(
                 agentIds=agent_ids,
                 pageLoad=dict(
                     target=target,
+                    timeout=timeout,
                     http=dict(
-                        timeout=timeout,
                         method=method,
                         body=body,
                         headers=headers or {},
@@ -65,4 +71,5 @@ class PageLoadTest(PingTraceTest):
         )
 
     def set_timeout(self, timeout: int):
-        self.settings.pageLoad["http"]["timeout"] = timeout
+        self.validate_http_timeout(timeout)
+        self.settings.pageLoad["timeout"] = timeout

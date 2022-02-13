@@ -302,7 +302,9 @@ def dummy_loader(_: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fa
     return set()
 
 
-def _get_agents(api: APIs, cfg, agent_type: Optional[str] = None, fail: Callable[[str], None] = _fail) -> Set[str]:
+def _get_agents(
+    api: APIs, cfg: Dict[str, Any], agent_type: Optional[str] = None, fail: Callable[[str], None] = _fail
+) -> Set[str]:
     _match_or_use(cfg, "agents", fail)
     if "use" in cfg:
         log.debug("_get_agents: use: %s", cfg["use"])
@@ -323,6 +325,12 @@ def _get_agents(api: APIs, cfg, agent_type: Optional[str] = None, fail: Callable
     if len(agents) < min_agents:
         fail(f"Matched {len(agents)} agents, {min_agents} required")
     return agents
+
+
+def _get_target(targets: List[str], cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> str:
+    if len(targets) > 1:
+        fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
+    return targets[0]
 
 
 def all_agents(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
@@ -357,37 +365,35 @@ def make_ip_test(
 def make_agent_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
-    if len(targets) > 1:
-        fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    return AgentTest.create(name=name, target=targets[0], agent_ids=agents)
+    return AgentTest.create(name=name, target=_get_target(targets, cfg, fail=fail), agent_ids=agents)
 
 
 def make_dns_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
+    target = _get_target(targets, cfg, fail=fail)
     servers = cfg.get("servers", [])
     if not servers:
         fail(f"{cfg['type']} requires 'servers' parameter")
     record_type = DNSRecordType(cfg.get("record_type", "DNS_RECORD_A"))
-    return DNSTest.create(name=name, targets=targets, agent_ids=agents, servers=servers, record_type=record_type)
+    return DNSTest.create(name=name, target=target, agent_ids=agents, servers=servers, record_type=record_type)
 
 
 def make_dns_grid_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
+    target = _get_target(targets, cfg, fail=fail)
     servers = cfg.get("servers", [])
     if not servers:
         fail(f"{cfg['type']} requires 'servers' parameter")
     record_type = DNSRecordType(cfg.get("record_type", "DNS_RECORD_A"))
-    return DNSGridTest.create(name=name, targets=targets, agent_ids=agents, servers=servers, record_type=record_type)
+    return DNSGridTest.create(name=name, target=target, agent_ids=agents, servers=servers, record_type=record_type)
 
 
 def make_hostname_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
-    if len(targets) > 1:
-        fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    return HostnameTest.create(name=name, target=targets[0], agent_ids=agents)
+    return HostnameTest.create(name=name, target=_get_target(targets, cfg, fail=fail), agent_ids=agents)
 
 
 # noinspection PyUnusedLocal
@@ -532,7 +538,7 @@ class TestFactory:
         test_type: Optional[str] = None,
     ) -> Callable[[str], None]:
         def _report(msg):
-            info = f"Failed to create test: cfg file: {config_name}"
+            info = f"Failed to create test: cfg name: {config_name}"
             if test_name:
                 info += f", name: {test_name}"
             if test_type:

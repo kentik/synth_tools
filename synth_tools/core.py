@@ -98,16 +98,22 @@ class TestResults:
                 )
                 e["agents"].append(a)
                 for task in agent["tasks"]:
-                    for task_type in ("ping", "http", "dns", "knock", "shake"):
+                    for task_type in ("ping", "http", "dns"):
                         if task_type in task:
                             break
                     else:
                         log.error("No data for any of test tasks (%s) in results", ",".join(self.test.configured_tasks))
                         continue
                     td = task[task_type]
+                    if not td['target']:
+                        td['target'] = ",".join(self.test.targets)
                     if "server" in td:
                         target = (
                             f"{td['target']} via {td['server']}"
+                        )
+                    elif "dst_ip" in td:
+                        target = (
+                            f"{td['target']} [{td['dst_ip']}]"
                         )
                     else:
                         target = td["target"]
