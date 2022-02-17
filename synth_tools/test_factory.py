@@ -333,6 +333,28 @@ def _get_target(targets: List[str], cfg: Dict[str, Any], fail: Callable[[str], N
     return targets[0]
 
 
+def _get_test_attributes(
+    required: List, cfg: dict, attribute_map: Optional[Dict[str, str]] = None, fail: Callable[[str], None] = _fail
+) -> dict:
+    # noinspection PyPep8Naming
+    COMMON_TEST_PARAMS = (
+        "name",
+        "type",
+        "ping",
+        "trace",
+        "period",
+        "health_settings",
+        "family",
+    )
+
+    missing = [a for a in required if a not in cfg]
+    if missing:
+        fail("'{}' requires following configuration attributes: '{}'".format(cfg["type"], ",".join(missing)))
+    return _remap_keys(
+        {k: v for k, v in cfg.items() if (k not in COMMON_TEST_PARAMS) or (k in required)}, attribute_map
+    )
+
+
 def all_agents(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
     log.debug("all_agents: cfg '%s'", cfg)
     return _get_agents(api, cfg, fail=fail)
@@ -372,22 +394,16 @@ def make_dns_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
     target = _get_target(targets, cfg, fail=fail)
-    servers = cfg.get("servers", [])
-    if not servers:
-        fail(f"{cfg['type']} requires 'servers' parameter")
-    record_type = DNSRecordType(cfg.get("record_type", "DNS_RECORD_A"))
-    return DNSTest.create(name=name, target=target, agent_ids=agents, servers=servers, record_type=record_type)
+    attrs = _get_test_attributes(["servers"], cfg, fail=fail)
+    return DNSTest.create(name=name, target=target, agent_ids=agents, **attrs)
 
 
 def make_dns_grid_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
     target = _get_target(targets, cfg, fail=fail)
-    servers = cfg.get("servers", [])
-    if not servers:
-        fail(f"{cfg['type']} requires 'servers' parameter")
-    record_type = DNSRecordType(cfg.get("record_type", "DNS_RECORD_A"))
-    return DNSGridTest.create(name=name, target=target, agent_ids=agents, servers=servers, record_type=record_type)
+    attrs = _get_test_attributes(["servers"], cfg, fail=fail)
+    return DNSGridTest.create(name=name, target=target, agent_ids=agents, **attrs)
 
 
 def make_hostname_test(
@@ -403,34 +419,12 @@ def make_mesh_test(
     return MeshTest.create(name=name, agent_ids=agents)
 
 
-def get_test_attributes(
-    required: List, cfg: dict, attribute_map: Optional[Dict[str, str]] = None, fail: Callable[[str], None] = _fail
-) -> dict:
-    # noinspection PyPep8Naming
-    COMMON_TEST_PARAMS = (
-        "name",
-        "type",
-        "ping",
-        "trace",
-        "period",
-        "health_settings",
-        "family",
-    )
-
-    missing = [a for a in required if a not in cfg]
-    if missing:
-        fail("'{}' requires following configuration attributes: '{}'".format(cfg["type"], ",".join(missing)))
-    return _remap_keys(
-        {k: v for k, v in cfg.items() if (k not in COMMON_TEST_PARAMS) or (k in required)}, attribute_map
-    )
-
-
 def make_page_load_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
     if len(targets) > 1:
         fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    attrs = get_test_attributes([], cfg, fail=fail)
+    attrs = _get_test_attributes([], cfg, fail=fail)
     ping = "ping" in cfg
     trace = "trace" in cfg
     if ping ^ trace:
@@ -449,7 +443,7 @@ def make_url_test(
 ) -> SynTest:
     if len(targets) > 1:
         fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    attrs = get_test_attributes([], cfg, fail=fail)
+    attrs = _get_test_attributes([], cfg, fail=fail)
     ping = "ping" in cfg
     trace = "trace" in cfg
     if ping ^ trace:
@@ -468,7 +462,7 @@ def make_flow_test(
 ) -> SynTest:
     if len(targets) > 1:
         fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    attrs = get_test_attributes(["target_type", "direction", "inet_direction"], cfg, fail=fail)
+    attrs = _get_test_attributes(["target_type", "direction", "inet_direction"], cfg, fail=fail)
     log.debug("make_flow_test: attrs: '%s'", ", ".join(f"{k}:{v}" for k, v in attrs.items()))
     return FlowTest.create(name=name, target=targets[0], agent_ids=agents, **attrs)
 

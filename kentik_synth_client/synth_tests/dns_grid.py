@@ -16,6 +16,29 @@ DNSGridTestType = TypeVar("DNSGridTestType", bound="DNSGridTest")
 
 
 @dataclass
-class DNSGridTest(DNSTest):
+class DNSGridTest(SynTest):
     type: TestType = field(init=False, default=TestType.dns_grid)
     settings: DNSGridTestSettings = field(default_factory=DNSGridTestSettings)
+
+    @classmethod
+    def create(
+        cls: Type[DNSGridTestType],
+        name: str,
+        target: str,
+        agent_ids: List[str],
+        servers: List[str],
+        record_type: DNSRecordType = DNSRecordType.A,
+        timeout: int = 5000,
+        server_port: int = 53,
+    ) -> DNSGridTestType:
+        return cls(
+            name=name,
+            settings=DNSGridTestSettings(
+                agentIds=agent_ids,
+                tasks=["dns"],
+                dnsGrid=dict(target=target, recordType=record_type, servers=servers, timeout=timeout, port=server_port),
+            ),
+        )
+
+    def set_timeout(self, timeout: int):
+        self.settings.dnsGrid["timeout"] = timeout

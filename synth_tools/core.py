@@ -1,6 +1,5 @@
 import atexit
 import json
-from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -16,7 +15,7 @@ from kentik_synth_client.types import TestStatus
 from synth_tools import log
 from synth_tools.apis import APIs
 from synth_tools.test_factory import TestFactory
-from synth_tools.utils import transform_dict_keys, camel_to_snake
+from synth_tools.utils import camel_to_snake, transform_dict_keys
 
 
 def _fail(msg: str) -> None:
@@ -71,7 +70,7 @@ class TestResults:
                 factor = 0.001
             else:
                 log.error("Unknown metric '%s' in results", m)
-            v = float(d['current']) * factor
+            v = float(d["current"]) * factor
             out = f"{v:.5}{unit}"
             for stat in ("avg", "stddev"):
                 s = f"rolling_{stat}"
@@ -82,8 +81,11 @@ class TestResults:
             return out
 
         self.status = TestRunStatus.SUCCESS
-        for entry in [transform_dict_keys(x, camel_to_snake) for x in results]:
+        for entry in transform_dict_keys(results, camel_to_snake):
             log.debug("entry: %s", entry)
+            if entry["test_id"] != self.test_id:
+                log.warning("TestResults[tid: %s]: Ignoring results for test ID '%s'", self.test_id, entry["test_id"])
+                continue
             e = dict(
                 time=entry["time"],
                 health=entry["health"],
@@ -105,16 +107,12 @@ class TestResults:
                         log.error("No data for any of test tasks (%s) in results", ",".join(self.test.configured_tasks))
                         continue
                     td = task[task_type]
-                    if not td['target']:
-                        td['target'] = ",".join(self.test.targets)
+                    if not td["target"]:
+                        td["target"] = ",".join(self.test.targets)
                     if "server" in td:
-                        target = (
-                            f"{td['target']} via {td['server']}"
-                        )
+                        target = f"{td['target']} via {td['server']}"
                     elif "dst_ip" in td:
-                        target = (
-                            f"{td['target']} [{td['dst_ip']}]"
-                        )
+                        target = f"{td['target']} [{td['dst_ip']}]"
                     else:
                         target = td["target"]
                     if not target:
@@ -228,7 +226,7 @@ def run_one_shot(api: APIs, test: SynTest, retries: int = 3, delete: bool = True
         try:
             r.polls += 1
             data = api.syn.results(
-                [t.id],
+                t,
                 start=min(start, now - timedelta(seconds=t.settings.period)),
                 end=now,
             )
@@ -256,7 +254,7 @@ def run_one_shot(api: APIs, test: SynTest, retries: int = 3, delete: bool = True
             )
             retries -= 1
             continue
-        r.set_results(data[0])
+        r.set_results(data)
         log.debug(
             "tid: %s %s at %s",
             t.id,

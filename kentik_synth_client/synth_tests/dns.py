@@ -44,4 +44,4 @@ class DNSTest(SynTest):
         )
 
     def set_timeout(self, timeout: int):
-        self.settings.dns["dns"]["timeout"] = timeout
+        self.settings.dns["timeout"] = timeout
