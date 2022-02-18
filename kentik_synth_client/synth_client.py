@@ -23,13 +23,13 @@ class KentikSynthClient:
             u = urlparse(url)
             dns_path = u.netloc.split(".")
             if dns_path[0] == "api":
-                dns_path.insert(0, "synthetics")
+                dns_path.insert(0, "grpc")
                 log.debug("Setting url to: %s (input: %s)", u._replace(netloc=".".join(dns_path)).geturl(), url)
                 self._url = u._replace(netloc=".".join(dns_path)).geturl()
             else:
                 self._url = url
         else:
-            self._url = "https://synthetics.api.kentik.com"
+            self._url = "https://grpc.api.kentik.com"
         if transport:
             # noinspection Mypy
             # noinspection PyCallingNonCallable

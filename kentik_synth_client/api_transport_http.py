@@ -33,7 +33,7 @@ class SynthHTTPTransport(KentikAPITransport):
     )
 
     def __init__(
-        self, credentials: Tuple[str, str], url: str = "https://synthetics.api.kentik.com", proxy: Optional[str] = None
+        self, credentials: Tuple[str, str], url: str = "https://grpc.api.kentik.com", proxy: Optional[str] = None
     ):
         # noinspection PyProtectedMember,PyArgumentList
         self._session = KentikAPI(

@@ -71,7 +71,7 @@ class TestResults:
             else:
                 log.error("Unknown metric '%s' in results", m)
             v = float(d["current"]) * factor
-            out = f"{v:.5}{unit}"
+            out = f"current: {v:.5}{unit}"
             for stat in ("avg", "stddev"):
                 s = f"rolling_{stat}"
                 if s in d:
