@@ -130,7 +130,11 @@ class TestResults:
                         t["response"] = r
                         if "data" in r:
                             try:
-                                r["data"] = transform_dict_keys(json.loads(r["data"])[0], camel_to_snake)
+                                response_data = json.loads(r["data"])
+                                if response_data:
+                                    r["data"] = transform_dict_keys(response_data[0], camel_to_snake)
+                                else:
+                                    r["data"] = None
                             except json.decoder.JSONDecodeError as ex:
                                 log.critical("Failed to parse JSON in results data '%s' (exception: %s)", r, ex)
         self.results.sort(key=lambda x: x["time"])

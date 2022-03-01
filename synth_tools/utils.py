@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import inflection
@@ -153,6 +154,7 @@ def print_test(
     indent_level: int = 0,
     show_all: bool = False,
     attributes: Optional[str] = None,
+    json_format=False,
 ) -> None:
     d = test_to_dict(test)
     if not show_all:
@@ -163,12 +165,47 @@ def print_test(
         attr_list = attributes.split(",")
     else:
         attr_list = []
-    print_struct(filter_dict(d, attr_list), indent_level=indent_level)
+    if json_format:
+        json.dump(filter_dict(d, attr_list), sys.stdout, default=str, indent=2)
+    else:
+        print_struct(filter_dict(d, attr_list), indent_level=indent_level)
+
+
+def print_tests(
+    tests: List[SynTest], show_all: bool = False, attributes: Optional[str] = None, json_format=False
+) -> None:
+    if json_format:
+        if attributes:
+            attr_list = attributes.split(",")
+        else:
+            attr_list = []
+        out = []
+        for t in sorted(tests, key=lambda x: sort_id(x.id)):
+            if attributes == "id":
+                out.append(t.id)
+            else:
+                d = test_to_dict(t)
+                if not show_all:
+                    if not t.deployed:
+                        del d["status"]
+                    _filter_test_attrs(d, INTERNAL_TEST_SETTINGS)
+                out.append(filter_dict(d, attr_list))
+        json.dump(out, sys.stdout, default=str, indent=2)
+        typer.echo()
+    else:
+        print_id = len(tests) > 1 and (not attributes or "id" not in attributes.split(","))
+        for t in sorted(tests, key=lambda x: sort_id(x.id)):
+            if attributes == "id":
+                typer.echo(t.id)
+            else:
+                if print_id:
+                    typer.echo(f"id: {t.id}")
+                print_test(t, indent_level=1, show_all=show_all, attributes=attributes)
 
 
 def print_tests_brief(tests: List[SynTest]) -> None:
     table = Texttable(max_width=os.get_terminal_size()[0])
-    for t in tests:
+    for t in sorted(tests, key=lambda x: sort_id(x.id)):
         table.add_row([f"{x[0]}: {x[1]}" for x in (("id", t.id), ("name", t.name), ("type", t.type.value))])
     table.set_deco(Texttable.HEADER | Texttable.VLINES)
     typer.echo(table.draw())

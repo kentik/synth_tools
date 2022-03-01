@@ -16,6 +16,7 @@ from synth_tools.utils import (
     get_api,
     print_struct,
     print_test,
+    print_tests,
     print_test_diff,
     print_test_results,
     print_tests_brief,
@@ -172,6 +173,7 @@ def list_tests(
     ctx: typer.Context,
     brief: bool = typer.Option(False, "-b", "--brief", help="Print only id, name and type"),
     fields: Optional[str] = typer.Option(None, "-f", "--fields", help="Config attributes to print"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Print output in JSON format"),
     show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
@@ -180,14 +182,11 @@ def list_tests(
     api = get_api(ctx)
     tests = api_request(api.syn.list_tests, "ListTests")
     if brief:
-        print_tests_brief(sorted(tests, key=lambda x: sort_id(x.id)))
+        if json_out:
+            typer.echo("WARNING: --brief option overrides --json", err=True)
+        print_tests_brief(tests)
     else:
-        for t in sorted(tests, key=lambda x: sort_id(x.id)):
-            if fields == "id":
-                typer.echo(t.id)
-            else:
-                typer.echo(f"id: {t.id}")
-                print_test(t, indent_level=1, show_all=show_all, attributes=fields)
+        print_tests(tests, show_all=show_all, attributes=fields, json_format=json_out)
 
 
 @tests_app.command("get")
@@ -196,6 +195,7 @@ def get_test(
     test_ids: List[str],
     brief: bool = typer.Option(False, "-b", "--brief", help="Print only id, name and type"),
     fields: Optional[str] = typer.Option(None, "-f", "--fields", help="Config attributes to print"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Print output in JSON format"),
     show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
@@ -203,14 +203,12 @@ def get_test(
     """
     api = get_api(ctx)
     tests = [_get_test_by_id(api.syn, i) for i in test_ids]
-    print_id = len(tests) > 1 and (not fields or "id" not in fields.split(","))
     if brief:
+        if json_out:
+            typer.echo("WARNING: --brief option overrides --json", err=True)
         print_tests_brief(tests)
     else:
-        for t in tests:
-            if print_id:
-                typer.echo(f"id: {t.id}")
-            print_test(t, show_all=show_all, attributes=fields)
+        print_tests(tests, show_all=show_all, attributes=fields, json_format=json_out)
 
 
 @tests_app.command("match")
@@ -219,6 +217,7 @@ def match_test(
     rules: List[str],
     brief: bool = typer.Option(False, "-b", "--brief", help="Print only id, name and type"),
     fields: Optional[str] = typer.Option(None, "-f", "--fields", help="Config attributes to print"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Print output in JSON format"),
     show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
@@ -231,21 +230,12 @@ def match_test(
     if not matching:
         typer.echo("No test matches specified rules")
     else:
-        matching.sort(key=lambda x: sort_id(x.id))
         if brief:
+            if json_out:
+                typer.echo("WARNING: --brief option overrides --json", err=True)
             print_tests_brief(matching)
         else:
-            for t in matching:
-                if fields == "id":
-                    typer.echo(t.id)
-                else:
-                    typer.echo(f"id: {t.id}")
-                    print_test(
-                        t,
-                        indent_level=1,
-                        show_all=show_all,
-                        attributes=fields,
-                    )
+            print_tests(matching, show_all=show_all, attributes=fields, json_format=json_out)
 
 
 @tests_app.command("compare")
