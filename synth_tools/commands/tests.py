@@ -16,11 +16,10 @@ from synth_tools.utils import (
     get_api,
     print_struct,
     print_test,
-    print_tests,
     print_test_diff,
     print_test_results,
+    print_tests,
     print_tests_brief,
-    sort_id,
     test_to_dict,
 )
 

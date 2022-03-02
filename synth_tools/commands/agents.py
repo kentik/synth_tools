@@ -115,7 +115,6 @@ def activate_agent(
             typer.echo(f"id: {i} agent not pending (status: {a['status']})")
             continue
         a["status"] = "AGENT_STATUS_OK"
-        del a[snake_to_camel("site_name")]
         a = api_request(api.syn.update_agent, "AgentUpdate", i, a)
         if a["status"] != "AGENT_STATUS_OK":
             typer.echo(f"id: {i} FAILED to activate (status: {a['status']}")
@@ -138,7 +137,6 @@ def deactivate_agent(
             typer.echo(f"id: {i} agent is not active (status: {a['status']})")
             continue
         a["status"] = "AGENT_STATUS_WAIT"
-        del a[snake_to_camel("site_name")]
         a = api_request(api.syn.update_agent, "AgentUpdate", i, a)
         if a["status"] != "AGENT_STATUS_WAIT":
             typer.echo(f"id: {i} FAILED to deactivate (status: {a['status']}")
