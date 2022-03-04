@@ -127,6 +127,14 @@ class DefaultDNSValidCodes(_DefaultList):
 
 
 @dataclass
+class ActivationSettings(_ConfigElement):
+    gracePeriod: str = "2"
+    timeUnit: str = "m"
+    timeWindow: str = "5"
+    times: str = "3"
+
+
+@dataclass
 class HealthSettings(_ConfigElement):
     latencyCritical: float = 0.0
     latencyWarning: float = 0.0
@@ -145,19 +153,11 @@ class HealthSettings(_ConfigElement):
     httpValidCodes: List[int] = field(default_factory=list)
     dnsValidCodes: List[int] = field(default_factory=list)
     unhealthySubtestThreshold: int = 1
+    activation: ActivationSettings = field(default_factory=ActivationSettings)
 
 
 class DefaultTasks(_DefaultList):
     _values = ("ping", "traceroute")
-
-
-@dataclass
-class MonitoringSettings(_ConfigElement):
-    activationGracePeriod: str = "2"
-    activationTimeUnit: str = "m"
-    activationTimeWindow: str = "5"
-    activationTimes: str = "3"
-    notificationChannels: List = field(default_factory=list)
 
 
 @dataclass

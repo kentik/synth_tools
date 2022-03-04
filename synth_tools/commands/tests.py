@@ -146,6 +146,10 @@ def update_test(
     if not new:
         return  # not reached, load test does no return without valid test, but we need to make linters happy
     if dry_run:
+        if print_config:
+            typer.echo("--- New config:")
+            print_test(new, show_all=show_all)
+            typer.echo("--- Diff:")
         print_test_diff(old, new, labels=("EXISTING", "NEW"), show_all=show_all)
     else:
         new.edate = old.edate
