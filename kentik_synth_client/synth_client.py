@@ -84,6 +84,7 @@ class KentikSynthClient:
         else:
             tid = test.id
         body = test.to_dict()
+        body["test"]["edate"] = test.edate
         return make_synth_test(self._transport.req("TestUpdate", id=tid, body=body))
 
     def delete_test(self, test: Union[str, SynTest]) -> None:

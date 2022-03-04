@@ -94,10 +94,10 @@ def dict_to_json(filename: str, data: Dict[str, Any]) -> None:
 
 
 def test_to_dict(test: SynTest) -> Dict[str, Any]:
-    d = transform_dict_keys(test.to_dict()["test"], camel_to_snake)
-    d["id"] = test.id
-    d["created"] = test.cdate
-    d["modified"] = test.edate
+    d = dict(id=test.id)
+    d.update(transform_dict_keys(test.to_dict()["test"], camel_to_snake))
+    d["created"] = test.created
+    d["modified"] = test.modified
     d["created_by"] = test.created_by
     d["last_updated_by"] = test.last_updated_by
     return d

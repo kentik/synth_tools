@@ -42,7 +42,7 @@ def _parse_substitution(substitutions: Optional[str]) -> Optional[Dict[str, str]
     if substitutions:
         subs = dict()
         for e in substitutions.split(","):
-            f = e.split(":")
+            f = e.split(":", maxsplit=1)
             if len(f) != 2:
                 fail(f"Invalid substitution item '{e}' in substitutions ('{substitutions}')")
             subs[f"@{f[0]}@"] = f[1]
@@ -148,6 +148,7 @@ def update_test(
     if dry_run:
         print_test_diff(old, new, labels=("EXISTING", "NEW"), show_all=show_all)
     else:
+        new.edate = old.edate
         test = api_request(api.syn.update_test, "TestUpdate", new, old.id)
         typer.echo(f"Updated test: id {test_id}")
         if print_config:

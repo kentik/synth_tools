@@ -220,18 +220,30 @@ class SynTest(_ConfigElement):
         return self.id != "0"
 
     @property
-    def cdate(self) -> Optional[datetime]:
+    def created(self) -> Optional[datetime]:
         try:
             return datetime.fromisoformat(self._cdate.replace("Z", "+00:00"))
         except ValueError:
             return None
 
     @property
-    def edate(self) -> Optional[datetime]:
+    def modified(self) -> Optional[datetime]:
         try:
             return datetime.fromisoformat(self._edate.replace("Z", "+00:00"))
         except ValueError:
             return None
+
+    @property
+    def cdate(self) -> str:
+        return self._cdate
+
+    @property
+    def edate(self) -> str:
+        return self._edate
+
+    @edate.setter
+    def edate(self, v) -> None:
+        self._edate = v
 
     @property
     def created_by(self) -> Optional[str]:
