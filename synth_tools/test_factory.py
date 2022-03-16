@@ -496,6 +496,18 @@ def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None]
         log.debug("set_common_test_params: test: '%s' status: '%s'", test.name, cfg.get("status"))
         log.warning("Test 'status' is ignored on creation. All tests are created in active state.")
         test.status = TestStatus(cfg["status"])
+    # fixup alarm activation time window if not set explicitly
+    if not test.settings.healthSettings.activation.timeWindow:
+        test.settings.healthSettings.activation.timeWindow = str(
+            int(test.settings.period * (int(test.settings.healthSettings.activation.times) + 1) / 60)
+        )
+        test.settings.healthSettings.activation.timeUnit = "m"
+        log.debug(
+            "set_common_test_params: test: '%s' activation.time_window: '%s%s'",
+            test.name,
+            test.settings.healthSettings.activation.timeWindow,
+            test.settings.healthSettings.activation.timeUnit,
+        )
 
 
 @dataclass

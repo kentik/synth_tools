@@ -128,10 +128,10 @@ class DefaultDNSValidCodes(_DefaultList):
 
 @dataclass
 class ActivationSettings(_ConfigElement):
-    gracePeriod: str = "2"
+    gracePeriod: str = "1"
     timeUnit: str = "m"
-    timeWindow: str = "5"
-    times: str = "3"
+    timeWindow: str = ""
+    times: str = "2"
 
 
 @dataclass

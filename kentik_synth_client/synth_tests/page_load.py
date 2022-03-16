@@ -58,13 +58,9 @@ class PageLoadTest(PingTraceTest):
                 pageLoad=dict(
                     target=target,
                     timeout=timeout,
-                    http=dict(
-                        method=method,
-                        body=body,
-                        headers=headers or {},
-                        css_selectors=css_selectors or {},
-                        ignoreTlsErrors=ignore_tls_errors,
-                    ),
+                    headers=headers or {},
+                    css_selectors=css_selectors or {},
+                    ignoreTlsErrors=ignore_tls_errors,
                 ),
                 tasks=tasks,
             ),
