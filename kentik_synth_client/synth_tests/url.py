@@ -58,13 +58,11 @@ class UrlTest(SynTest):
                 url=dict(
                     target=target,
                     timeout=timeout,
-                    http=dict(
-                        method=method,
-                        body=body,
-                        headers=headers or {},
-                        css_selectors=css_selectors or {},
-                        ignoreTlsErrors=ignore_tls_errors,
-                    ),
+                    method=method,
+                    body=body,
+                    headers=headers or {},
+                    css_selectors=css_selectors or {},
+                    ignoreTlsErrors=ignore_tls_errors,
                 ),
                 tasks=tasks,
             ),
