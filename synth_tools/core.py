@@ -1,6 +1,5 @@
 import atexit
 import json
-from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -10,10 +9,13 @@ from typing import Any, Callable, Dict, List, Optional
 
 import yaml
 
-from kentik_synth_client import KentikAPIRequestError, SynTest, TestStatus
+from kentik_synth_client import KentikAPIRequestError
+from kentik_synth_client.synth_tests import SynTest
+from kentik_synth_client.types import TestStatus
 from synth_tools import log
 from synth_tools.apis import APIs
 from synth_tools.test_factory import TestFactory
+from synth_tools.utils import camel_to_snake, transform_dict_keys
 
 
 def _fail(msg: str) -> None:
@@ -34,7 +36,7 @@ class TestRunStatus(Enum):
     SUCCESS = "success"
     CONFIG_BUILD_FAILED = "config build failed"
     CREATION_FAILED = "creation failed"
-    NO_HEALTH_DATA = "no health data"
+    NO_RESULTS = "no results"
     DELETE_FAILED = "test delete failed"
     STATUS_CHANGE_FAILED = "status change failed"
     RETRYABLE_ERROR = "retryable error"
@@ -53,47 +55,89 @@ class TestResults:
             self.test_id = ""
         self.polls = 0
         self.errors: List[ErrorRecord] = list()
-        self.results: Dict[str, Any] = defaultdict(list)
+        self.results: List[Dict[str, Any]] = list()
         self.status = TestRunStatus.NONE
 
-    def set_health(self, health):
+    def set_results(self, results: List[Dict[str, Any]]):
+        def _metric_data(m: str, d: Dict[str, Any]) -> str:
+            unit = ""
+            factor = 1
+            if m == "packet_loss":
+                unit = "%"
+                factor = 100.0
+            elif m in ("latency", "jitter"):
+                unit = "ms"
+                factor = 0.001
+            else:
+                log.error("Unknown metric '%s' in results", m)
+            v = float(d["current"]) * factor
+            out = f"current: {v:.5}{unit}"
+            for stat in ("avg", "stddev"):
+                s = f"rolling_{stat}"
+                if s in d:
+                    v = float(d[s]) * factor
+                    out += f" {stat}: {v:.5}{unit}"
+            out += f" ({d['health']})"
+            return out
+
         self.status = TestRunStatus.SUCCESS
-        for task in health["tasks"]:
-            for agent in task["agents"]:
-                for h in agent["health"]:
-                    for task_type in ("ping", "knock", "shake", "dns", "http"):
-                        if task_type in task["task"]:
-                            if task_type == "dns":
-                                target = (
-                                    f"{task['task'][task_type]['target']} via {task['task'][task_type]['resolver']}"
-                                )
-                            else:
-                                target = task["task"][task_type]["target"]
+        for entry in transform_dict_keys(results, camel_to_snake):
+            log.debug("entry: %s", entry)
+            if entry["test_id"] != self.test_id:
+                log.warning("TestResults[tid: %s]: Ignoring results for test ID '%s'", self.test_id, entry["test_id"])
+                continue
+            e = dict(
+                time=entry["time"],
+                health=entry["health"],
+                agents=list(),
+            )
+            self.results.append(e)
+            for agent in entry["agents"]:
+                a = dict(
+                    id=agent["agent_id"],
+                    health=agent["health"],
+                    tasks=list(),
+                )
+                e["agents"].append(a)
+                for task in agent["tasks"]:
+                    for task_type in ("ping", "http", "dns"):
+                        if task_type in task:
                             break
                     else:
-                        target = h["dstIp"]
-                        task_type = h["taskType"]
-                    e = dict(
-                        time=h["overallHealth"]["time"],
-                        agent_id=agent["agent"]["id"],
-                        agent_addr=agent["agent"]["ip"],
-                        task_type=task_type,
-                        loss=f"{h['packetLoss'] * 100}% ({h['packetLossHealth']})",
-                        latency=f"{h['avgLatency']/1000}ms ({h['latencyHealth']})",
-                        jitter=f"{h['avgJitter']/1000}ms ({h['jitterHealth']})",
+                        log.error("No data for any of test tasks (%s) in results", ",".join(self.test.configured_tasks))
+                        continue
+                    td = task[task_type]
+                    if not td["target"]:
+                        td["target"] = ",".join(self.test.targets)
+                    if "server" in td:
+                        target = f"{td['target']} via {td['server']}"
+                    elif "dst_ip" in td:
+                        target = f"{td['target']} [{td['dst_ip']}]"
+                    else:
+                        target = td["target"]
+                    if not target:
+                        target = self.test_targets[0]
+                    t = dict(
+                        type=task_type,
+                        target=target,
                     )
-                    for field in ("data", "status", "size"):
-                        if field in h:
-                            e[field] = h[field]
-                    data = e.get("data")
-                    if data:
-                        try:
-                            e["data"] = json.loads(data)
-                        except json.decoder.JSONDecodeError as ex:
-                            log.critical("Failed to parse JSON in health data '%s' (exception: %s)", data, ex)
-                    self.results[target].append(e)
-        for entries in self.results.values():
-            entries.sort(key=lambda x: x["time"])
+                    a["tasks"].append(t)
+                    for metric in ("packet_loss", "latency", "jitter"):
+                        if metric in td:
+                            t[metric] = _metric_data(metric, td[metric])
+                    r = td.get("response")
+                    if r:
+                        t["response"] = r
+                        if "data" in r:
+                            try:
+                                response_data = json.loads(r["data"])
+                                if response_data:
+                                    r["data"] = transform_dict_keys(response_data[0], camel_to_snake)
+                                else:
+                                    r["data"] = None
+                            except json.decoder.JSONDecodeError as ex:
+                                log.critical("Failed to parse JSON in results data '%s' (exception: %s)", r, ex)
+        self.results.sort(key=lambda x: x["time"])
 
     def record_error(self, status: TestRunStatus, label: str, cause: Any):
         self.status = status
@@ -127,7 +171,7 @@ class TestResults:
             ),
             execution=dict(
                 polls=self.polls,
-                results=dict(self.results),
+                results=self.results,
             ),
             errors=[e.to_dict() for e in self.errors],
         )
@@ -177,22 +221,17 @@ def run_one_shot(api: APIs, test: SynTest, retries: int = 3, delete: bool = True
             log.error("tid: %s Failed to activate test (%s)", t.id, exc)
             return r
 
-    wait_time = max(
-        0.0,
-        t.max_period,
-    )
+    wait_time = float(t.settings.period)
     start = datetime.now(tz=timezone.utc)
     while retries:
-        if wait_time > 0:
-            log.debug("tid: %s: Waiting %s seconds for test to accumulate results", t.id, wait_time)
-            sleep(wait_time)
-        wait_time = t.max_period
+        log.debug("tid: %s: Waiting %s seconds for test to accumulate results", t.id, wait_time)
+        sleep(wait_time)
         now = datetime.now(tz=timezone.utc)
         try:
             r.polls += 1
-            health = api.syn.health(
-                [t.id],
-                start=min(start, now - timedelta(seconds=t.max_period)),
+            data = api.syn.results(
+                t,
+                start=min(start, now - timedelta(seconds=t.settings.period)),
                 end=now,
             )
         except KentikAPIRequestError as exc:
@@ -201,34 +240,35 @@ def run_one_shot(api: APIs, test: SynTest, retries: int = 3, delete: bool = True
             retries -= 1
             continue
         except Exception as exc:
-            r.record_error(TestRunStatus.NO_HEALTH_DATA, "API_ERROR: GetHealthForTests", exc)
-            log.error("tid: %s Failed to retrieve test health (%s). Giving up.", t.id, exc)
+            r.record_error(TestRunStatus.NO_RESULTS, "API_ERROR: GetResultsForTests", exc)
+            log.error("tid: %s Failed to retrieve test results (%s). Giving up.", t.id, exc)
             break
-        if len(health) < 1:
-            log.debug("tid: %s Health not available after %f seconds", t.id, (now - start).total_seconds())
+        if len(data) < 1:
+            log.debug("tid: %s Results not available after %f seconds", t.id, (now - start).total_seconds())
             retries -= 1
             continue
-        health_ts = datetime.fromisoformat(health[0]["overallHealth"]["time"].replace("Z", "+00:00"))
-        if (health_ts - now).total_seconds() > t.max_period:
+        results_ts = datetime.fromisoformat(data[0]["time"].replace("Z", "+00:00"))
+        if results_ts < start:
             log.info(
-                "tid: %s Stale health data after %f second (timestamp: %s)",
+                "tid: %s Stale results data after %f second (timestamp: %s, test start: %s)",
                 t.id,
                 (now - start).total_seconds(),
-                health_ts.isoformat(),
+                results_ts.isoformat(),
+                start,
             )
             retries -= 1
             continue
-        r.set_health(health[0])
+        r.set_results(data)
         log.debug(
             "tid: %s %s at %s",
             t.id,
-            health[0]["overallHealth"]["health"],
-            health_ts.isoformat(),
+            data[0]["health"],
+            results_ts.isoformat(),
         )
         break
     else:
-        r.record_error(TestRunStatus.NO_HEALTH_DATA, "TIMEOUT", f"Failed to get valid health data")
-        log.debug("tid: %s Failed to get valid health data for test", t.id)
+        r.record_error(TestRunStatus.NO_RESULTS, "TIMEOUT", f"Failed to get valid results")
+        log.debug("tid: %s Failed to get valid results for test", t.id)
 
     if delete:
         all_clean = _delete_test(t)

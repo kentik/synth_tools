@@ -1,14 +1,10 @@
 test:
   type: page_load
-  period: 60
+  period: 600
   ping:
     protocol: icmp
-    timeout: 3000
   trace:
     protocol: icmp
-    timeout: 22500
-  headers:
-    user-agent: kentik
   health_settings:
     http_latency_critical_stddev: 3
     http_latency_warning_stddev: 1

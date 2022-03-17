@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from .api_transport import KentikAPITransport
 from .api_transport_http import SynthHTTPTransport
-from .synth_tests import SynTest
+from .synth_tests import SynTest, make_synth_test
 from .types import TestStatus
 
 log = logging.getLogger("synth_client")
@@ -23,13 +23,13 @@ class KentikSynthClient:
             u = urlparse(url)
             dns_path = u.netloc.split(".")
             if dns_path[0] == "api":
-                dns_path.insert(0, "synthetics")
+                dns_path.insert(0, "grpc")
                 log.debug("Setting url to: %s (input: %s)", u._replace(netloc=".".join(dns_path)).geturl(), url)
                 self._url = u._replace(netloc=".".join(dns_path)).geturl()
             else:
                 self._url = url
         else:
-            self._url = "https://synthetics.api.kentik.com"
+            self._url = "https://grpc.api.kentik.com"
         if transport:
             # noinspection Mypy
             # noinspection PyCallingNonCallable
@@ -47,8 +47,8 @@ class KentikSynthClient:
     def agent(self, agent_id: str) -> Dict:
         return self._transport.req("AgentGet", id=agent_id)
 
-    def patch_agent(self, agent_id: str, data: dict, modified: str) -> None:
-        return self._transport.req("AgentPatch", id=agent_id, body=dict(agent=data, mask=modified))
+    def update_agent(self, agent_id: str, data: dict) -> None:
+        return self._transport.req("AgentUpdate", id=agent_id, body=dict(agent=data))
 
     def delete_agent(self, agent_id: str) -> Dict:
         return self._transport.req("AgentDelete", id=agent_id)
@@ -62,25 +62,30 @@ class KentikSynthClient:
         if raw:
             return r
         else:
-            return [SynTest.test_from_dict(t) for t in r]
+            return [make_synth_test(t) for t in r]
 
     def test(self, test: Union[str, SynTest]) -> SynTest:
         if isinstance(test, SynTest):
             test_id = test.id
         else:
             test_id = test
-        return SynTest.test_from_dict(self._transport.req("TestGet", id=test_id))
+        return make_synth_test(self._transport.req("TestGet", id=test_id))
 
     def test_raw(self, test_id: str) -> Any:
         return self._transport.req("TestGet", id=test_id)
 
     def create_test(self, test: SynTest) -> SynTest:
-        return SynTest.test_from_dict(self._transport.req("TestCreate", body=test.to_dict()))
+        return make_synth_test(self._transport.req("TestCreate", body=test.to_dict()))
 
-    def patch_test(self, test: SynTest, test_id, modified: str) -> SynTest:
+    def update_test(self, test: SynTest, tid: Optional[str] = None) -> SynTest:
+        if not test.deployed:
+            if not tid:
+                raise RuntimeError(f"test '{test.name}' has not been deployed yet (id=0) and no test id specified")
+        else:
+            tid = test.id
         body = test.to_dict()
-        body["mask"] = modified
-        return SynTest.test_from_dict(self._transport.req("TestPatch", id=test_id, body=body))
+        body["test"]["edate"] = test.edate
+        return make_synth_test(self._transport.req("TestUpdate", id=tid, body=body))
 
     def delete_test(self, test: Union[str, SynTest]) -> None:
         if isinstance(test, SynTest):
@@ -92,24 +97,22 @@ class KentikSynthClient:
             test.undeploy()
 
     def set_test_status(self, test_id: str, status: TestStatus) -> dict:
-        return self._transport.req("TestStatusUpdate", id=test_id, body=dict(id=test_id, status=status.value))
+        return self._transport.req("SetTestStatus", id=test_id, body=dict(id=test_id, status=status.value))
 
-    def health(
+    def get_results(
         self,
         test_ids: List[str],
         start: datetime,
         end: datetime,
-        augment: bool = False,
         agent_ids: Optional[List[str]] = None,
         task_ids: Optional[List[str]] = None,
     ) -> List[Dict]:
         return self._transport.req(
-            "GetHealthForTests",
+            "GetResultsForTests",
             body=dict(
                 ids=test_ids,
                 startTime=start.isoformat(),
                 endTime=end.isoformat(),
-                augment=augment,
                 agentIds=agent_ids if agent_ids else [],
                 taskIds=task_ids if task_ids else [],
             ),
@@ -128,8 +131,8 @@ class KentikSynthClient:
         if not end:
             end = datetime.now(tz=timezone.utc)
         if not start:
-            start = end - timedelta(seconds=periods * test.max_period)
-        return self.health([test.id], start=start, end=end, **kwargs)
+            start = end - timedelta(seconds=periods * test.settings.period)
+        return self.get_results([test.id], start=start, end=end, **kwargs)
 
     def trace(
         self,
@@ -149,7 +152,7 @@ class KentikSynthClient:
         if not end:
             end = datetime.now(tz=timezone.utc)
         if not start:
-            start = end - timedelta(seconds=periods * t.max_period)
+            start = end - timedelta(seconds=periods * t.settings.period)
         return self._transport.req(
             "GetTraceForTest",
             id=t.id,

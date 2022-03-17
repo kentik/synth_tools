@@ -19,8 +19,8 @@ from synth_tools.utils import (
     print_test,
     print_test_diff,
     print_test_results,
+    print_tests,
     print_tests_brief,
-    sort_id,
     test_to_dict,
 )
 
@@ -43,7 +43,7 @@ def _parse_substitution(substitutions: Optional[str]) -> Optional[Dict[str, str]
     if substitutions:
         subs = dict()
         for e in substitutions.split(","):
-            f = e.split(":")
+            f = e.split(":", maxsplit=1)
             if len(f) != 2:
                 fail(f"Invalid substitution item '{e}' in substitutions ('{substitutions}')")
             subs[f"@{f[0]}@"] = f[1]
@@ -137,57 +137,38 @@ def create_test(
             print_test(test, show_all=show_all)
 
 
-#  UNFORTUNATELY CANNOT BE QUITE SUPPORTED YET
-# @tests_app.command("update")
-# def update_test(
-#     ctx: typer.Context,
-#     test_id: str = typer.Argument(..., help="Id of the test to update"),
-#     test_config: Path = typer.Argument(..., help="Path to test config file"),
-#     dry_run: bool = typer.Option(False, help="Construct new test config and compare it to existing"),
-#     print_config: bool = typer.Option(False, help="Print test configuration"),
-#     substitutions: Optional[str] = typer.Option(
-#         None, "-s", "--substitute", help="Comma separated list of substitutions in the form of 'var:value'"
-#     ),
-#     show_all: bool = typer.Option(False, help="Show all test attributes"),
-# ) -> None:
-#     """
-#     Update existing test
-#     """
-#     api = get_api(ctx)
-#     old = _get_test_by_id(api.syn, test_id)
-#     subs: Optional[dict] = None
-#     new = load_test(api, test_config, _parse_substitutions(substitutions), fail)
-#     if not new:
-#         return  # not reached, load test does no return without valid test, but we need to make linters happy
-#     if dry_run:
-#         print_test_diff(old, new, labels=("EXISTING", "NEW"), show_all=show_all)
-#     else:
-#         new.status = old.status
-#         test = api_request(api.syn.patch_test, "TestPatch", new, old.id, make_mod_mask(old, new))
-#         typer.echo(f"Updated test: id {test.id}")
-#         if print_config:
-#             print_test(test, show_all=show_all)
-
-
-@tests_app.command("compare_config")
-def compare_test_config(
+@tests_app.command("update")
+def update_test(
     ctx: typer.Context,
-    test_id: str = typer.Argument(..., help="Id of the test to work on"),
+    test_id: str = typer.Argument(..., help="Id of the test to update"),
     test_config: Path = typer.Argument(..., help="Path to test config file"),
+    dry_run: bool = typer.Option(False, help="Construct new test config and compare it to existing"),
+    print_config: bool = typer.Option(False, help="Print test configuration"),
     substitutions: Optional[str] = typer.Option(
         None, "-s", "--substitute", help="Comma separated list of substitutions in the form of 'var:value'"
     ),
     show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
-    Construct test from config and compare to an existing test
+    Update existing test
     """
     api = get_api(ctx)
     old = _get_test_by_id(api.syn, test_id)
     new = load_test(api, test_config, _parse_substitution(substitutions), fail)
     if not new:
         return  # not reached, load test does no return without valid test, but we need to make linters happy
-    print_test_diff(old, new, labels=(f"TEST: {old.id}", "Config file"), show_all=show_all)
+    if dry_run:
+        if print_config:
+            typer.echo("--- New config:")
+            print_test(new, show_all=show_all)
+            typer.echo("--- Diff:")
+        print_test_diff(old, new, labels=("EXISTING", "NEW"), show_all=show_all)
+    else:
+        new.edate = old.edate
+        test = api_request(api.syn.update_test, "TestUpdate", new, old.id)
+        typer.echo(f"Updated test: id {test_id}")
+        if print_config:
+            print_test(test, show_all=show_all)
 
 
 @tests_app.command("delete")
@@ -208,6 +189,7 @@ def list_tests(
     ctx: typer.Context,
     brief: bool = typer.Option(False, "-b", "--brief", help="Print only id, name and type"),
     fields: Optional[str] = typer.Option(None, "-f", "--fields", help="Config attributes to print"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Print output in JSON format"),
     show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
@@ -216,14 +198,11 @@ def list_tests(
     api = get_api(ctx)
     tests = api_request(api.syn.list_tests, "ListTests")
     if brief:
-        print_tests_brief(sorted(tests, key=lambda x: sort_id(x.id)))
+        if json_out:
+            typer.echo("WARNING: --brief option overrides --json", err=True)
+        print_tests_brief(tests)
     else:
-        for t in sorted(tests, key=lambda x: sort_id(x.id)):
-            if fields == "id":
-                typer.echo(t.id)
-            else:
-                typer.echo(f"id: {t.id}")
-                print_test(t, indent_level=1, show_all=show_all, attributes=fields)
+        print_tests(tests, show_all=show_all, attributes=fields, json_format=json_out)
 
 
 @tests_app.command("get")
@@ -232,6 +211,7 @@ def get_test(
     test_ids: List[str],
     brief: bool = typer.Option(False, "-b", "--brief", help="Print only id, name and type"),
     fields: Optional[str] = typer.Option(None, "-f", "--fields", help="Config attributes to print"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Print output in JSON format"),
     show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
@@ -239,14 +219,12 @@ def get_test(
     """
     api = get_api(ctx)
     tests = [_get_test_by_id(api.syn, i) for i in test_ids]
-    print_id = len(tests) > 1 and (not fields or "id" not in fields.split(","))
     if brief:
+        if json_out:
+            typer.echo("WARNING: --brief option overrides --json", err=True)
         print_tests_brief(tests)
     else:
-        for t in tests:
-            if print_id:
-                typer.echo(f"id: {t.id}")
-            print_test(t, show_all=show_all, attributes=fields)
+        print_tests(tests, show_all=show_all, attributes=fields, json_format=json_out)
 
 
 @tests_app.command("match")
@@ -255,6 +233,7 @@ def match_test(
     rules: List[str],
     brief: bool = typer.Option(False, "-b", "--brief", help="Print only id, name and type"),
     fields: Optional[str] = typer.Option(None, "-f", "--fields", help="Config attributes to print"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Print output in JSON format"),
     show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
@@ -267,21 +246,12 @@ def match_test(
     if not matching:
         typer.echo("No test matches specified rules")
     else:
-        matching.sort(key=lambda x: sort_id(x.id))
         if brief:
+            if json_out:
+                typer.echo("WARNING: --brief option overrides --json", err=True)
             print_tests_brief(matching)
         else:
-            for t in matching:
-                if fields == "id":
-                    typer.echo(t.id)
-                else:
-                    typer.echo(f"id: {t.id}")
-                    print_test(
-                        t,
-                        indent_level=1,
-                        show_all=show_all,
-                        attributes=fields,
-                    )
+            print_tests(matching, show_all=show_all, attributes=fields, json_format=json_out)
 
 
 @tests_app.command("compare")
@@ -331,7 +301,7 @@ def resume_test(ctx: typer.Context, test_id: str) -> None:
 
 
 @tests_app.command("results")
-def get_test_health(
+def get_test_results(
     ctx: typer.Context,
     test_id: str,
     raw_out: Optional[str] = typer.Option("", help="Path to file to store raw test results API response"),
@@ -363,15 +333,14 @@ def get_test_health(
         end_time = None
     api = get_api(ctx)
     t = _get_test_by_id(api.syn, test_id)
-    health = api_request(api.syn.results, "GetHealthForTests", t, start=start_time, end=end_time, periods=periods)
-    if not health:
-        fail(f"Test '{test_id}' did not produce any health data")
-
-    results = TestResults(t)
-    results.set_health(health[0])
+    data = api_request(api.syn.results, "GetResultsForTests", t, start=start_time, end=end_time, periods=periods)
+    if not data:
+        fail(f"Test '{test_id}' did not produce any results")
     if raw_out:
-        log.info("Writing health data to %s", raw_out)
-        dict_to_json(raw_out, health)
+        log.info("Writing results data to %s", raw_out)
+        dict_to_json(raw_out, data)
+    results = TestResults(t)
+    results.set_results(data)
     if json_out:
         log.info("Writing results to %s", json_out)
         dict_to_json(json_out, results.to_dict())

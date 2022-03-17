@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import inflection
@@ -33,22 +34,13 @@ def snake_to_camel(name: str) -> str:
     return inflection.camelize(name, False)
 
 
-def transform_dict_keys(d: Dict[str, Any], fn: Callable[[str], str]) -> Dict[str, Any]:
-    out: Dict[str, Any] = dict()
-    for k, v in d.items():
-        if type(v) == dict:
-            out[fn(k)] = transform_dict_keys(v, fn)
-        elif type(v) == list:
-            out_value = []
-            for e in v:
-                if type(e) == dict:
-                    out_value.append(transform_dict_keys(e, fn))
-                else:
-                    out_value.append(e)
-            out[fn(k)] = out_value
-        else:
-            out[fn(k)] = v
-    return out
+def transform_dict_keys(data: Any, fn: Callable[[str], str]) -> Any:
+    if type(data) == dict:
+        return {fn(k): transform_dict_keys(v, fn) for k, v in data.items()}
+    elif type(data) == list:
+        return [transform_dict_keys(e, fn) for e in data]
+    else:
+        return data
 
 
 def fail(msg: str) -> None:
@@ -101,54 +93,32 @@ def dict_to_json(filename: str, data: Dict[str, Any]) -> None:
         fail(f"Cannot write to file '{filename}' ({ex})")
 
 
-INTERNAL_TEST_SETTINGS = [
-    "device_id",
-    "settings.monitoring_settings",
-    "settings.tasks",
-    "settings.rollup_level",
-    "settings.ping.period",
-    "settings.trace.period",
-    "settings.http.period",
-]
+def test_to_dict(test: SynTest) -> Dict[str, Any]:
+    d = dict(id=test.id)
+    d.update(transform_dict_keys(test.to_dict()["test"], camel_to_snake))
+    d["created"] = test.created
+    d["modified"] = test.modified
+    d["created_by"] = test.created_by
+    d["last_updated_by"] = test.last_updated_by
+    return d
+
 
 NON_COMPARABLE_TEST_ATTRS = [
-    "id",
     "created",
     "modified",
     "created_by",
 ]
 
-READONLY_TEST_ATTRS = {
-    "settings.hostname.target",
-    "settings.ip.targets",
-    "settings.network_grid.targets",
-    "settings.dns_grid.targets",
-    "settings.dns.targets",
-    "settings.agent.target",
-    "settings.url.target",
-    "settings.page_load.target",
-    "settings.flow.target",
-    "settings.flow.type",
-    "settings.ping.protocol",
-}
 
-
-def test_to_dict(test: SynTest) -> Dict[str, Any]:
-    d = transform_dict_keys(test.to_dict()["test"], camel_to_snake)
-    d["id"] = test.id
-    d["created"] = test.cdate
-    d["modified"] = test.edate
-    if test.created_by:
-        d["created_by"] = test.created_by
-    if not d["settings"]["period"] and "ping" in d["settings"]:
-        d["settings"]["period"] = d["settings"]["ping"]["period"]
-    return d
+INTERNAL_TEST_SETTINGS = [
+    "tasks",
+]
 
 
 def _filter_test_attrs(t: dict, attrs: List[str]) -> None:
     for attr in attrs:
         keys = attr.split(".")
-        item = t
+        item = t["settings"]
         while keys:
             k = keys.pop(0)
             if not keys:
@@ -184,6 +154,7 @@ def print_test(
     indent_level: int = 0,
     show_all: bool = False,
     attributes: Optional[str] = None,
+    json_format=False,
 ) -> None:
     d = test_to_dict(test)
     if not show_all:
@@ -194,42 +165,69 @@ def print_test(
         attr_list = attributes.split(",")
     else:
         attr_list = []
-    print_struct(filter_dict(d, attr_list), indent_level=indent_level)
+    if json_format:
+        json.dump(filter_dict(d, attr_list), sys.stdout, default=str, indent=2)
+    else:
+        print_struct(filter_dict(d, attr_list), indent_level=indent_level)
+
+
+def print_tests(
+    tests: List[SynTest], show_all: bool = False, attributes: Optional[str] = None, json_format=False
+) -> None:
+    if json_format:
+        if attributes:
+            attr_list = attributes.split(",")
+        else:
+            attr_list = []
+        out = []
+        for t in sorted(tests, key=lambda x: sort_id(x.id)):
+            if attributes == "id":
+                out.append(t.id)
+            else:
+                d = test_to_dict(t)
+                if not show_all:
+                    if not t.deployed:
+                        del d["status"]
+                    _filter_test_attrs(d, INTERNAL_TEST_SETTINGS)
+                out.append(filter_dict(d, attr_list))
+        json.dump(out, sys.stdout, default=str, indent=2)
+        typer.echo()
+    else:
+        print_id = len(tests) > 1 and (not attributes or "id" not in attributes.split(","))
+        for t in sorted(tests, key=lambda x: sort_id(x.id)):
+            if attributes == "id":
+                typer.echo(t.id)
+            else:
+                if print_id:
+                    typer.echo(f"id: {t.id}")
+                print_test(t, indent_level=1, show_all=show_all, attributes=attributes)
 
 
 def print_tests_brief(tests: List[SynTest]) -> None:
     table = Texttable(max_width=os.get_terminal_size()[0])
-    for t in tests:
+    for t in sorted(tests, key=lambda x: sort_id(x.id)):
         table.add_row([f"{x[0]}: {x[1]}" for x in (("id", t.id), ("name", t.name), ("type", t.type.value))])
     table.set_deco(Texttable.HEADER | Texttable.VLINES)
     typer.echo(table.draw())
 
 
-def make_mod_mask(old: SynTest, new: SynTest) -> str:
-    o = test_to_dict(old)
-    n = test_to_dict(new)
-    del o["status"]
-    del n["status"]
-    _filter_test_attrs(o, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
-    _filter_test_attrs(n, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
-    diffs = set(d[0] for d in dict_compare(o, n))
-    bad = diffs.intersection(READONLY_TEST_ATTRS)
-    if bad:
-        fail("Following test attributes cannot be modified after creation: {}".format(",".join(bad)))
-    mask = ",".join(snake_to_camel(d) for d in diffs)
-    log.debug("make_mod_mask: mask: %s", mask)
-    return mask
+def _remove_unused_test_settings(test: dict):
+    for task, cfg in (("ping", "ping"), ("traceroute", "trace")):
+        if task not in test["settings"]["tasks"] and cfg in test["settings"]:
+            del test["settings"][cfg]
 
 
 def print_test_diff(first: SynTest, second: SynTest, show_all=False, labels: Tuple[str, str] = ("FIRST", "SECOND")):
-    o = test_to_dict(first)
-    n = test_to_dict(second)
+    f = transform_dict_keys(first.to_dict()["test"], camel_to_snake)
+    s = transform_dict_keys(second.to_dict()["test"], camel_to_snake)
     if not show_all:
-        del o["status"]
-        del n["status"]
-        _filter_test_attrs(o, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
-        _filter_test_attrs(n, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
-    diffs = dict_compare(o, n)
+        del f["status"]
+        del s["status"]
+        _remove_unused_test_settings(f)
+        _remove_unused_test_settings(s)
+        _filter_test_attrs(f, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
+        _filter_test_attrs(s, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
+    diffs = dict_compare(f, s)
     if diffs:
         table = Texttable(max_width=os.get_terminal_size()[0])
         table.add_rows([["Attribute", f"{labels[0]}", f"{labels[1]}"]], header=True)
@@ -243,7 +241,7 @@ def print_test_diff(first: SynTest, second: SynTest, show_all=False, labels: Tup
 
 
 def print_test_results(results: Dict[str, Any]):
-    print_struct(transform_dict_keys(results, camel_to_snake))
+    print_struct(results)
 
 
 def agent_to_dict(agent: dict) -> Dict[str, Any]:
@@ -269,7 +267,7 @@ def print_agents_brief(agents: List[Dict[str, Any]]) -> None:
                 f"{k}: {v}"
                 for k, v in (
                     ("id", a["id"]),
-                    ("site_name", a["name"]),
+                    ("site_name", a["site_name"]),
                     ("alias", a["alias"]),
                     ("type", a["type"]),
                     ("nr_tests", len(a["test_ids"])),

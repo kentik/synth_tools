@@ -14,25 +14,26 @@ class SynthHTTPTransport(KentikAPITransport):
     OPS: Dict[str, Dict[str, Any]] = dict(
         AgentsList=dict(ep="agents", method="get", resp="agents"),
         AgentGet=dict(ep="agents", method="get", params="{id}", resp="agent"),
-        AgentPatch=dict(ep="agents", method="patch", params="{id}", body="agent", resp="agent"),
+        AgentUpdate=dict(ep="agents", method="put", params="{id}", body="agent", resp="agent"),
         AgentDelete=dict(ep="agents", method="delete", params="{id}"),
         TestsList=dict(ep="tests", method="get", resp="tests"),
         TestGet=dict(ep="tests", method="get", params="{id}", resp="test"),
         TestCreate=dict(ep="tests", method="post", body="test", resp="test"),
         TestDelete=dict(ep="tests", method="delete", params="{id}"),
-        TestPatch=dict(ep="tests", method="patch", params="{id}", body="test", resp="test"),
-        TestStatusUpdate=dict(ep="tests", method="put", params="{id}/status", body="test_status"),
-        GetHealthForTests=dict(ep="health", method="post", body="health_request", resp="health"),
-        GetTraceForTest=dict(ep="tests", method="post", params="{id}/results/trace", body="trace_request", resp="*"),
+        TestUpdate=dict(ep="tests", method="put", params="{id}", body="test", resp="test"),
+        SetTestStatus=dict(ep="tests", method="put", params="{id}/status", body="test_status_request"),
+        GetResultsForTests=dict(ep="results", method="post", body="results_request", resp="results"),
+        GetTraceForTest=dict(ep="trace", method="post", body="trace_request", resp="*"),
     )
     END_POINTS = dict(
-        agents="/synthetics/v202101beta1/agents",
-        tests="/synthetics/v202101beta1/tests",
-        health="/synthetics/v202101beta1/health/tests",
+        agents="/synthetics/v202202/agents",
+        tests="/synthetics/v202202/tests",
+        results="/synthetics/v202202/results",
+        trace="/synthetics/v202202/trace",
     )
 
     def __init__(
-        self, credentials: Tuple[str, str], url: str = "https://synthetics.api.kentik.com", proxy: Optional[str] = None
+        self, credentials: Tuple[str, str], url: str = "https://grpc.api.kentik.com", proxy: Optional[str] = None
     ):
         # noinspection PyProtectedMember,PyArgumentList
         self._session = KentikAPI(

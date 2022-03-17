@@ -1,0 +1,20 @@
+test:
+  type: agent
+  period: 600
+  ping:
+    protocol: icmp
+  trace:
+    protocol: icmp
+  health_settings:
+    packet_loss_critical: 60
+
+targets:
+  max_matches: 1
+  match:
+    - agent_impl: IMPLEMENT_TYPE_RUST
+    - country: one_of(US, United States)
+
+agents:
+  match:
+    - agent_impl: IMPLEMENT_TYPE_RUST
+    - country: '!one_of(US, United States)'

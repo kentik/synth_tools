@@ -31,6 +31,23 @@ from synth_tools.matchers import AllMatcher
 from synth_tools.utils import snake_to_camel, transform_dict_keys
 
 
+def _remap_keys(d: Dict[str, Any], attr_map: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    if not attr_map:
+        return d
+    out: Dict[str, Any] = dict()
+    for k, v in d.items():
+        nk = attr_map.get(k)
+        if nk is not None:
+            if nk:
+                log.debug("_remap_keys: mapping: %s -> %s", k, nk)
+                out[nk] = v
+            else:
+                log.debug("_remap_keys: removing: %s", k)
+        else:
+            out[k] = v
+    return out
+
+
 def _fail(msg: str) -> None:
     raise RuntimeError(msg)
 
@@ -285,7 +302,9 @@ def dummy_loader(_: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fa
     return set()
 
 
-def _get_agents(api: APIs, cfg, agent_type: Optional[str] = None, fail: Callable[[str], None] = _fail) -> Set[str]:
+def _get_agents(
+    api: APIs, cfg: Dict[str, Any], agent_type: Optional[str] = None, fail: Callable[[str], None] = _fail
+) -> Set[str]:
     _match_or_use(cfg, "agents", fail)
     if "use" in cfg:
         log.debug("_get_agents: use: %s", cfg["use"])
@@ -308,6 +327,34 @@ def _get_agents(api: APIs, cfg, agent_type: Optional[str] = None, fail: Callable
     return agents
 
 
+def _get_target(targets: List[str], cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> str:
+    if len(targets) > 1:
+        fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
+    return targets[0]
+
+
+def _get_test_attributes(
+    required: List, cfg: dict, attribute_map: Optional[Dict[str, str]] = None, fail: Callable[[str], None] = _fail
+) -> dict:
+    # noinspection PyPep8Naming
+    COMMON_TEST_PARAMS = (
+        "name",
+        "type",
+        "ping",
+        "trace",
+        "period",
+        "health_settings",
+        "family",
+    )
+
+    missing = [a for a in required if a not in cfg]
+    if missing:
+        fail("'{}' requires following configuration attributes: '{}'".format(cfg["type"], ",".join(missing)))
+    return _remap_keys(
+        {k: v for k, v in cfg.items() if (k not in COMMON_TEST_PARAMS) or (k in required)}, attribute_map
+    )
+
+
 def all_agents(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
     log.debug("all_agents: cfg '%s'", cfg)
     return _get_agents(api, cfg, fail=fail)
@@ -321,44 +368,6 @@ def rust_agents(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _f
 def node_agents(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
     log.debug("node_agents: cfg '%s'", cfg)
     return _get_agents(api, cfg, "IMPLEMENT_TYPE_NODE", fail=fail)
-
-
-def get_ping_task_params(cfg: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    _attribute_map = {"timeout": "expiry", "protocol": ""}
-    if not cfg:
-        return cfg
-    out = dict()
-    for k, v in cfg.items():
-        key = _attribute_map.get(k)
-        if key is not None:
-            if key:
-                out[key] = v
-                log.debug("get_ping_task_params: replacing key '%s' with '%s'", k, key)
-            else:
-                log.debug("get_ping_task_params: ignoring key '%s'", k)
-        else:
-            out[k] = v
-    return out
-
-
-def get_trace_task_params(cfg: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    _attribute_map = {
-        "timeout": "expiry",
-    }
-    if not cfg:
-        return cfg
-    out = dict()
-    for k, v in cfg.items():
-        key = _attribute_map.get(k)
-        if key is not None:
-            if key:
-                out[key] = v
-                log.debug("get_trace_task_params: replacing key '%s' with '%s'", k, key)
-            else:
-                log.debug("get_trace_task_params: ignoring key '%s'", k)
-        else:
-            out[k] = v
-    return out
 
 
 # noinspection PyUnusedLocal
@@ -378,39 +387,29 @@ def make_ip_test(
 def make_agent_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
-    if len(targets) > 1:
-        fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    return AgentTest.create(name=name, target=targets[0], agent_ids=agents)
+    return AgentTest.create(name=name, target=_get_target(targets, cfg, fail=fail), agent_ids=agents)
 
 
 def make_dns_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
-    if len(targets) > 1:
-        fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    servers = cfg.get("servers", [])
-    if not servers:
-        fail(f"{cfg['type']} requires 'servers' parameter")
-    record_type = DNSRecordType(cfg.get("record_type", "DNS_RECORD_A"))
-    return DNSTest.create(name=name, target=targets[0], agent_ids=agents, servers=servers, record_type=record_type)
+    target = _get_target(targets, cfg, fail=fail)
+    attrs = _get_test_attributes(["servers"], cfg, fail=fail)
+    return DNSTest.create(name=name, target=target, agent_ids=agents, **attrs)
 
 
 def make_dns_grid_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
-    servers = cfg.get("servers", [])
-    if not servers:
-        fail(f"{cfg['type']} requires 'servers' parameter")
-    record_type = DNSRecordType(cfg.get("record_type", "DNS_RECORD_A"))
-    return DNSGridTest.create(name=name, targets=targets, agent_ids=agents, servers=servers, record_type=record_type)
+    target = _get_target(targets, cfg, fail=fail)
+    attrs = _get_test_attributes(["servers"], cfg, fail=fail)
+    return DNSGridTest.create(name=name, target=target, agent_ids=agents, **attrs)
 
 
 def make_hostname_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
-    if len(targets) > 1:
-        fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    return HostnameTest.create(name=name, target=targets[0], agent_ids=agents)
+    return HostnameTest.create(name=name, target=_get_target(targets, cfg, fail=fail), agent_ids=agents)
 
 
 # noinspection PyUnusedLocal
@@ -420,32 +419,12 @@ def make_mesh_test(
     return MeshTest.create(name=name, agent_ids=agents)
 
 
-def get_test_attributes(required: List, cfg: dict, fail: Callable[[str], None] = _fail) -> dict:
-    # noinspection PyPep8Naming
-    COMMON_TEST_PARAMS = (
-        "name",
-        "type",
-        "period",
-        "ping",
-        "trace",
-        "health_settings",
-        "protocol",
-        "family",
-        "port",
-    )
-
-    missing = [a for a in required if a not in cfg]
-    if missing:
-        fail("'{}' requires following configuration attributes: '{}'".format(cfg["type"], ",".join(missing)))
-    return {k: v for k, v in cfg.items() if (k not in COMMON_TEST_PARAMS) or (k in required)}
-
-
 def make_page_load_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
     if len(targets) > 1:
         fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    attrs = get_test_attributes([], cfg, fail)
+    attrs = _get_test_attributes([], cfg, fail=fail)
     ping = "ping" in cfg
     trace = "trace" in cfg
     if ping ^ trace:
@@ -456,7 +435,7 @@ def make_page_load_test(
         )
     log.debug("make_page_load_test: ping: '%s', trace: '%s'", ping, trace)
     log.debug("make_page_load_test: attrs: '%s'", ", ".join(f"{k}:{v}" for k, v in attrs.items()))
-    return PageLoadTest.create(name=name, target=targets[0], agent_ids=agents, ping_and_trace=ping and trace, **attrs)
+    return PageLoadTest.create(name=name, target=targets[0], agent_ids=agents, ping=ping, trace=trace, **attrs)
 
 
 def make_url_test(
@@ -464,7 +443,7 @@ def make_url_test(
 ) -> SynTest:
     if len(targets) > 1:
         fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    attrs = get_test_attributes([], cfg, fail)
+    attrs = _get_test_attributes([], cfg, fail=fail)
     ping = "ping" in cfg
     trace = "trace" in cfg
     if ping ^ trace:
@@ -483,7 +462,7 @@ def make_flow_test(
 ) -> SynTest:
     if len(targets) > 1:
         fail(f"{cfg['type']} test accepts only 1 target, {len(targets)} provided ('{targets}')")
-    attrs = get_test_attributes(["target_type", "direction", "inet_direction"], cfg, fail)
+    attrs = _get_test_attributes(["target_type", "direction", "inet_direction"], cfg, fail=fail)
     log.debug("make_flow_test: attrs: '%s'", ", ".join(f"{k}:{v}" for k, v in attrs.items()))
     return FlowTest.create(name=name, target=targets[0], agent_ids=agents, **attrs)
 
@@ -493,46 +472,18 @@ def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None]
     if "family" in cfg:
         test.settings.family = IPFamily(cfg.get("family"))
         log.debug("set_common_test_params: test: '%s' family: '%s'", test.name, test.settings.family)
-    if "protocol" in cfg:
-        test.settings.protocol = Protocol(cfg["protocol"])
-        log.debug("set_common_test_params: test: '%s' protocol: '%s'", test.name, test.settings.protocol)
-    if "port" in cfg:
-        test.settings.port = cfg["port"]
-        log.debug("set_common_test_params: test: '%s' port: '%s'", test.name, test.settings.port)
     if "ping" in cfg and type(cfg["ping"]) == dict:
         if "ping" in test.settings.tasks:
             if not hasattr(test.settings, "ping"):
                 fail(f"'{test.type.value}' test does not support 'ping'")
-            test.settings.ping = PingTask.from_dict(get_ping_task_params(cfg["ping"]))  # type: ignore
+            test.settings.ping = PingTask.from_dict(cfg["ping"])  # type: ignore
             log.debug("set_common_test_params: test: '%s' ping: '%s'", test.name, cfg.get("ping"))
-            if "protocol" in cfg["ping"]:
-                _global_proto = test.settings.protocol
-                test.settings.protocol = Protocol(cfg["ping"]["protocol"])
-                log.debug(
-                    "set_common_test_params: test: '%s' ping.protocol: '%s' (overrides global: '%s')",
-                    test.name,
-                    test.settings.protocol,
-                    _global_proto,
-                )
-            if "port" in cfg["ping"]:
-                _global_port = test.settings.port
-                test.settings.port = cfg["ping"]["port"]
-                log.debug(
-                    "set_common_test_params: test: '%s' ping.port: '%s'(overrides global: '%s')",
-                    test.name,
-                    test.settings.port,
-                    _global_port,
-                )
-    # else:
-    #     test.settings.ping = None
     if "trace" in cfg and type(cfg["trace"]) == dict:
         if "traceroute" in test.settings.tasks:
             log.debug("set_common_test_params: test: '%s' trace: '%s'", test.name, cfg.get("trace"))
             if not hasattr(test.settings, "trace"):
                 fail(f"'{test.type.value} does not support 'trace'")
             test.settings.trace = TraceTask.from_dict(cfg["trace"])  # type: ignore
-    # else:
-    #     test.settings.trace = None
     if "health_settings" in cfg:
         log.debug("set_common_test_params: test: '%s' health_settings: '%s'", test.name, cfg.get("health_settings"))
         test.settings.healthSettings = HealthSettings.from_dict(
@@ -545,6 +496,18 @@ def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None]
         log.debug("set_common_test_params: test: '%s' status: '%s'", test.name, cfg.get("status"))
         log.warning("Test 'status' is ignored on creation. All tests are created in active state.")
         test.status = TestStatus(cfg["status"])
+    # fixup alarm activation time window if not set explicitly
+    if not test.settings.healthSettings.activation.timeWindow:
+        test.settings.healthSettings.activation.timeWindow = str(
+            int(test.settings.period * (int(test.settings.healthSettings.activation.times) + 1) / 60)
+        )
+        test.settings.healthSettings.activation.timeUnit = "m"
+        log.debug(
+            "set_common_test_params: test: '%s' activation.time_window: '%s%s'",
+            test.name,
+            test.settings.healthSettings.activation.timeWindow,
+            test.settings.healthSettings.activation.timeUnit,
+        )
 
 
 @dataclass
@@ -581,7 +544,7 @@ class TestFactory:
         test_type: Optional[str] = None,
     ) -> Callable[[str], None]:
         def _report(msg):
-            info = f"Failed to create test: cfg file: {config_name}"
+            info = f"Failed to create test: cfg name: {config_name}"
             if test_name:
                 info += f", name: {test_name}"
             if test_type:

@@ -19,7 +19,7 @@ class TestType(SerializableEnum):
     flow = "flow"
     hostname = "hostname"
     ip = "ip"
-    mesh = "application_mesh"
+    mesh = "network_mesh"
     network_grid = "network_grid"
     page_load = "page_load"
     url = "url"
