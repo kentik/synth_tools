@@ -45,7 +45,6 @@ EOF
 
 The `synth_ctl` tool current does not support:
 - modification of synthetic agents
-- modification of deployed tests (PATCH operation)
 - creation of `bgp` type tests
 - retrieval of test traceroute results (traces)
 
@@ -61,13 +60,14 @@ The `synth_ctl` tool supports manipulation of Kentik synthetic tests and agents.
 - deletion
 - pausing and resuming
 - temporary execution of tests
-- retrieval of test results and health status
+- retrieval of test results, health status and traces
 
 See also: `synth_ctl test --help`
 
 ### Operations supported for synthetic agents:
 - listing and display of agent configuration
 - matching of agents based on expression
+- activation and deactivation
 
 See also: `synth_ctl agent --help`
 
