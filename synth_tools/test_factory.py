@@ -53,7 +53,7 @@ def _fail(msg: str) -> None:
 
 
 def _match_or_use(cfg: Dict[str, Any], section: str, fail: Callable[[str], None] = _fail):
-    if not (("use" in cfg) ^ ("match" in cfg)):
+    if not cfg or not (("use" in cfg) ^ ("match" in cfg)):
         fail(f"Exactly one of 'use' or 'match' sections must be specified in '{section}'")
 
 
