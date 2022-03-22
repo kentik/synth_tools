@@ -29,7 +29,8 @@ class FlowTest(PingTraceTest):
         target_type: FlowTestSubType,
         direction: DirectionType,
         inet_direction: DirectionType,
-        max_tasks: int = 5,
+        max_ip_targets: int = 10,
+        max_providers: int = 3,
         target_refresh_interval: int = 43200000,
     ) -> FlowTestType:
         return cls(
@@ -41,7 +42,8 @@ class FlowTest(PingTraceTest):
                     type=target_type,
                     direction=direction,
                     inetDirection=inet_direction,
-                    maxTasks=max_tasks,
+                    maxIpTargets=max_ip_targets,
+                    maxProviders=max_providers,
                     targetRefreshIntervalMillis=target_refresh_interval,
                 ),
             ),
