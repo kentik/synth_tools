@@ -83,7 +83,7 @@ class _MonitoringTask(_ConfigElement):
 class PingTask(_MonitoringTask):
     count: int = 5
     timeout: int = 3000
-    delay: int = 0  # inter-probe delay
+    delay: int = 200  # inter-probe delay
     protocol: Protocol = Protocol.icmp
     port: int = 0
 
