@@ -61,7 +61,7 @@ class TestResults:
     def set_results(self, results: List[Dict[str, Any]]):
         def _metric_data(m: str, d: Dict[str, Any]) -> str:
             unit = ""
-            factor = 1
+            factor = 1.0
             if m == "packet_loss":
                 unit = "%"
                 factor = 100.0
@@ -104,11 +104,13 @@ class TestResults:
                         if task_type in task:
                             break
                     else:
-                        log.error("No data for any of test tasks (%s) in results", ",".join(self.test.configured_tasks))
+                        log.error(
+                            "No data for any of test tasks (%s) in results", ",".join(self.test.configured_tasks)
+                        )  # type: ignore
                         continue
                     td = task[task_type]
                     if not td["target"]:
-                        td["target"] = ",".join(self.test.targets)
+                        td["target"] = ",".join(self.test.targets)  # type: ignore
                     if "server" in td:
                         target = f"{td['target']} via {td['server']}"
                     elif "dst_ip" in td:

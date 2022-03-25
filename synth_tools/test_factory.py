@@ -312,10 +312,10 @@ def _get_agents(
 
     min_agents = cfg.get("min_matches", 1)
     max_agents = cfg.get("max_matches")
-    cfg = cfg["match"]
+    match_cfg: List[Dict[str, Any]] = cfg["match"]
     log.debug("_get_agents: match: %s (min: %d, max: %s)", cfg, min_agents, max_agents)
     try:
-        agents_matcher = AllMatcher(cfg, max_matches=max_agents, property_transformer=snake_to_camel)
+        agents_matcher = AllMatcher(match_cfg, max_matches=max_agents, property_transformer=snake_to_camel)
     except RuntimeError as exc:
         fail(f"Failed to parse agent match: {exc}")
         return set()  # to make linters happy (fail actually never returns)
