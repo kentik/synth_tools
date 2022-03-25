@@ -94,7 +94,7 @@ def dict_to_json(filename: str, data: Dict[str, Any]) -> None:
 
 
 def test_to_dict(test: SynTest) -> Dict[str, Any]:
-    d = dict(id=test.id)
+    d: Dict[str, Any] = dict(id=test.id)
     d.update(transform_dict_keys(test.to_dict()["test"], camel_to_snake))
     d["created"] = test.created
     d["modified"] = test.modified
@@ -107,11 +107,6 @@ NON_COMPARABLE_TEST_ATTRS = [
     "created",
     "modified",
     "created_by",
-]
-
-
-INTERNAL_TEST_SETTINGS = [
-    "tasks",
 ]
 
 
@@ -152,15 +147,12 @@ def _filter_test_attrs(t: dict, attrs: List[str]) -> None:
 def print_test(
     test: SynTest,
     indent_level: int = 0,
-    show_all: bool = False,
     attributes: Optional[str] = None,
     json_format=False,
 ) -> None:
     d = test_to_dict(test)
-    if not show_all:
-        if not test.deployed:
-            del d["status"]
-        _filter_test_attrs(d, INTERNAL_TEST_SETTINGS)
+    if not test.deployed:
+        del d["status"]
     if attributes:
         attr_list = attributes.split(",")
     else:
@@ -171,24 +163,20 @@ def print_test(
         print_struct(filter_dict(d, attr_list), indent_level=indent_level)
 
 
-def print_tests(
-    tests: List[SynTest], show_all: bool = False, attributes: Optional[str] = None, json_format=False
-) -> None:
+def print_tests(tests: List[SynTest], attributes: Optional[str] = None, json_format=False) -> None:
     if json_format:
         if attributes:
             attr_list = attributes.split(",")
         else:
             attr_list = []
-        out = []
+        out: List[Any] = []
         for t in sorted(tests, key=lambda x: sort_id(x.id)):
             if attributes == "id":
                 out.append(t.id)
             else:
                 d = test_to_dict(t)
-                if not show_all:
-                    if not t.deployed:
-                        del d["status"]
-                    _filter_test_attrs(d, INTERNAL_TEST_SETTINGS)
+                if not t.deployed:
+                    del d["status"]
                 out.append(filter_dict(d, attr_list))
         json.dump(out, sys.stdout, default=str, indent=2)
         typer.echo()
@@ -200,7 +188,7 @@ def print_tests(
             else:
                 if print_id:
                     typer.echo(f"id: {t.id}")
-                print_test(t, indent_level=1, show_all=show_all, attributes=attributes)
+                print_test(t, indent_level=1, attributes=attributes)
 
 
 def print_tests_brief(tests: List[SynTest]) -> None:
@@ -217,16 +205,15 @@ def _remove_unused_test_settings(test: dict):
             del test["settings"][cfg]
 
 
-def print_test_diff(first: SynTest, second: SynTest, show_all=False, labels: Tuple[str, str] = ("FIRST", "SECOND")):
+def print_test_diff(first: SynTest, second: SynTest, labels: Tuple[str, str] = ("FIRST", "SECOND")):
     f = transform_dict_keys(first.to_dict()["test"], camel_to_snake)
     s = transform_dict_keys(second.to_dict()["test"], camel_to_snake)
-    if not show_all:
-        del f["status"]
-        del s["status"]
-        _remove_unused_test_settings(f)
-        _remove_unused_test_settings(s)
-        _filter_test_attrs(f, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
-        _filter_test_attrs(s, INTERNAL_TEST_SETTINGS + NON_COMPARABLE_TEST_ATTRS)
+    del f["status"]
+    del s["status"]
+    _remove_unused_test_settings(f)
+    _remove_unused_test_settings(s)
+    _filter_test_attrs(f, NON_COMPARABLE_TEST_ATTRS)
+    _filter_test_attrs(s, NON_COMPARABLE_TEST_ATTRS)
     diffs = dict_compare(f, s)
     if diffs:
         table = Texttable(max_width=os.get_terminal_size()[0])

@@ -59,6 +59,7 @@ def _parse_timestamp(ts: str) -> datetime:
             return t
     except ValueError as exc:
         fail(f"Failed to parse timestamp: {exc}")
+        return datetime.fromtimestamp(0)  # to make mypy happy
 
 
 @tests_app.command()
@@ -69,7 +70,6 @@ def one_shot(
     summary: bool = typer.Option(False, help="Print summary rest results"),
     delete: bool = typer.Option(True, help="Delete test after retrieving results"),
     print_config: bool = typer.Option(False, help="Print test configuration"),
-    show_all: bool = typer.Option(False, help="Show all test attributes"),
     json_out: Optional[str] = typer.Option(None, help="Path to store test results in JSON format"),
     substitutions: Optional[str] = typer.Option(
         None, "-s", "--substitute", help="Comma separated list of substitutions in the form of 'var:value'"
@@ -83,7 +83,7 @@ def one_shot(
     if not test:
         return  # not reached, load test does no return without valid test, but we need to make linters happy
     if print_config:
-        print_test(test, show_all=show_all)
+        print_test(test)
 
     typer.echo("Waiting for test to accumulate results ...")
     results = run_one_shot(api, test, retries=retries, delete=delete)
@@ -117,7 +117,6 @@ def create_test(
     substitutions: Optional[str] = typer.Option(
         None, "-s", "--substitute", help="Comma separated list of substitutions in the form of 'var:value'"
     ),
-    show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
     Create test
@@ -127,14 +126,14 @@ def create_test(
     if not test:
         return  # not reached, load test does no return without valid test, but we need to make linters happy
     if dry_run:
-        print_test(test, show_all=show_all, attributes=fields)
+        print_test(test, attributes=fields)
     else:
         test = api_request(api.syn.create_test, "TestCreate", test)
         if not test:
             return  # to make linters happy - api_request does not return on failure
         typer.echo(f"Created new test: id {test.id}")
         if print_config:
-            print_test(test, show_all=show_all)
+            print_test(test)
 
 
 @tests_app.command("update")
@@ -147,7 +146,6 @@ def update_test(
     substitutions: Optional[str] = typer.Option(
         None, "-s", "--substitute", help="Comma separated list of substitutions in the form of 'var:value'"
     ),
-    show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
     Update existing test
@@ -160,15 +158,15 @@ def update_test(
     if dry_run:
         if print_config:
             typer.echo("--- New config:")
-            print_test(new, show_all=show_all)
+            print_test(new)
             typer.echo("--- Diff:")
-        print_test_diff(old, new, labels=("EXISTING", "NEW"), show_all=show_all)
+        print_test_diff(old, new, labels=("EXISTING", "NEW"))
     else:
         new.edate = old.edate
         test = api_request(api.syn.update_test, "TestUpdate", new, old.id)
         typer.echo(f"Updated test: id {test_id}")
         if print_config:
-            print_test(test, show_all=show_all)
+            print_test(test)
 
 
 @tests_app.command("delete")
@@ -190,7 +188,6 @@ def list_tests(
     brief: bool = typer.Option(False, "-b", "--brief", help="Print only id, name and type"),
     fields: Optional[str] = typer.Option(None, "-f", "--fields", help="Config attributes to print"),
     json_out: bool = typer.Option(False, "--json", "-j", help="Print output in JSON format"),
-    show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
     List all tests
@@ -202,7 +199,7 @@ def list_tests(
             typer.echo("WARNING: --brief option overrides --json", err=True)
         print_tests_brief(tests)
     else:
-        print_tests(tests, show_all=show_all, attributes=fields, json_format=json_out)
+        print_tests(tests, attributes=fields, json_format=json_out)
 
 
 @tests_app.command("get")
@@ -212,7 +209,6 @@ def get_test(
     brief: bool = typer.Option(False, "-b", "--brief", help="Print only id, name and type"),
     fields: Optional[str] = typer.Option(None, "-f", "--fields", help="Config attributes to print"),
     json_out: bool = typer.Option(False, "--json", "-j", help="Print output in JSON format"),
-    show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
     Print test configuration
@@ -224,7 +220,7 @@ def get_test(
             typer.echo("WARNING: --brief option overrides --json", err=True)
         print_tests_brief(tests)
     else:
-        print_tests(tests, show_all=show_all, attributes=fields, json_format=json_out)
+        print_tests(tests, attributes=fields, json_format=json_out)
 
 
 @tests_app.command("match")
@@ -234,7 +230,6 @@ def match_test(
     brief: bool = typer.Option(False, "-b", "--brief", help="Print only id, name and type"),
     fields: Optional[str] = typer.Option(None, "-f", "--fields", help="Config attributes to print"),
     json_out: bool = typer.Option(False, "--json", "-j", help="Print output in JSON format"),
-    show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
     Print configuration of test matching specified rules
@@ -251,7 +246,7 @@ def match_test(
                 typer.echo("WARNING: --brief option overrides --json", err=True)
             print_tests_brief(matching)
         else:
-            print_tests(matching, show_all=show_all, attributes=fields, json_format=json_out)
+            print_tests(matching, attributes=fields, json_format=json_out)
 
 
 @tests_app.command("compare")
@@ -260,7 +255,6 @@ def compare_test(
     test_id1: str = typer.Argument(..., help="Id of the first test to compare"),
     test_id2: str = typer.Argument(..., help="Id of the second test to compare"),
     print_config: bool = typer.Option(False, help="Print test configuration"),
-    show_all: bool = typer.Option(False, help="Show all test attributes"),
 ) -> None:
     """
     Compare configurations of 2 existing tests
@@ -268,12 +262,12 @@ def compare_test(
     api = get_api(ctx)
     t1 = _get_test_by_id(api.syn, test_id1)
     t2 = _get_test_by_id(api.syn, test_id2)
-    print_test_diff(t1, t2, labels=(f"test {test_id1}", f"test {test_id2}"), show_all=show_all)
+    print_test_diff(t1, t2, labels=(f"test {test_id1}", f"test {test_id2}"))
     if print_config:
         typer.echo(f"\ntest 1 ({test_id1}):")
-        print_test(t1, indent_level=1, show_all=show_all)
+        print_test(t1, indent_level=1)
         typer.echo(f"\ntest 2 ({test_id2}):")
-        print_test(t2, indent_level=1, show_all=show_all)
+        print_test(t2, indent_level=1)
 
 
 @tests_app.command("pause")
@@ -323,6 +317,8 @@ def get_test_results(
     """
     Print test results and health status
     """
+    start_time: Optional[datetime]
+    end_time: Optional[datetime]
     if start:
         start_time = _parse_timestamp(start)
     else:
@@ -370,6 +366,8 @@ def get_test_trace(
     """
     Print test trace data
     """
+    start_time: Optional[datetime]
+    end_time: Optional[datetime]
     if start:
         start_time = _parse_timestamp(start)
     else:

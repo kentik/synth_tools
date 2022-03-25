@@ -542,18 +542,16 @@ Arguments:
 Options:
   --retries INTEGER               Number retries waiting for test results
                                   [default: 3]
-  --raw-out TEXT                  Path to file to store raw test results in
-                                  JSON format
-  --failing / --no-failing        Print only failing results  [default: no-
-                                  failing]
+  --summary / --no-summary        Print summary rest results  [default: no-
+                                  summary]
   --delete / --no-delete          Delete test after retrieving results
                                   [default: delete]
   --print-config / --no-print-config
                                   Print test configuration  [default: no-
                                   print-config]
-  --show-all / --no-show-all      Show all test attributes  [default: no-show-
-                                  all]
-  --json                          Print output in JSON format
+  --json-out TEXT                 Path to store test results in JSON format
+  -s, --substitute TEXT           Comma separated list of substitutions in the
+                                  form of 'var:value'
   --help                          Show this message and exit.
 ```
 
