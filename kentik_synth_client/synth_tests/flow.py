@@ -31,7 +31,7 @@ class FlowTest(PingTraceTest):
         inet_direction: DirectionType,
         max_ip_targets: int = 10,
         max_providers: int = 3,
-        target_refresh_interval: int = 43200000,
+        target_refresh_interval_millis: int = 43200000,
     ) -> FlowTestType:
         return cls(
             name=name,
@@ -44,12 +44,7 @@ class FlowTest(PingTraceTest):
                     inetDirection=inet_direction,
                     maxIpTargets=max_ip_targets,
                     maxProviders=max_providers,
-                    targetRefreshIntervalMillis=target_refresh_interval,
+                    targetRefreshIntervalMillis=target_refresh_interval_millis,
                 ),
             ),
         )
-
-    @property
-    def targets(self) -> List[str]:
-        d = self.settings.flow
-        return [f"{d['direction']}:{d['type']}:{d['target']}"]

@@ -3,7 +3,7 @@ from typing import List, Optional, Type, TypeVar
 
 from kentik_synth_client.types import *
 
-from .base import PingTask, SynTest, SynTestSettings, TraceTask
+from .base import SynTest, SynTestSettings
 
 
 @dataclass
@@ -32,14 +32,14 @@ class DNSTest(SynTest):
         servers: List[str],
         record_type: DNSRecordType = DNSRecordType.A,
         timeout: int = 5000,
-        server_port: int = 53,
+        port: int = 53,
     ) -> DNSTestType:
         return cls(
             name=name,
             settings=DNSTestSettings(
                 agentIds=agent_ids,
                 tasks=["dns"],
-                dns=dict(target=target, recordType=record_type, servers=servers, timeout=timeout, port=server_port),
+                dns=dict(target=target, recordType=record_type, servers=servers, timeout=timeout, port=port),
             ),
         )
 

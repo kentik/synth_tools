@@ -5,17 +5,24 @@ from kentik_synth_client.types import *
 
 from .base import PingTraceTest, PingTraceTestSettings
 
-MeshTestType = TypeVar("MeshTestType", bound="MeshTest")
+
+@dataclass
+class NetworkMeshTestSettings(PingTraceTestSettings):
+    networkMesh: dict = field(default_factory=dict)
+
+
+NetworkMeshTestType = TypeVar("NetworkMeshTestType", bound="NetworkMeshTest")
 
 
 @dataclass
-class MeshTest(PingTraceTest):
-    type: TestType = field(init=False, default=TestType.mesh)
+class NetworkMeshTest(PingTraceTest):
+    type: TestType = field(init=False, default=TestType.network_mesh)
+    settings: NetworkMeshTestSettings = field(default_factory=NetworkMeshTestSettings)
 
     @classmethod
-    def create(cls: Type[MeshTestType], name: str, agent_ids: List[str]) -> MeshTestType:
-        return cls(name=name, settings=PingTraceTestSettings(agentIds=agent_ids))
-
-    @property
-    def targets(self) -> List[str]:
-        return self.settings.agentIds
+    def create(
+        cls: Type[NetworkMeshTestType], name: str, agent_ids: List[str], use_local_ip: bool = False
+    ) -> NetworkMeshTestType:
+        return cls(
+            name=name, settings=NetworkMeshTestSettings(agentIds=agent_ids, networkMesh=dict(useLocalIp=use_local_ip))
+        )

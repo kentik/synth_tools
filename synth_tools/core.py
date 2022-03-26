@@ -104,9 +104,8 @@ class TestResults:
                         if task_type in task:
                             break
                     else:
-                        log.error(
-                            "No data for any of test tasks (%s) in results", ",".join(self.test.configured_tasks)
-                        )  # type: ignore
+                        tasks = ",".join(self.test.configured_tasks)  # type: ignore
+                        log.error("No data for any of test tasks (%s) in results", tasks)
                         continue
                     td = task[task_type]
                     if not td["target"]:

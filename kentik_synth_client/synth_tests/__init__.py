@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict
 
-from kentik_synth_client.types import TestType
+from kentik_synth_client.types import FlowTestSubType, TestType
 
 from .agent import AgentTest
 from .base import HealthSettings, PingTask, SynTest, TraceTask
@@ -10,7 +10,7 @@ from .dns_grid import DNSGridTest
 from .flow import FlowTest
 from .hostname import HostnameTest
 from .ip import IPTest
-from .mesh import MeshTest
+from .mesh import NetworkMeshTest
 from .network_grid import NetworkGridTest
 from .page_load import PageLoadTest
 from .url import UrlTest
@@ -29,7 +29,7 @@ def make_synth_test(d: Dict[str, Any]) -> SynTest:
             TestType.flow: FlowTest,
             TestType.hostname: HostnameTest,
             TestType.ip: IPTest,
-            TestType.mesh: MeshTest,
+            TestType.network_mesh: NetworkMeshTest,
             TestType.network_grid: NetworkGridTest,
             TestType.page_load: PageLoadTest,
             TestType.url: UrlTest,
