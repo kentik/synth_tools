@@ -288,7 +288,7 @@ def url_targets(_: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fai
 def domain_targets(_: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
     _use_list_only(cfg, fail)
     names = set(_get_use_list(cfg, "targets", fail=fail))
-    invalid = [n for n in names if not domain(n)]
+    invalid = [n for n in names if not domain(n) and not is_valid_ip_address(n)]
     if invalid:
         fail("List contains invalid names: {}".format(", ".join(invalid)))
     return names
