@@ -16,8 +16,8 @@ from kentik_synth_client.synth_tests import (
     HealthSettings,
     HostnameTest,
     IPTest,
-    MeshTest,
     NetworkGridTest,
+    NetworkMeshTest,
     PageLoadTest,
     PingTask,
     SynTest,
@@ -29,6 +29,8 @@ from synth_tools import log
 from synth_tools.apis import APIs
 from synth_tools.matchers import AllMatcher
 from synth_tools.utils import snake_to_camel, transform_dict_keys
+
+VALID_TEST_PERIODS = [1, 15, 60, 120, 300, 600, 900, 1800, 3600, 5400]
 
 
 def _remap_keys(d: Dict[str, Any], attr_map: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
@@ -79,6 +81,15 @@ def _get_use_list(
             fail(f"Invalid value in 'use' list in '{section}': cannot convert to '{cls}': '{exc}'")
 
     return set(use_list)
+
+
+def is_valid_ip_address(addr: str) -> bool:
+    try:
+        ip_address(addr)
+        return True
+    except ValueError:
+        log.debug("Invalid address: '%s'", addr)
+        return False
 
 
 def device_addresses(key: str, families: List[int], public_only: bool = False) -> Callable[[Any], List[str]]:
@@ -204,14 +215,6 @@ def address_targets(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] 
     min_targets: int = cfg.get("min_matches", 1)
     targets: Set[str] = set()
 
-    def is_valid_address(addr: str) -> bool:
-        try:
-            ip_address(addr)
-            return True
-        except ValueError:
-            log.debug("Invalid address: '%s'", addr)
-            return False
-
     def add_target(a) -> bool:
         if max_targets is None or len(targets) < max_targets:
             targets.add(a)
@@ -224,7 +227,7 @@ def address_targets(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] 
 
     if "use" in cfg:
         addresses = set(_get_use_list(cfg, "targets", fail=fail))
-        invalid = [a for a in addresses if not is_valid_address(a)]
+        invalid = [a for a in addresses if not is_valid_ip_address(a)]
         if invalid:
             fail("Invalid addresses in targets: {}".format(", ".join(invalid)))
         return addresses
@@ -269,7 +272,7 @@ def address_targets(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] 
 def url_targets(_: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
     def valid_url(url: str) -> bool:
         _u = urlparse(url)
-        if _u.scheme not in ("http", "https") or not domain(_u.netloc):
+        if _u.scheme not in ("http", "https") or (not domain(_u.netloc) and not is_valid_ip_address(_u.netloc)):
             log.debug("invalid url: %s", _u)
             return False
         return True
@@ -413,10 +416,10 @@ def make_hostname_test(
 
 
 # noinspection PyUnusedLocal
-def make_mesh_test(
+def make_network_mesh_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
-    return MeshTest.create(name=name, agent_ids=agents)
+    return NetworkMeshTest.create(name=name, agent_ids=agents, **_get_test_attributes([], cfg, fail=fail))
 
 
 def make_page_load_test(
@@ -492,11 +495,27 @@ def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None]
     if "period" in cfg:
         log.debug("set_common_test_params: test: '%s' period: '%s'", test.name, cfg.get("period"))
         test.set_period(cfg["period"])
+    # Adjust test period to one of allowed values
+    if test.settings.period not in VALID_TEST_PERIODS:
+        log.warning(
+            "Test period (%d) is not one of allowed values (%s)",
+            test.settings.period,
+            ", ".join([str(x) for x in VALID_TEST_PERIODS]),
+        )
+        try:
+            period = max([v for v in VALID_TEST_PERIODS if v < test.settings.period])
+        except ValueError:
+            period = 60
+        test.set_period(period)
+        log.warning("Test period set to: %d", test.settings.period)
+
     if "status" in cfg:
         log.debug("set_common_test_params: test: '%s' status: '%s'", test.name, cfg.get("status"))
         log.warning("Test 'status' is ignored on creation. All tests are created in active state.")
         test.status = TestStatus(cfg["status"])
     # fixup alarm activation time window if not set explicitly
+    if not test.settings.healthSettings.activation.times:
+        test.settings.healthSettings.activation.times = "3"
     if not test.settings.healthSettings.activation.timeWindow:
         test.settings.healthSettings.activation.timeWindow = str(
             int(test.settings.period * (int(test.settings.healthSettings.activation.times) + 1) / 60)
@@ -528,8 +547,11 @@ class TestFactory:
         "dns": TestEntry(make_test=make_dns_test, target_loader=domain_targets, agent_loader=rust_agents),
         "dns_grid": TestEntry(make_test=make_dns_grid_test, target_loader=domain_targets, agent_loader=rust_agents),
         "hostname": TestEntry(make_test=make_hostname_test, target_loader=domain_targets, agent_loader=rust_agents),
-        "mesh": TestEntry(
-            make_test=make_mesh_test, target_loader=dummy_loader, agent_loader=rust_agents, requires_targets=False
+        "network_mesh": TestEntry(
+            make_test=make_network_mesh_test,
+            target_loader=dummy_loader,
+            agent_loader=rust_agents,
+            requires_targets=False,
         ),
         "page_load": TestEntry(make_test=make_page_load_test, target_loader=url_targets, agent_loader=node_agents),
         "url": TestEntry(make_test=make_url_test, target_loader=url_targets, agent_loader=rust_agents),
@@ -555,6 +577,8 @@ class TestFactory:
 
     def create(self, api: APIs, config_name: str, cfg: dict, fail: Callable[[str], None] = _fail) -> Optional[SynTest]:
         _error_handler = self._make_error_handler(fail, config_name)
+        if not cfg:
+            _error_handler("Empty configuration")
         missing = [k for k in ("test", "agents") if k not in cfg]
         if missing:
             _error_handler("Mandatory sections missing in configuration: {}".format(", ".join(missing)))
@@ -564,7 +588,8 @@ class TestFactory:
             _error_handler("No 'test.type' in configuration")
         entry = self._MAP.get(test_type)
         if not entry:
-            _error_handler(f"Unsupported test type: {test_type} (supported types: {self._MAP.keys()})")
+            supported_types = " ,".join([str(x) for x in sorted(self._MAP.keys())])
+            _error_handler(f"Unsupported test type: {test_type} (supported types: {supported_types})")
             raise RuntimeError("Never reached")  # just to make mypy happy :-/
         _error_handler = self._make_error_handler(fail, config_name, test_type=test_type)
         now = datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat()

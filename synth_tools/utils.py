@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import inflection
@@ -9,7 +10,7 @@ import yaml
 from texttable import Texttable
 
 from kentik_synth_client import KentikAPIRequestError
-from kentik_synth_client.synth_tests import SynTest
+from kentik_synth_client.synth_tests import FlowTestSubType, SynTest, TestType
 from kentik_synth_client.utils import dict_compare
 from synth_tools import log
 from synth_tools.apis import APIs
@@ -161,6 +162,38 @@ def print_test(
         json.dump(filter_dict(d, attr_list), sys.stdout, default=str, indent=2)
     else:
         print_struct(filter_dict(d, attr_list), indent_level=indent_level)
+
+
+def print_test_config(
+    test: SynTest,
+) -> None:
+    cfg: Dict[str, Any] = dict(test=dict(), agents=dict())
+    cfg["test"]["name"] = test.name
+    cfg["test"]["type"] = test.type.value
+    settings = transform_dict_keys(test.settings.to_dict(), camel_to_snake)
+    test_settings = settings.get(test.type.value)
+    if test_settings:
+        for attr in ["target", "targets", "type"]:
+            if attr in test_settings:
+                del test_settings[attr]
+        cfg["test"].update(test_settings)
+        if test.type == TestType.flow:
+            target_type = test_settings.get("type", FlowTestSubType.asn.value)
+            if target_type:
+                cfg["test"]["target_type"] = target_type
+
+    to_delete = ["notification_channels", "tasks", "agent_ids", test.type.value]
+    to_delete.extend([_t for _t in ("ping", "trace") if _t in settings and _t not in test.configured_tasks])
+    for attr in to_delete:
+        if attr in settings:
+            del settings[attr]
+    cfg["test"].update(settings)
+    cfg["agents"]["use"] = test.settings.agentIds
+    targets = test.targets
+    if targets:
+        cfg["targets"] = dict(use=targets)
+    typer.echo(f"# id: {test.id}")
+    yaml.dump(cfg, sys.stdout, default_flow_style=False, sort_keys=False)
 
 
 def print_tests(tests: List[SynTest], attributes: Optional[str] = None, json_format=False) -> None:

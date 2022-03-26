@@ -83,13 +83,13 @@ This section specifies test attributes other than list of targets and agents.
 
 _Common test attributes:_
 
-  | name           | purpose                                                                       | required | possible values                                                 |
-  | :--------------| :-----------------------------------------------------------------------------| :--------| :---------------------------------------------------------------|
-  | type           | test type                                                                     | YES      | ip, hostname, network_grid, dns, dns_grid, url, page-load, mesh |
-  | name           | name of the test                                                              | NO       | any printable string                                            |
-  | period         | test execution period                                                         | NO       | integer (default: 60 seconds)                                   |
-  | family         | IP address family to use for tests selecting target address via DNS resolution| NO       | IP_FAMILY_DUAL (default), IP_FAMILY_V4, IP_FAMILY_V6            |
-  | health_settings| definition of thresholds for establishing test health                         | NO       | _see bellow_ (default: no thresholds)                           |
+  | name           | purpose                                                                       | required | possible values                                                         |
+  | :--------------| :-----------------------------------------------------------------------------| :--------| :-----------------------------------------------------------------------|
+  | type           | test type                                                                     | YES      | ip, hostname, network_grid, dns, dns_grid, url, page-load, network_mesh |
+  | name           | name of the test                                                              | NO       | any printable string                                                    |
+  | period         | test execution period                                                         | NO       | integer (default: 60 seconds)                                           |
+  | family         | IP address family to use for tests selecting target address via DNS resolution| NO       | IP_FAMILY_DUAL (default), IP_FAMILY_V4, IP_FAMILY_V6                    |
+  | health_settings| definition of thresholds for establishing test health                         | NO       | _see bellow_ (default: no thresholds)                                   |
 
 _Health settings attributes_
 ```
@@ -128,7 +128,7 @@ _Supported `targets` specification for individual test types_:
   | hostname, dns, dns_grid | `use: <list of DNS names>`                                      |
   | url, page_load          | `use: <list of URLs> `                                          |
   | agent                   | `use: <list of agent_ids>` or `match: <agent matching rules>`   |
-  | mesh                    | None (`targets` section is ignored)                             |                                             
+  | network_mesh            | None (`targets` section is ignored)                             |                                             
 
 **Address matching rules**
 
@@ -236,7 +236,7 @@ expanded to UTC time based on system time of the machine on which `synth_ctl` ex
 Maximum and minimum number of matched targets of agents  can be specified using:
 `max_matches: <MAX>` or `min_matches: <MIN>` directives in corresponding `targets` or `agents` section.
 If less than `min_targets` matches test creation fails. If more than `max_matches` targets or agents match only
-first `max_matches` objects are used. At least 1 agent is required for any test (except for `mesh`).
+first `max_matches` objects are used. At least 1 agent is required for any test (except for `network_mesh`).
 
 Example:
 ```yaml
@@ -377,7 +377,7 @@ id: 5228
 ❯ synth_ctl test match "settings.agentIds:contains(813)"
 id: 5372
   name: big one
-  type: application_mesh
+  type: network_mesh
   status: TEST_STATUS_ACTIVE
   settings:
     agent_ids: ['848', '598', '608', '849', '733', '2642', '2644', '828', '813', '803', '2122', '644', '1022', '662', '573', '612', '611', '615', '568', '616']

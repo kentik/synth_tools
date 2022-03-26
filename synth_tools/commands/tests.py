@@ -17,6 +17,7 @@ from synth_tools.utils import (
     get_api,
     print_struct,
     print_test,
+    print_test_config,
     print_test_diff,
     print_test_results,
     print_tests,
@@ -387,3 +388,17 @@ def get_test_trace(
         log.info("Writing trace data to %s", raw_out)
         dict_to_json(raw_out, trace)
     print_struct(trace)
+
+
+@tests_app.command("import")
+def import_test(
+    ctx: typer.Context,
+    test_id: str = typer.Argument(..., help="Id of the test to import"),
+) -> None:
+    """
+    Compare configurations of 2 existing tests
+    """
+    api = get_api(ctx)
+    test = _get_test_by_id(api.syn, test_id)
+    log.debug("test: %s", test)
+    print_test_config(test)

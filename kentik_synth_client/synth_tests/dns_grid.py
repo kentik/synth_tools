@@ -29,14 +29,14 @@ class DNSGridTest(SynTest):
         servers: List[str],
         record_type: DNSRecordType = DNSRecordType.A,
         timeout: int = 5000,
-        server_port: int = 53,
+        port: int = 53,
     ) -> DNSGridTestType:
         return cls(
             name=name,
             settings=DNSGridTestSettings(
                 agentIds=agent_ids,
                 tasks=["dns"],
-                dnsGrid=dict(target=target, recordType=record_type, servers=servers, timeout=timeout, port=server_port),
+                dnsGrid=dict(target=target, recordType=record_type, servers=servers, timeout=timeout, port=port),
             ),
         )
 
