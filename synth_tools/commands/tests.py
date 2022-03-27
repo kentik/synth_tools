@@ -53,6 +53,8 @@ def _parse_substitution(substitutions: Optional[str]) -> Optional[Dict[str, str]
 
 def _parse_timestamp(ts: str) -> datetime:
     try:
+        if ts[-1] == "Z":
+            ts = ts[:-1] + "+00:00"
         t = datetime.fromisoformat(ts)
         if not t.tzname():
             return datetime.fromisoformat(t.isoformat() + "+00:00")
