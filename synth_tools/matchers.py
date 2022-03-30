@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from itertools import product
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from synth_tools import log
 from synth_tools.utils import fail
@@ -31,13 +31,10 @@ class PropertyMatcher(Matcher):
         older_than = "older_than"
         newer_than = "newer_than"
 
-    def __init__(self, key: str, value: Any, property_transformer: Optional[Callable[[str], str]] = None):
+    def __init__(self, key: str, value: Any):
         self.match_type = self.MatchFunctionType.direct
         self.value: Any = value
-        if property_transformer:
-            self.key = property_transformer(key)
-        else:
-            self.key = key
+        self.key = key
         self._fn = self._match_direct
         self.is_negation = False
         # handle special functions
@@ -212,7 +209,6 @@ class SetMatcher(Matcher):
         self,
         data: List[Dict[str, Any]],
         max_matches: Optional[int] = None,
-        property_transformer: Optional[Callable[[str], str]] = None,
     ):
         self.matchers = []
         self.max_matches: Optional[int] = max_matches
@@ -226,7 +222,7 @@ class SetMatcher(Matcher):
                 if k in self.SPECIAL:
                     matcher = getattr(sys.modules[__name__], self.SPECIAL[k])(v)
                 else:
-                    matcher = PropertyMatcher(k, v, property_transformer=property_transformer)
+                    matcher = PropertyMatcher(k, v)
                 self.matchers.append(matcher)
         log.debug("%s: %d matchers, max_matches: %s", self.__class__.__name__, len(self.matchers), self.max_matches)
 

@@ -10,8 +10,8 @@ from .dns_grid import DNSGridTest
 from .flow import FlowTest
 from .hostname import HostnameTest
 from .ip import IPTest
-from .mesh import NetworkMeshTest
 from .network_grid import NetworkGridTest
+from .network_mesh import NetworkMeshTest
 from .page_load import PageLoadTest
 from .url import UrlTest
 
