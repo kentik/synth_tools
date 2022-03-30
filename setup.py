@@ -39,40 +39,6 @@ def rm_all(directory, remove_dir=False):
 
 
 # noinspection PyAttributeOutsideInit
-class FetchGRPCCode(Command):
-    """Command copying generate Python gRPC code from source repo."""
-
-    description = "Copy generated Python stubs from source repo"
-    user_options = [
-        ("repo=", None, "Source repository"),
-        ("src-path=", None, "Path to generated Python code within the source repo"),
-        ("dst-path=", None, "Destination path in the local source tree"),
-    ]
-
-    def initialize_options(self):
-        self.repo = "https://github.com/kentik/api-schema-public.git"
-        self.src_path = "gen/python"
-        self.dst_path = HERE.joinpath("generated").as_posix()
-
-    def finalize_options(self):
-        pass
-
-    # noinspection Mypy
-    def run(self):
-        import git
-
-        # create destination directory, if it does not exist
-        dst = Path(self.dst_path)
-        dst.mkdir(parents=True, exist_ok=True)
-        # cleanup destination directory
-        rm_all(dst)
-        # checkout source repo and copy stubs
-        with TemporaryDirectory() as tmp:
-            git.Repo.clone_from(self.repo, tmp)
-            Path(tmp).joinpath(self.src_path).rename(dst)
-
-
-# noinspection PyAttributeOutsideInit
 class MypyCmd(Command):
     """Custom command to run Mypy"""
 
@@ -183,7 +149,6 @@ setup(
     tests_require=["pytest-runner", "pytest", "mypy"],
     cmdclass={
         "mypy": MypyCmd,
-        "grpc_stubs": FetchGRPCCode,
         "format": Format,
         "pytest": PyTest,
     },
