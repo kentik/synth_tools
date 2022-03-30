@@ -9,10 +9,9 @@ test:
 targets:
   use:
   - www.example.com
-  - api.kentik.com
 
 agents:
   min_matches: 3
   match:
-  - name: regex(.*-west-.*)
+  - cloud_region: regex(.*-west-.*)
   - type: global

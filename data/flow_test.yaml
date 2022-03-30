@@ -1,11 +1,10 @@
 test:
   type: flow
   period: 60
-  protocol: tcp
   target_type: city
   direction: dst
   inet_direction: src
-  max_tasks: 3
+  max_providers: 3
   ping:
     protocol: icmp
     timeout: 3000

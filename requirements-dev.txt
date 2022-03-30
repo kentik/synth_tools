@@ -1,7 +1,5 @@
 black
 build
-gitpython
-grpcio-tools
 isort
 mypy
 pytest

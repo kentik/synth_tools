@@ -28,7 +28,7 @@ from kentik_synth_client.types import *
 from synth_tools import log
 from synth_tools.apis import APIs
 from synth_tools.matchers import AllMatcher
-from synth_tools.utils import snake_to_camel, transform_dict_keys
+from synth_tools.utils import agent_to_dict, snake_to_camel, transform_dict_keys
 
 VALID_TEST_PERIODS = [1, 15, 60, 120, 300, 600, 900, 1800, 3600, 5400]
 
@@ -318,12 +318,14 @@ def _get_agents(
     match_cfg: List[Dict[str, Any]] = cfg["match"]
     log.debug("_get_agents: match: %s (min: %d, max: %s)", cfg, min_agents, max_agents)
     try:
-        agents_matcher = AllMatcher(match_cfg, max_matches=max_agents, property_transformer=snake_to_camel)
+        agents_matcher = AllMatcher(match_cfg, max_matches=max_agents)
     except RuntimeError as exc:
         fail(f"Failed to parse agent match: {exc}")
         return set()  # to make linters happy (fail actually never returns)
     agents = set(
-        a["id"] for a in api.syn.agents if (not agent_type or a["agentImpl"] == agent_type) and agents_matcher.match(a)
+        a["id"]
+        for a in api.syn.agents
+        if (not agent_type or a["agentImpl"] == agent_type) and agents_matcher.match(agent_to_dict(a))
     )
     if len(agents) < min_agents:
         fail(f"Matched {len(agents)} agents, {min_agents} required")

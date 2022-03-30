@@ -26,4 +26,5 @@ targets:
 agents:
   max_matches: 1
   match:
-    - status: AGENT_STATUS_OK
+    - last_authed: newer_than(yesterday)
+    - cloud_provider: azure

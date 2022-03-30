@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass, field, fields
 from datetime import datetime
+from ipaddress import ip_address
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, TypeVar
 
 import inflection
@@ -8,6 +9,17 @@ import inflection
 from kentik_synth_client.types import *
 
 log = logging.getLogger("synth_tests")
+
+
+def sort_ip_address_list(addresses: List[str]) -> List[str]:
+    """
+    Sort list of IP addresses in standard notation in true address order
+    """
+    ip_addrs = [ip_address(_a) for _a in addresses]
+    return [
+        str(a)
+        for a in sorted([_a for _a in ip_addrs if _a.version == 4]) + sorted([_a for _a in ip_addrs if _a.version == 6])
+    ]
 
 
 @dataclass

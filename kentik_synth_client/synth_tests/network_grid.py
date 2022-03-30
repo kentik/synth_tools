@@ -4,7 +4,7 @@ from typing import List, Type, TypeVar
 
 from kentik_synth_client.types import *
 
-from .base import PingTraceTest, PingTraceTestSettings
+from .base import PingTraceTest, PingTraceTestSettings, sort_ip_address_list
 
 
 @dataclass
@@ -24,10 +24,7 @@ class NetworkGridTest(PingTraceTest):
     def create(
         cls: Type[NetworkGridTestType], name: str, targets: List[str], agent_ids: List[str]
     ) -> NetworkGridTestType:
-        addresses = [ip_address(a) for a in targets]
         return cls(
             name=name,
-            settings=GridTestSettings(
-                agentIds=agent_ids, networkGrid=dict(targets=[str(a) for a in sorted(addresses)])
-            ),
+            settings=GridTestSettings(agentIds=agent_ids, networkGrid=dict(targets=sort_ip_address_list(targets))),
         )
