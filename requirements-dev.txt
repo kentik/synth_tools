@@ -1,5 +1,5 @@
-black == 21.8b0
+black
 build
-isort == 5.9.3
-mypy == 0.910
-pytest == 6.2.5
+isort
+mypy
+pytest
