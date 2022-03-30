@@ -1,3 +1,4 @@
+click == 8.0.1
 inflection == 0.5.1
 kentik-api >= 0.3.1
 pyyaml<6.0.0,>=5.3.1
