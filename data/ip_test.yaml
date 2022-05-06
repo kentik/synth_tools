@@ -2,6 +2,7 @@ test:
   name: "__synth_tools:{config_name}"
   type: ip
   period: 60
+  family: IP_FAMILY_DUAL
   labels: [synth_tools_test]
   notification_channels: [109, 110]
   ping:
@@ -18,3 +19,4 @@ agents:
   max_matches: 1
   match:
     - status: AGENT_STATUS_OK
+    - family: one_of(IP_FAMILY_DUAL, IP_FAMILY_V6)
