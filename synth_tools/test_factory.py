@@ -350,6 +350,8 @@ def _get_test_attributes(
         "period",
         "health_settings",
         "family",
+        "labels",
+        "notification_channels",
     )
 
     missing = [a for a in required if a not in cfg]
@@ -529,6 +531,18 @@ def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None]
             test.settings.healthSettings.activation.timeWindow,
             test.settings.healthSettings.activation.timeUnit,
         )
+
+    labels = sorted(cfg.get("labels", []))
+    log.debug("set_common_test_params: test: '%s' labels: '%s'", test.name, ",".join(labels))
+    test.labels = labels
+
+    notification_channels = sorted([str(x) for x in cfg.get("notification_channels", [])])
+    log.debug(
+        "set_common_test_params: test: '%s' notification_channels: '%s'",
+        test.name,
+        ",".join(notification_channels),
+    )
+    test.settings.notificationChannels = notification_channels
 
 
 @dataclass

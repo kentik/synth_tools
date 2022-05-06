@@ -217,6 +217,7 @@ class SynTest(_ConfigElement):
     type: TestType = field(init=False, default=TestType.none)
     status: TestStatus = field(default=TestStatus.active)
     settings: SynTestSettings = field(default_factory=SynTestSettings)
+    labels: List[str] = field(default_factory=list)
     _id: str = field(default="0", init=False)
     _cdate: str = field(default_factory=str, init=False)
     _edate: str = field(default_factory=str, init=False)

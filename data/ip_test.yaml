@@ -1,6 +1,9 @@
 test:
+  name: "__synth_tools:{config_name}"
   type: ip
   period: 60
+  labels: [synth_tools_test]
+  notification_channels: [109, 110]
   ping:
     port: 80
     protocol: tcp
@@ -12,5 +15,6 @@ targets:
   - 93.184.216.34
 
 agents:
-  use:
-  - 606
+  max_matches: 1
+  match:
+    - status: AGENT_STATUS_OK
