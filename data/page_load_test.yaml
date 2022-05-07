@@ -1,4 +1,5 @@
 test:
+  name: "__synth_tools:{config_name}"
   type: page_load
   period: 600
   ping:

@@ -1,4 +1,5 @@
 test:
+  name: "__synth_tools:{config_name}"
   type: network_mesh
   period: 60
   ping:
