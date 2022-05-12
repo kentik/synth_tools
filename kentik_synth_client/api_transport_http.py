@@ -41,7 +41,7 @@ class SynthHTTPTransport(KentikAPITransport):
             retry_strategy=Retry(
                 total=3,
                 backoff_factor=1,
-                status_forcelist=[429, 502, 503, 504],
+                status_forcelist=[429, 502, 503],
                 allowed_methods=["DELETE", "HEAD", "GET", "PUT", "OPTIONS", "PATCH", "POST"],
             ),
         ).query._api_connector._session
