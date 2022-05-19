@@ -32,6 +32,7 @@ def make_synth_test(d: Dict[str, Any]) -> SynTest:
             TestType.network_mesh: NetworkMeshTest,
             TestType.network_grid: NetworkGridTest,
             TestType.page_load: PageLoadTest,
+            TestType.transaction: SynTest,
             TestType.url: UrlTest,
         }.get(test_type)
 
