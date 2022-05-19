@@ -22,6 +22,7 @@ class TestType(SerializableEnum):
     network_mesh = "network_mesh"
     network_grid = "network_grid"
     page_load = "page_load"
+    transaction = "transaction"
     url = "url"
 
 
