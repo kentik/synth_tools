@@ -338,7 +338,7 @@ def get_test_results(
     if agents:
         agent_ids = agents.split(",")
     else:
-        agents_ids = None
+        agent_ids = None
     data = api_request(
         api.syn.results, "GetResultsForTests", t, start=start_time, end=end_time, periods=periods, agent_ids=agent_ids
     )
