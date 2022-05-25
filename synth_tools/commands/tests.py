@@ -316,6 +316,9 @@ def get_test_results(
         help="Timestamp (in ISO format) of the newest sample to return. UTC timezone is assumed if none is specified",
     ),
     periods: int = typer.Option(3, help="Number of test periods to the past to request (alternative to from/to)"),
+    agents: Optional[str] = typer.Option(
+        None, help="Comma separated list of agent IDs to include (default: all agents)"
+    ),
 ) -> None:
     """
     Print test results and health status
@@ -332,7 +335,13 @@ def get_test_results(
         end_time = None
     api = get_api(ctx)
     t = _get_test_by_id(api.syn, test_id)
-    data = api_request(api.syn.results, "GetResultsForTests", t, start=start_time, end=end_time, periods=periods)
+    if agents:
+        agent_ids = agents.split(",")
+    else:
+        agents_ids = None
+    data = api_request(
+        api.syn.results, "GetResultsForTests", t, start=start_time, end=end_time, periods=periods, agent_ids=agent_ids
+    )
     if not data:
         fail(f"Test '{test_id}' did not produce any results")
     if raw_out:
@@ -350,7 +359,9 @@ def get_test_results(
 def get_test_trace(
     ctx: typer.Context,
     test_id: str,
-    targets: Optional[List[str]] = typer.Argument(None, help="Target IP addresses for which to retrieve trace data"),
+    targets: Optional[str] = typer.Option(
+        None, help="Comma separated list of target IP addresses to include (default: all)"
+    ),
     raw_out: Optional[str] = typer.Option("", help="Path to file to store raw API response in JSON format"),
     start: Optional[str] = typer.Option(
         None,
@@ -365,6 +376,9 @@ def get_test_trace(
         help="Timestamp (in ISO format) of the newest sample to return. UTC timezone is assumed if none is specified",
     ),
     periods: int = typer.Option(3, help="Number of test periods to request"),
+    agents: Optional[str] = typer.Option(
+        None, help="Comma separated list of agent IDs to include (default: all agents)"
+    ),
 ) -> None:
     """
     Print test trace data
@@ -381,8 +395,23 @@ def get_test_trace(
         end_time = None
     api = get_api(ctx)
     t = _get_test_by_id(api.syn, test_id)
+    if agents:
+        agent_ids = agents.split(",")
+    else:
+        agents_ids = None
+    if targets:
+        target_ips = targets.split(",")
+    else:
+        target_ips = None
     trace = api_request(
-        api.syn.trace, "GetTraceForTests", t, start=start_time, end=end_time, periods=periods, ips=targets
+        api.syn.trace,
+        "GetTraceForTests",
+        t,
+        start=start_time,
+        end=end_time,
+        periods=periods,
+        ips=target_ips,
+        agent_ids=agent_ids,
     )
     if not trace:
         fail(f"Test '{test_id}' did not produce any trace data")
