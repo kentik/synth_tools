@@ -281,9 +281,10 @@ class OneOfEachMatcher(Matcher):
 
     def match(self, data: Any) -> bool:
         if not self.match_set:
+            log.debug("%s: match set is empty", self.__class__.__name__)
             return False
         m = tuple(data[k] for k in self.match_vector)
-        log.debug("%s: matching: '%s'", self.__class__.__name__, ", ".join(str(x) for x in m))
+        log.debug("%s: matching: '%s'", self.__class__.__name__, "|".join(str(x) for x in m))
         if m in self.match_set:
             self.match_set.remove(m)
             log.debug("%s: remaining %d in match_set", self.__class__.__name__, len(self.match_set))

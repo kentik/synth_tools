@@ -70,3 +70,9 @@ class DNSRecordType(SerializableEnum):
     MX = "DNS_RECORD_MX"
     PTR = "DNS_RECORD_PTR"
     SOA = "DNS_RECORD_SOA"
+
+
+DEFAULT_TEST_ATTR_KEY_MAP = {
+    "use_private_ips": "use_local_ip"
+}
+
