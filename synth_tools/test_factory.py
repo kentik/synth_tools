@@ -511,7 +511,9 @@ def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None]
     # fixup alarm activation time window if not set explicitly
     if not test.settings.healthSettings.activation.times:
         test.settings.healthSettings.activation.times = "3"
-    min_alert_activation_window = int(test.settings.period * (int(test.settings.healthSettings.activation.times) + 1) / 60)
+    min_alert_activation_window = int(
+        test.settings.period * (int(test.settings.healthSettings.activation.times) + 1) / 60
+    )
     if not test.settings.healthSettings.activation.timeWindow:
         test.settings.healthSettings.activation.timeWindow = str(min_alert_activation_window)
         test.settings.healthSettings.activation.timeUnit = "m"

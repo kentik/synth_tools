@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Type, TypeVar
 
+from kentik_synth_client.synth_tests import log
 from kentik_synth_client.types import *
 
 from .base import SynTest, SynTestSettings

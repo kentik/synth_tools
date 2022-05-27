@@ -50,7 +50,7 @@ def remap_dict_keys(
     if not attr_map:
         return d
     if reverse:
-        m = {v:k for k,v in attr_map.items()}
+        m = {v: k for k, v in attr_map.items()}
     else:
         m = attr_map
     out: Dict[str, Any] = dict()

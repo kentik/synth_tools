@@ -72,7 +72,4 @@ class DNSRecordType(SerializableEnum):
     SOA = "DNS_RECORD_SOA"
 
 
-DEFAULT_TEST_ATTR_KEY_MAP = {
-    "use_private_ips": "use_local_ip"
-}
-
+DEFAULT_TEST_ATTR_KEY_MAP = {"use_private_ips": "use_local_ip"}
