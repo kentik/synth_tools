@@ -17,6 +17,8 @@ targets:
       public_only: true
 
 agents:
+  max_matches: 1
   match:
-  - type: private
+  - status: AGENT_STATUS_OK
+  - last_authed: newer_than(yesterday)
 

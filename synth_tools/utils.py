@@ -193,17 +193,21 @@ def print_test_config(
     cfg: Dict[str, Any] = dict(test=dict(), agents=dict())
     cfg["test"]["name"] = test.name
     cfg["test"]["type"] = test.type.value
+    if test.labels:
+        cfg["test"]["labels"] = test.labels
     settings = transform_dict_keys(test.settings.to_dict(), camel_to_snake)
     test_settings = settings.get(test.type.value)
     if test_settings:
+        if test.type == TestType.flow:
+            target_type = test_settings.get("type")
+            if target_type:
+                cfg["test"]["target_type"] = target_type
+            else:
+                log.debug("No settings.flow.type (test_settings: %s)", test_settings)
         for attr in ["target", "targets", "type"]:
             if attr in test_settings:
                 del test_settings[attr]
         cfg["test"].update(remap_dict_keys(test_settings, DEFAULT_TEST_ATTR_KEY_MAP, reverse=True))
-        if test.type == TestType.flow:
-            target_type = test_settings.get("type", FlowTestSubType.asn.value)
-            if target_type:
-                cfg["test"]["target_type"] = target_type
     to_delete = ["notification_channels", "tasks", "agent_ids", test.type.value]
     to_delete.extend([_t for _t in ("ping", "trace") if _t in settings and _t not in test.configured_tasks])
     for attr in to_delete:
