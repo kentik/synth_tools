@@ -21,8 +21,9 @@ class NetworkMeshTest(PingTraceTest):
 
     @classmethod
     def create(
-        cls: Type[NetworkMeshTestType], name: str, agent_ids: List[str], use_local_ip: bool = False
+        cls: Type[NetworkMeshTestType], name: str, agent_ids: List[str], use_private_ips: bool = False
     ) -> NetworkMeshTestType:
         return cls(
-            name=name, settings=NetworkMeshTestSettings(agentIds=agent_ids, networkMesh=dict(useLocalIp=use_local_ip))
+            name=name,
+            settings=NetworkMeshTestSettings(agentIds=agent_ids, networkMesh=dict(useLocalIp=use_private_ips)),
         )

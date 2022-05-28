@@ -10,6 +10,7 @@ from texttable import Texttable
 
 from kentik_synth_client import KentikAPIRequestError
 from kentik_synth_client.synth_tests import FlowTestSubType, SynTest, TestType
+from kentik_synth_client.types import DEFAULT_TEST_ATTR_KEY_MAP
 from kentik_synth_client.utils import dict_compare
 from synth_tools import log
 from synth_tools.apis import APIs
@@ -41,6 +42,29 @@ def transform_dict_keys(data: Any, fn: Callable[[str], str]) -> Any:
         return [transform_dict_keys(e, fn) for e in data]
     else:
         return data
+
+
+def remap_dict_keys(
+    d: Dict[str, Any], attr_map: Optional[Dict[str, str]] = None, reverse: bool = False
+) -> Dict[str, Any]:
+    if not attr_map:
+        return d
+    if reverse:
+        m = {v: k for k, v in attr_map.items()}
+    else:
+        m = attr_map
+    out: Dict[str, Any] = dict()
+    for k, v in d.items():
+        nk = m.get(k)
+        if nk is not None:
+            if nk:
+                log.debug("remap_dict_keys: mapping: %s -> %s", k, nk)
+                out[nk] = v
+            else:
+                log.debug("remap_dict_keys: removing: %s", k)
+        else:
+            out[k] = v
+    return out
 
 
 def fail(msg: str) -> None:
@@ -169,24 +193,27 @@ def print_test_config(
     cfg: Dict[str, Any] = dict(test=dict(), agents=dict())
     cfg["test"]["name"] = test.name
     cfg["test"]["type"] = test.type.value
+    if test.labels:
+        cfg["test"]["labels"] = test.labels
     settings = transform_dict_keys(test.settings.to_dict(), camel_to_snake)
     test_settings = settings.get(test.type.value)
     if test_settings:
+        if test.type == TestType.flow:
+            target_type = test_settings.get("type")
+            if target_type:
+                cfg["test"]["target_type"] = target_type
+            else:
+                log.debug("No settings.flow.type (test_settings: %s)", test_settings)
         for attr in ["target", "targets", "type"]:
             if attr in test_settings:
                 del test_settings[attr]
-        cfg["test"].update(test_settings)
-        if test.type == TestType.flow:
-            target_type = test_settings.get("type", FlowTestSubType.asn.value)
-            if target_type:
-                cfg["test"]["target_type"] = target_type
-
+        cfg["test"].update(remap_dict_keys(test_settings, DEFAULT_TEST_ATTR_KEY_MAP, reverse=True))
     to_delete = ["notification_channels", "tasks", "agent_ids", test.type.value]
     to_delete.extend([_t for _t in ("ping", "trace") if _t in settings and _t not in test.configured_tasks])
     for attr in to_delete:
         if attr in settings:
             del settings[attr]
-    cfg["test"].update(settings)
+    cfg["test"].update(remap_dict_keys(settings, DEFAULT_TEST_ATTR_KEY_MAP, reverse=True))
     cfg["agents"]["use"] = test.settings.agentIds
     targets = test.targets
     if targets:

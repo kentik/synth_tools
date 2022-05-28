@@ -28,26 +28,9 @@ from kentik_synth_client.types import *
 from synth_tools import log
 from synth_tools.apis import APIs
 from synth_tools.matchers import AllMatcher
-from synth_tools.utils import agent_to_dict, snake_to_camel, transform_dict_keys
+from synth_tools.utils import agent_to_dict, remap_dict_keys, snake_to_camel, transform_dict_keys
 
 VALID_TEST_PERIODS = [1, 15, 60, 120, 300, 600, 900, 1800, 3600, 5400]
-
-
-def _remap_keys(d: Dict[str, Any], attr_map: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
-    if not attr_map:
-        return d
-    out: Dict[str, Any] = dict()
-    for k, v in d.items():
-        nk = attr_map.get(k)
-        if nk is not None:
-            if nk:
-                log.debug("_remap_keys: mapping: %s -> %s", k, nk)
-                out[nk] = v
-            else:
-                log.debug("_remap_keys: removing: %s", k)
-        else:
-            out[k] = v
-    return out
 
 
 def _fail(msg: str) -> None:
@@ -339,7 +322,10 @@ def _get_target(targets: List[str], cfg: Dict[str, Any], fail: Callable[[str], N
 
 
 def _get_test_attributes(
-    required: List, cfg: dict, attribute_map: Optional[Dict[str, str]] = None, fail: Callable[[str], None] = _fail
+    required: List,
+    cfg: dict,
+    attribute_map: Optional[Dict[str, str]] = None,
+    fail: Callable[[str], None] = _fail,
 ) -> dict:
     # noinspection PyPep8Naming
     COMMON_TEST_PARAMS = (
@@ -357,7 +343,7 @@ def _get_test_attributes(
     missing = [a for a in required if a not in cfg]
     if missing:
         fail("'{}' requires following configuration attributes: '{}'".format(cfg["type"], ",".join(missing)))
-    return _remap_keys(
+    return remap_dict_keys(
         {k: v for k, v in cfg.items() if (k not in COMMON_TEST_PARAMS) or (k in required)}, attribute_map
     )
 
@@ -394,7 +380,12 @@ def make_ip_test(
 def make_agent_test(
     name: str, targets: List[str], agents: List[str], cfg: dict, fail: Callable[[str], None] = _fail
 ) -> SynTest:
-    return AgentTest.create(name=name, target=_get_target(targets, cfg, fail=fail), agent_ids=agents)
+    return AgentTest.create(
+        name=name,
+        target=_get_target(targets, cfg, fail=fail),
+        agent_ids=agents,
+        **_get_test_attributes([], cfg, fail=fail),
+    )
 
 
 def make_dns_test(
@@ -520,17 +511,22 @@ def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None]
     # fixup alarm activation time window if not set explicitly
     if not test.settings.healthSettings.activation.times:
         test.settings.healthSettings.activation.times = "3"
+    min_alert_activation_window = int(
+        test.settings.period * (int(test.settings.healthSettings.activation.times) + 1) / 60
+    )
     if not test.settings.healthSettings.activation.timeWindow:
-        test.settings.healthSettings.activation.timeWindow = str(
-            int(test.settings.period * (int(test.settings.healthSettings.activation.times) + 1) / 60)
-        )
+        test.settings.healthSettings.activation.timeWindow = str(min_alert_activation_window)
         test.settings.healthSettings.activation.timeUnit = "m"
-        log.debug(
-            "set_common_test_params: test: '%s' activation.time_window: '%s%s'",
-            test.name,
-            test.settings.healthSettings.activation.timeWindow,
-            test.settings.healthSettings.activation.timeUnit,
-        )
+    else:
+        # Fixup alert time window
+        if int(test.settings.healthSettings.activation.timeWindow) < min_alert_activation_window:
+            test.settings.healthSettings.activation.timeWindow = str(min_alert_activation_window)
+    log.debug(
+        "set_common_test_params: test: '%s' activation.time_window: '%s%s'",
+        test.name,
+        test.settings.healthSettings.activation.timeWindow,
+        test.settings.healthSettings.activation.timeUnit,
+    )
 
     labels = sorted(cfg.get("labels", []))
     log.debug("set_common_test_params: test: '%s' labels: '%s'", test.name, ",".join(labels))

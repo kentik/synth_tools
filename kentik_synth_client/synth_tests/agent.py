@@ -20,5 +20,10 @@ class AgentTest(PingTraceTest):
     settings: AgentTestSettings = field(default=AgentTestSettings(agentIds=[]))
 
     @classmethod
-    def create(cls: Type[AgentTestType], name: str, target: str, agent_ids: List[str]) -> AgentTestType:
-        return cls(name=name, settings=AgentTestSettings(agentIds=agent_ids, agent=dict(target=target)))
+    def create(
+        cls: Type[AgentTestType], name: str, target: str, agent_ids: List[str], use_private_ips: bool = False
+    ) -> AgentTestType:
+        return cls(
+            name=name,
+            settings=AgentTestSettings(agentIds=agent_ids, agent=dict(target=target, useLocalIp=use_private_ips)),
+        )

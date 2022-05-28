@@ -335,10 +335,9 @@ def get_test_results(
         end_time = None
     api = get_api(ctx)
     t = _get_test_by_id(api.syn, test_id)
+    agent_ids: Optional[List[str]] = None
     if agents:
         agent_ids = agents.split(",")
-    else:
-        agent_ids = None
     data = api_request(
         api.syn.results, "GetResultsForTests", t, start=start_time, end=end_time, periods=periods, agent_ids=agent_ids
     )
@@ -399,10 +398,9 @@ def get_test_trace(
         agent_ids = agents.split(",")
     else:
         agents_ids = None
+    target_ips: Optional[List[str]] = None
     if targets:
         target_ips = targets.split(",")
-    else:
-        target_ips = None
     trace = api_request(
         api.syn.trace,
         "GetTraceForTests",

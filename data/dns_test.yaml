@@ -1,0 +1,19 @@
+test:
+  name: "__synth_tools:{config_name}"
+  type: dns
+  period: 60
+  health_settings:
+    dns_valid_codes: [0]
+  record_type: DNS_RECORD_AAAA
+  servers: [1.1.1.1, 8.8.8.8]
+
+targets:
+  use:
+  - www.example.com
+
+agents:
+  match:
+    - one_of_each:
+        type: [global, global]
+        agent_impl: [IMPLEMENT_TYPE_RUST, IMPLEMENT_TYPE_NODE]
+

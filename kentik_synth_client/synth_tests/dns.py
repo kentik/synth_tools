@@ -1,9 +1,12 @@
+import logging
 from dataclasses import dataclass, field
 from typing import List, Optional, Type, TypeVar
 
 from kentik_synth_client.types import *
 
 from .base import SynTest, SynTestSettings
+
+log = logging.getLogger()
 
 
 @dataclass
@@ -31,15 +34,17 @@ class DNSTest(SynTest):
         agent_ids: List[str],
         servers: List[str],
         record_type: DNSRecordType = DNSRecordType.A,
-        timeout: int = 5000,
+        timeout: Optional[int] = None,
         port: int = 53,
     ) -> DNSTestType:
+        if timeout:
+            log.warning("The 'timeout' attribute has been deprecated for 'dns' tests")
         return cls(
             name=name,
             settings=DNSTestSettings(
                 agentIds=agent_ids,
                 tasks=["dns"],
-                dns=dict(target=target, recordType=record_type, servers=servers, timeout=timeout, port=port),
+                dns=dict(target=target, recordType=record_type, servers=servers, port=port),
             ),
         )
 
