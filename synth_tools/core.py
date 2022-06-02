@@ -129,15 +129,16 @@ class TestResults:
                     r = td.get("response")
                     if r:
                         t["response"] = r
-                        if "data" in r:
+                        rd = r.get("data")
+                        if rd:
                             try:
-                                response_data = json.loads(r["data"])
+                                response_data = json.loads(rd)
                                 if response_data:
                                     r["data"] = transform_dict_keys(response_data[0], camel_to_snake)
                                 else:
                                     r["data"] = None
                             except json.decoder.JSONDecodeError as ex:
-                                log.critical("Failed to parse JSON in results data '%s' (exception: %s)", r, ex)
+                                log.critical("Failed to parse JSON in results data '%s' (exception: %s)", rd, ex)
         self.results.sort(key=lambda x: x["time"])
 
     def record_error(self, status: TestRunStatus, label: str, cause: Any):
