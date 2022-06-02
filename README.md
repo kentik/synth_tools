@@ -500,15 +500,19 @@ Options:
   --help  Show this message and exit.
 
 Commands:
+  compare   Compare configurations of 2 existing tests
   create    Create test
   delete    Delete test
   get       Print test configuration
+  import    Compare configurations of 2 existing tests
   list      List all tests
   match     Print configuration of test matching specified rules
   one-shot  Create test, wait until it produces results and delete or...
   pause     Pause test execution
   results   Print test results and health status
   resume    Resume test execution
+  trace     Print test trace data
+  update    Update existing test
 ```
 
 `agent` command group
