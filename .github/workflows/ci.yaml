@@ -41,7 +41,7 @@ jobs:
         run: git diff
 
       - name: "Install package for for ${{ matrix.python-version }}"
-        run: python setup.py install
+        run: pip install .
 
       - name: "Run synth_ctl for ${{ matrix.python-version }}"
         run: synth_ctl --help
