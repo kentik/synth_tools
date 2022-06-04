@@ -93,12 +93,13 @@ class PropertyMatcher(Matcher):
                 return False
             if hasattr(obj, k):
                 obj = getattr(obj, k)
-            elif k in obj:  # type: ignore
-                obj = obj[k]  # type: ignore
             else:
-                log.debug("%s: object: does not have property '%s'", self.__class__.__name__, self.key)
-                log.debug("%s: ret '%s'", self.__class__.__name__, False)
-                return False
+                try:
+                    obj = obj[k]  # type: ignore
+                except (KeyError, TypeError):
+                    log.debug("%s: object: does not have property '%s'", self.__class__.__name__, self.key)
+                    log.debug("%s: ret '%s'", self.__class__.__name__, False)
+                    return False
         if isinstance(obj, Enum):
             v = obj.value
         else:

@@ -12,7 +12,7 @@ targets:
   - www.example.com
 
 agents:
-  min_matches: 3
+  min_matches: 2
   match:
-  - cloud_region: regex(.*-west-.*)
+  - cloud_provider: one_of(aws, gcp)
   - type: global
