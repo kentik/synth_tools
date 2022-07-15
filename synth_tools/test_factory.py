@@ -545,20 +545,20 @@ def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None]
 class TestEntry:
     make_test: Callable[[str, List[str], List[str], dict, Callable[[str], None]], SynTest]
     target_loader: Callable[[APIs, Dict[str, Any], Callable[[str], None]], Set[str]]
-    agent_loader: Callable[[APIs, Dict[str, Any], Callable[[str], None]], Set[str]]
+    agent_loader: Callable[[APIs, Dict[str, Any], Callable[[str], None]], Set[str]] = all_agents
     requires_targets: bool = True
 
 
 class TestFactory:
     _MAP: Dict[str, TestEntry] = {
         "network_grid": TestEntry(
-            make_test=make_network_grid_test, target_loader=address_targets, agent_loader=rust_agents
+            make_test=make_network_grid_test, target_loader=address_targets
         ),
-        "ip": TestEntry(make_test=make_ip_test, target_loader=address_targets, agent_loader=rust_agents),
-        "agent": TestEntry(make_test=make_agent_test, target_loader=all_agents, agent_loader=rust_agents),
-        "dns": TestEntry(make_test=make_dns_test, target_loader=domain_targets, agent_loader=rust_agents),
-        "dns_grid": TestEntry(make_test=make_dns_grid_test, target_loader=domain_targets, agent_loader=rust_agents),
-        "hostname": TestEntry(make_test=make_hostname_test, target_loader=domain_targets, agent_loader=rust_agents),
+        "ip": TestEntry(make_test=make_ip_test, target_loader=address_targets),
+        "agent": TestEntry(make_test=make_agent_test, target_loader=all_agents),
+        "dns": TestEntry(make_test=make_dns_test, target_loader=domain_targets),
+        "dns_grid": TestEntry(make_test=make_dns_grid_test, target_loader=domain_targets),
+        "hostname": TestEntry(make_test=make_hostname_test, target_loader=domain_targets),
         "network_mesh": TestEntry(
             make_test=make_network_mesh_test,
             target_loader=dummy_loader,
@@ -566,8 +566,8 @@ class TestFactory:
             requires_targets=False,
         ),
         "page_load": TestEntry(make_test=make_page_load_test, target_loader=url_targets, agent_loader=node_agents),
-        "url": TestEntry(make_test=make_url_test, target_loader=url_targets, agent_loader=rust_agents),
-        "flow": TestEntry(make_test=make_flow_test, target_loader=any_str_targets, agent_loader=rust_agents),
+        "url": TestEntry(make_test=make_url_test, target_loader=url_targets),
+        "flow": TestEntry(make_test=make_flow_test, target_loader=any_str_targets),
     }
 
     @staticmethod

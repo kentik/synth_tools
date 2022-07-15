@@ -12,10 +12,10 @@ test:
 targets:
   max_matches: 1
   match:
-    - agent_impl: IMPLEMENT_TYPE_RUST
+    - type: global
     - country: one_of(US, United States)
 
 agents:
   match:
-    - agent_impl: IMPLEMENT_TYPE_RUST
+    - type: global
     - country: '!one_of(US, United States)'

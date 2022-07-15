@@ -16,4 +16,3 @@ agents:
     - one_of_each:
         type: [global, global]
         agent_impl: [IMPLEMENT_TYPE_RUST, IMPLEMENT_TYPE_NODE]
-

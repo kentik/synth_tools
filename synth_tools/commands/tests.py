@@ -134,7 +134,7 @@ def create_test(
         test = api_request(api.syn.create_test, "TestCreate", test)
         if not test:
             return  # to make linters happy - api_request does not return on failure
-        typer.echo(f"Created new test: id {test.id}")
+        typer.echo(f"Created new test - id: {test.id}")
         if print_config:
             print_test(test)
 
@@ -167,7 +167,7 @@ def update_test(
     else:
         new.edate = old.edate
         test = api_request(api.syn.update_test, "TestUpdate", new, old.id)
-        typer.echo(f"Updated test: id {test_id}")
+        typer.echo(f"Updated test - id: {test_id}")
         if print_config:
             print_test(test)
 
@@ -182,7 +182,7 @@ def delete_test(ctx: typer.Context, test_ids: List[str] = typer.Argument(..., he
         # Try to fetch test first in order to provide better error message if the test does not exist
         _get_test_by_id(api.syn, i)
         api_request(api.syn.delete_test, "TestDelete", i)
-        typer.echo(f"Deleted test: id: {i}")
+        typer.echo(f"Deleted test - id: {i}")
 
 
 @tests_app.command("list")
@@ -282,7 +282,7 @@ def pause_test(ctx: typer.Context, test_id: str) -> None:
     # Try to fetch test first in order to provide better error message if the test does not exist
     _get_test_by_id(api.syn, test_id)
     api_request(api.syn.set_test_status, "TestStatusUpdate", test_id, TestStatus.paused)
-    typer.echo(f"test id: {test_id} has been paused")
+    typer.echo(f"Paused test - id: {test_id}")
 
 
 @tests_app.command("resume")
@@ -294,7 +294,7 @@ def resume_test(ctx: typer.Context, test_id: str) -> None:
     # Try to fetch test first in order to provide better error message if the test does not exist
     _get_test_by_id(api.syn, test_id)
     api_request(api.syn.set_test_status, "TestStatusUpdate", test_id, TestStatus.active)
-    typer.echo(f"test id: {test_id} has been resumed")
+    typer.echo(f"Resumed test - id: {test_id}")
 
 
 @tests_app.command("results")
@@ -397,7 +397,7 @@ def get_test_trace(
     if agents:
         agent_ids = agents.split(",")
     else:
-        agents_ids = None
+        agent_ids = None
     target_ips: Optional[List[str]] = None
     if targets:
         target_ips = targets.split(",")
