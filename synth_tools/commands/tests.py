@@ -394,10 +394,9 @@ def get_test_trace(
         end_time = None
     api = get_api(ctx)
     t = _get_test_by_id(api.syn, test_id)
+    agent_ids: Optional[List[str]] = None
     if agents:
         agent_ids = agents.split(",")
-    else:
-        agent_ids = None
     target_ips: Optional[List[str]] = None
     if targets:
         target_ips = targets.split(",")

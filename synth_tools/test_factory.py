@@ -551,9 +551,7 @@ class TestEntry:
 
 class TestFactory:
     _MAP: Dict[str, TestEntry] = {
-        "network_grid": TestEntry(
-            make_test=make_network_grid_test, target_loader=address_targets
-        ),
+        "network_grid": TestEntry(make_test=make_network_grid_test, target_loader=address_targets),
         "ip": TestEntry(make_test=make_ip_test, target_loader=address_targets),
         "agent": TestEntry(make_test=make_agent_test, target_loader=all_agents),
         "dns": TestEntry(make_test=make_dns_test, target_loader=domain_targets),
