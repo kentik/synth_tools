@@ -4,7 +4,7 @@ test:
   period: 60
   family: IP_FAMILY_DUAL
   labels: [synth_tools_test]
-  notification_channels: [109, 110]
+  notification_channels: []
   ping:
     port: 80
     protocol: tcp
