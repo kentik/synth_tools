@@ -508,11 +508,24 @@ def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None]
         log.debug("set_common_test_params: test: '%s' status: '%s'", test.name, cfg.get("status"))
         log.warning("Test 'status' is ignored on creation. All tests are created in active state.")
         test.status = TestStatus(cfg["status"])
+    # fixup ping timeout
+    if hasattr(test.settings, "ping"):
+        if test.settings.ping.timeout >= test.settings.period:
+            log.debug(
+                "set_common_test_params: test: '%s' ping.timeout (%d) > period (%d)",
+                test.name,
+                test.settings.ping.timeout,
+                test.settings.period,
+            )
+            test.settings.ping.timeout = int(test.settings.period / 2 * 1000)
+            log.debug(
+                "set_common_test_params: test: '%s' setting ping.timeout to %d", test.name, test.settings.ping.timeout
+            )
     # fixup alarm activation time window if not set explicitly
     if not test.settings.healthSettings.activation.times:
         test.settings.healthSettings.activation.times = "3"
-    min_alert_activation_window = int(
-        test.settings.period * (int(test.settings.healthSettings.activation.times) + 1) / 60
+    min_alert_activation_window = max(
+        1, int(test.settings.period * (int(test.settings.healthSettings.activation.times) + 1) / 60)
     )
     if not test.settings.healthSettings.activation.timeWindow:
         test.settings.healthSettings.activation.timeWindow = str(min_alert_activation_window)
