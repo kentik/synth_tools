@@ -164,6 +164,9 @@ class HealthSettings(_ConfigElement):
     httpLatencyWarningStddev: float = 0.0
     httpValidCodes: List[int] = field(default_factory=list)
     dnsValidCodes: List[int] = field(default_factory=list)
+    dnsValidIps: str = ""
+    certExpiryWarning: int = 30
+    certExpiryCritical: int = 10
     unhealthySubtestThreshold: int = 1
     activation: ActivationSettings = field(default_factory=ActivationSettings)
 
