@@ -106,6 +106,7 @@ class KentikSynthClient:
         end: datetime,
         agent_ids: Optional[List[str]] = None,
         task_ids: Optional[List[str]] = None,
+        aggregate: bool = False,
     ) -> List[Dict]:
         return self._transport.req(
             "GetResultsForTests",
@@ -115,6 +116,7 @@ class KentikSynthClient:
                 endTime=end.isoformat(),
                 agentIds=agent_ids if agent_ids else [],
                 taskIds=task_ids if task_ids else [],
+                aggregate=aggregate,
             ),
         )
 
