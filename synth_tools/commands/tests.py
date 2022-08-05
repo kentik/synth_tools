@@ -319,6 +319,7 @@ def get_test_results(
     agents: Optional[str] = typer.Option(
         None, help="Comma separated list of agent IDs to include (default: all agents)"
     ),
+    aggregate: bool = typer.Option(False, help="Aggregate measurements over the requested time period"),
 ) -> None:
     """
     Print test results and health status
@@ -339,7 +340,14 @@ def get_test_results(
     if agents:
         agent_ids = agents.split(",")
     data = api_request(
-        api.syn.results, "GetResultsForTests", t, start=start_time, end=end_time, periods=periods, agent_ids=agent_ids
+        api.syn.results,
+        "GetResultsForTests",
+        t,
+        start=start_time,
+        end=end_time,
+        periods=periods,
+        agent_ids=agent_ids,
+        aggregate=aggregate,
     )
     if not data:
         fail(f"Test '{test_id}' did not produce any results")
