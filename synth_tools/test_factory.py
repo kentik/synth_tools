@@ -510,7 +510,7 @@ def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None]
         test.status = TestStatus(cfg["status"])
     # fixup ping timeout
     if hasattr(test.settings, "ping"):
-        if test.settings.ping.timeout >= test.settings.period:
+        if test.settings.ping.timeout >= test.settings.period * 1000:
             log.debug(
                 "set_common_test_params: test: '%s' ping.timeout (%d) > period (%d)",
                 test.name,
