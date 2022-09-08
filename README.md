@@ -45,7 +45,7 @@ EOF
 
 The `synth_ctl` tool currently does not support:
 - modification of synthetic agents
-- creation of `bgp` and `tranaction` type tests
+- creation of `bgp` and `transaction` type tests
 
 ## synth_ctl tool
 
