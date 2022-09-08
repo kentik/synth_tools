@@ -43,10 +43,9 @@ EOF
 
 ## Limitations / future development
 
-The `synth_ctl` tool current does not support:
+The `synth_ctl` tool currently does not support:
 - modification of synthetic agents
-- creation of `bgp` type tests
-- retrieval of test traceroute results (traces)
+- creation of `bgp` and `tranaction` type tests
 
 ## synth_ctl tool
 
@@ -57,6 +56,7 @@ The `synth_ctl` tool supports manipulation of Kentik synthetic tests and agents.
 ### Operations supported for synthetic tests:
 - listing and display of test configuration
 - creation of tests based on configuration in `YAML` format
+- in-place update of existing synthetic tests
 - deletion
 - pausing and resuming
 - temporary execution of tests
