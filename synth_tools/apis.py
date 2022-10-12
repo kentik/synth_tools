@@ -50,47 +50,41 @@ class APIs:
         return cfg
 
     def _get_url(self, profile: str) -> Optional[str]:
-        return os.environ.get("KTAPI_URL", self._load_profile(profile).get("url"))
+        if self.api_url:
+            return self.api_url
+        else:
+            return os.environ.get("KTAPI_URL", self._load_profile(profile).get("url"))
+
+    def _get_api_host(self, profile: str) -> Optional[str]:
+        url = self._get_url(profile)
+        if url:
+            return urlparse(url).netloc
+        else:
+            return KentikAPI.API_HOST_US
 
     def _get_proxy(self, profile: str) -> Optional[str]:
-        return os.environ.get("KTAPI_PROXY", self._load_profile(profile).get("proxy"))
+        if self.proxy:
+            return self.proxy
+        else:
+            return os.environ.get("KTAPI_PROXY", self._load_profile(profile).get("proxy"))
 
     @property
     def mgmt(self):
         if not self._mgmt_api:
-            if self.proxy:
-                proxy = self.proxy
-            else:
-                proxy = self._get_proxy(self.mgmt_profile)
-            if not self.api_url:
-                url = self._get_url(self.mgmt_profile)
-            else:
-                url = self.api_url
-            # KentikAPI expects URL to include path, e.g. https://api.ou1.kentik.com/api/v5
-            if url:
-                u = urlparse(url)
-                if u.path == "":
-                    url = u._replace(path="/api/v5").geturl()
-            else:
-                url = KentikAPI.API_URL_US
-            log.debug("API: mgmt URL: %s", url)
+            proxy = self._get_proxy(self.mgmt_profile)
+            api_host = self._get_api_host(self.mgmt_profile)
+            log.debug("API: mgmt API host: %s", api_host)
             log.debug("API: mgmt proxy: %s", proxy)
-            self._mgmt_api = KentikAPI(*get_credentials(self.mgmt_profile), api_url=url, proxy=proxy)
+            self._mgmt_api = KentikAPI(*get_credentials(self.mgmt_profile), api_host=api_host, proxy=proxy)
             log.debug("API: mgmt_api: %s", self._mgmt_api)
         return self._mgmt_api
 
     @property
     def syn(self):
         if not self._syn_api:
-            if self.proxy:
-                proxy = self.proxy
-            else:
-                proxy = self._get_proxy(self.syn_profile)
-            if not self.api_url:
-                url = self._get_url(self.syn_profile)
-            else:
-                url = self.api_url
-            log.debug("API: syn_api URL: %s", url)
+            proxy = self._get_proxy(self.syn_profile)
+            url = self._get_url(self.syn_profile)
+            log.debug("API: syn_api API url: %s", url)
             log.debug("API: syn_api proxy: %s", proxy)
             self._syn_api = KentikSynthClient(get_credentials(self.syn_profile), url=url, proxy=proxy)
             log.debug("API: syn_api: %s", self._syn_api)
