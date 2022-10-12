@@ -510,16 +510,18 @@ def set_common_test_params(test: SynTest, cfg: dict, fail: Callable[[str], None]
         test.status = TestStatus(cfg["status"])
     # fixup ping timeout
     if hasattr(test.settings, "ping"):
-        if test.settings.ping.timeout >= test.settings.period * 1000:
+        if test.settings.ping.timeout >= test.settings.period * 1000:  # type: ignore
             log.debug(
                 "set_common_test_params: test: '%s' ping.timeout (%d) > period (%d)",
                 test.name,
-                test.settings.ping.timeout,
+                test.settings.ping.timeout,  # type: ignore
                 test.settings.period,
             )
-            test.settings.ping.timeout = int(test.settings.period / 2 * 1000)
+            test.settings.ping.timeout = int(test.settings.period / 2 * 1000)  # type: ignore
             log.debug(
-                "set_common_test_params: test: '%s' setting ping.timeout to %d", test.name, test.settings.ping.timeout
+                "set_common_test_params: test: '%s' setting ping.timeout to %d",
+                test.name,
+                test.settings.ping.timeout,  # type: ignore
             )
     # fixup alarm activation time window if not set explicitly
     if not test.settings.healthSettings.activation.times:
