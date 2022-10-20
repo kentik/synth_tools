@@ -53,7 +53,11 @@ class APIs:
         if self.api_url:
             return self.api_url
         else:
-            return os.environ.get("KTAPI_URL", self._load_profile(profile).get("url"))
+            cfg = self._load_profile(profile)
+            if cfg:
+                return cfg.get("url")
+            else:
+                return os.environ.get("KTAPI_URL")
 
     def _get_api_host(self, profile: str) -> Optional[str]:
         url = self._get_url(profile)
@@ -66,7 +70,11 @@ class APIs:
         if self.proxy:
             return self.proxy
         else:
-            return os.environ.get("KTAPI_PROXY", self._load_profile(profile).get("proxy"))
+            cfg = self._load_profile(profile)
+            if cfg:
+                return cfg.get("proxy")
+            else:
+                return os.environ.get("KTAPI_PROXY")
 
     @property
     def mgmt(self):
