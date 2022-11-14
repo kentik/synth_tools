@@ -575,7 +575,6 @@ class TestFactory:
         "network_mesh": TestEntry(
             make_test=make_network_mesh_test,
             target_loader=dummy_loader,
-            agent_loader=rust_agents,
             requires_targets=False,
         ),
         "page_load": TestEntry(make_test=make_page_load_test, target_loader=url_targets, agent_loader=node_agents),
