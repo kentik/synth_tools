@@ -4,6 +4,8 @@ test:
   period: 60
 
 targets:
+  max_matches: 10
+  randomize: True
   match:
     devices:
     - site.site_name: Ashburn DC3

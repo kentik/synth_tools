@@ -1,3 +1,4 @@
+import random
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from ipaddress import ip_address
@@ -196,10 +197,12 @@ class AddressSelector:
 def address_targets(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
     max_targets: Optional[int] = cfg.get("max_matches")
     min_targets: int = cfg.get("min_matches", 1)
+    randomize = cfg.get("randomize", False)
+    log.debug("address_targets: min_targets: %s, max_targets: %s, randomize: %s", min_targets, max_targets, randomize)
     targets: Set[str] = set()
 
     def add_target(a) -> bool:
-        if max_targets is None or len(targets) < max_targets:
+        if randomize or max_targets is None or len(targets) < max_targets:
             targets.add(a)
             return True
         else:
@@ -240,7 +243,9 @@ def address_targets(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] 
         for a in address_selector.device_addresses(d):
             if not add_target(a):
                 return targets
-        if (max_targets is None or len(targets) < max_targets) and address_selector.has_interface_extractors:
+        if (
+            randomize or max_targets is None or len(targets) < max_targets
+        ) and address_selector.has_interface_extractors:
             for i in api.mgmt.devices.interfaces.get_all(d.id):
                 if interface_matcher.match(i):
                     for a in address_selector.interface_addresses(i):
@@ -249,7 +254,11 @@ def address_targets(api: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] 
 
     if len(targets) < min_targets:
         fail(f"Only {len(targets)} matched, {min_targets} required")
-    return targets
+    if randomize and max_targets and len(targets) > max_targets:
+        log.debug("address_targets: selecting %d random targets our of %d candidates", max_targets, len(targets))
+        return set(random.sample(list(targets), max_targets))
+    else:
+        return targets
 
 
 def url_targets(_: APIs, cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> Set[str]:
@@ -298,10 +307,11 @@ def _get_agents(
 
     min_agents = cfg.get("min_matches", 1)
     max_agents = cfg.get("max_matches")
+    randomize = cfg.get("randomize", False)
     match_cfg: List[Dict[str, Any]] = cfg["match"]
-    log.debug("_get_agents: match: %s (min: %d, max: %s)", cfg, min_agents, max_agents)
+    log.debug("_get_agents: match: %s (min: %d, max: %s, randomize: %s)", cfg, min_agents, max_agents, randomize)
     try:
-        agents_matcher = AllMatcher(match_cfg, max_matches=max_agents)
+        agents_matcher = AllMatcher(match_cfg, max_matches=(None if randomize else max_agents))
     except RuntimeError as exc:
         fail(f"Failed to parse agent match: {exc}")
         return set()  # to make linters happy (fail actually never returns)
@@ -312,7 +322,10 @@ def _get_agents(
     )
     if len(agents) < min_agents:
         fail(f"Matched {len(agents)} agents, {min_agents} required")
-    return agents
+    if max_agents and randomize and len(agents) > max_agents:
+        return set(random.sample(list(agents), max_agents if max_agents else len(agents)))
+    else:
+        return agents
 
 
 def _get_target(targets: List[str], cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> str:
