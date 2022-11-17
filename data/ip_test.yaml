@@ -17,6 +17,7 @@ targets:
 
 agents:
   max_matches: 1
+  randomize: true
   match:
     - status: AGENT_STATUS_OK
     - family: one_of(IP_FAMILY_DUAL, IP_FAMILY_V6)

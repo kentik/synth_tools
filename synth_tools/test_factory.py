@@ -1,3 +1,4 @@
+import random
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from ipaddress import ip_address
@@ -298,10 +299,11 @@ def _get_agents(
 
     min_agents = cfg.get("min_matches", 1)
     max_agents = cfg.get("max_matches")
+    randomize = cfg.get("randomize", False)
     match_cfg: List[Dict[str, Any]] = cfg["match"]
-    log.debug("_get_agents: match: %s (min: %d, max: %s)", cfg, min_agents, max_agents)
+    log.debug("_get_agents: match: %s (min: %d, max: %s, randomize: %s)", cfg, min_agents, max_agents, randomize)
     try:
-        agents_matcher = AllMatcher(match_cfg, max_matches=max_agents)
+        agents_matcher = AllMatcher(match_cfg, max_matches=(None if randomize else max_agents))
     except RuntimeError as exc:
         fail(f"Failed to parse agent match: {exc}")
         return set()  # to make linters happy (fail actually never returns)
@@ -312,7 +314,10 @@ def _get_agents(
     )
     if len(agents) < min_agents:
         fail(f"Matched {len(agents)} agents, {min_agents} required")
-    return agents
+    if randomize:
+        return set(random.sample(list(agents), max_agents if max_agents else len(agents)))
+    else:
+        return agents
 
 
 def _get_target(targets: List[str], cfg: Dict[str, Any], fail: Callable[[str], None] = _fail) -> str:
