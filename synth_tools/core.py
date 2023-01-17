@@ -100,12 +100,12 @@ class TestResults:
                 )
                 e["agents"].append(a)
                 for task in agent["tasks"]:
-                    for task_type in ("ping", "http", "dns"):
+                    for task_type in ("ping", "http", "dns", "dnssec", "page_load"):
                         if task_type in task:
                             break
                     else:
                         tasks = ",".join(self.test.configured_tasks)  # type: ignore
-                        log.error("No data for any of test tasks (%s) in results", tasks)
+                        log.warning("agent_id: %s - no results at: %s", a["id"], e["time"])
                         continue
                     td = task[task_type]
                     if not td["target"]:

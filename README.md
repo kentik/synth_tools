@@ -237,6 +237,8 @@ Maximum and minimum number of matched targets of agents  can be specified using:
 `max_matches: <MAX>` or `min_matches: <MIN>` directives in corresponding `targets` or `agents` section.
 If less than `min_targets` matches test creation fails. If more than `max_matches` targets or agents match only
 first `max_matches` objects are used. At least 1 agent is required for any test (except for `network_mesh`).
+Randomization of selected targets or agents is possible using the `randomize: True` option. This option has effect only
+if `max_matches` is specified and number of matching targets or agents is greater than `max_targets`.
 
 Example:
 ```yaml
