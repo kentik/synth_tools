@@ -227,7 +227,7 @@ class PropertyMatcher(Matcher):
                         log.debug("Setting timezone to UTC for match time '%s'", self.value.isoformat())
                         self.value = self.value.replace(tzinfo=timezone.utc)
                 except ValueError as exc:
-                    log.error("%s: Invalid timestamp in configuration: %s", self.__class__.__name__, exc)
+                    log.error("%s: Invalid time specification: %s", self.__class__.__name__, arg)
                     self.value = None
 
 
