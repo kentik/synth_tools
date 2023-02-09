@@ -220,16 +220,30 @@ in which agents are returned by the API which is undefined.
 
 In additions to direct comparison of value of object attributes, the tool provides following match functions:
 
-  | name        | evaluation                                                    | format                         | example                                                 |
-  | :-----------| :-------------------------------------------------------------| :------------------------------| :-------------------------------------------------------|
-  | regex       | evaluates regular expression on attribute value               | regex(`regular expression`)    | `device_name: regex(.\*-iad1-.\*)`                      |
-  | contains    | tests if a multi-valued attribute contains specified value    | contains(`value`)              | `sending_ips: contains(1.2.3.4)`                        |
-  | one_of      | test if value of an attribute is in the list                  | one_of(`comma_separated_list`) | `label: one_of(edge router, gateway, bastions)`         |
-  | newer_than  | tests whether a timestamp value is newer than specified time  | newer_than(`iso_format_time`)  | `last_authed: newer_than(2021-11-01 00:00:00.000+00:00)`|
-  | older_than  | tests whether a timestamp value is older than specified time  | older_than(`iso_format_time`)  | `last_authed: older_than(2021-11-01 00:00:00.000-07:00)`|
+| name       | evaluation                                                    | format                                | example                                                  |
+|:-----------|:--------------------------------------------------------------|:--------------------------------------|:---------------------------------------------------------|
+| regex      | evaluates regular expression on attribute value               | regex(`regular expression`)           | `device_name: regex(.\*-iad1-.\*)`                       |
+| contains   | tests if a multi-valued attribute contains specified value    | contains(`value`)                     | `sending_ips: contains(1.2.3.4)`                         |
+| one_of     | test if value of an attribute is in the list                  | one_of(`comma_separated_list`)        | `label: one_of(edge router, gateway, bastions)`          |
+| newer_than | tests whether a timestamp value is newer than specified time  | newer_than(`timespec` or `timedelta`) | `last_authed: newer_than(-1h)`                           |
+| older_than | tests whether a timestamp value is older than specified time  | older_than(`timespec` or `timedelta`) | `last_authed: older_than(2021-11-01 00:00:00.000-07:00)` |
 
-Functions `newer_than` and `older_than` also accept time specification of `today`, `yesterday`, `tomorrow` which are
+Arguments to `newer_than` and `older_than` are one of:
+- `timespec`: time string in ISO format or one of `today`, `yesterday`, `tomorrow` which are
 expanded to UTC time based on system time of the machine on which `synth_ctl` executes.
+- `timedelta`: format `<float><optional space><unit>`. Format of the `<unit>` (plural forms are accepted too):
+
+| unit          | abbreviations        | examples                    |
+|---------------|:---------------------|:----------------------------|
+| `week`        | `w`                  | `1w` `-13.1 weeks`          |
+| `day`         | `d`                  | `1d` `10 days`, `-2d`       |
+| `hour`        | `h`                  | `1h` `-0.5 hours`           |
+| `minute`      | `m` `min`            | `1minute` `-3.14mins`       |
+| `second`      | `s` `sec`            | `-1 s` `0.01secs`           |
+| `millisecond` | `ms` `msec` `millis` | `1ms` `-3msecs` `2 millis`  |
+| `microsecond` | `us` `usec` `micros` | `1us` `-0.1usec` `2 micros` |
+ 
+Negative values mean time in the past with respect to current time. All time specifications are expected to be in UTC.
 
 #### Optional specification of minimum and maximum number of matching targets
 

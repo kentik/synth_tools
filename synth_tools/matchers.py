@@ -168,6 +168,28 @@ class PropertyMatcher(Matcher):
             return ts > self.value  # type:ignore
 
     @staticmethod
+    def _interval_from_string(s: str) -> Optional[timedelta]:
+        NUMBER = r"-?\d+(?:\.\d+)?"
+        UNITS = {
+            "weeks": r"w(?:eek(:?s)?)?",
+            "days": r"d(?:ay(?:s)?)?",
+            "hours": r"h(?:our(:?s)?)?",
+            "minutes": r"m(?:in(?:ute)?(:?s?))?",
+            "seconds": r"s(?:ec(?:ond)?(:?s)?)?",
+            "milliseconds": r"m(?:illi)?s(?:ec(?:ond)?(:?s)?)?",
+            "microseconds": r"(?:u|micro)s(?:ec(?:ond)?(:?s)?)?",
+        }
+        for unit, unit_exp in UNITS.items():
+            m = re.fullmatch(f"({NUMBER})\\s*{unit_exp}", s)
+            if m:
+                try:
+                    number = float(m.groups()[0])
+                except ValueError:
+                    return None
+                return timedelta(**{unit: number})
+        return None
+
+    @staticmethod
     def _ts_from_string(s: str) -> Optional[datetime]:
         try:
             return datetime.fromisoformat(s)
@@ -195,14 +217,18 @@ class PropertyMatcher(Matcher):
                 days=1
             )
         else:
-            try:
-                self.value = datetime.fromisoformat(arg)
-                if not self.value.tzinfo:
-                    log.debug("Setting timezone to UTC for match time '%s'", self.value.isoformat())
-                    self.value = self.value.replace(tzinfo=timezone.utc)
-            except ValueError as exc:
-                log.error("%s: Invalid timestamp in configuration: %s", self.__class__.__name__, exc)
-                self.value = None
+            delta = self._interval_from_string(arg)
+            if delta:
+                self.value = datetime.now(tz=timezone.utc) + delta
+            else:
+                try:
+                    self.value = datetime.fromisoformat(arg)
+                    if not self.value.tzinfo:
+                        log.debug("Setting timezone to UTC for match time '%s'", self.value.isoformat())
+                        self.value = self.value.replace(tzinfo=timezone.utc)
+                except ValueError as exc:
+                    log.error("%s: Invalid timestamp in configuration: %s", self.__class__.__name__, exc)
+                    self.value = None
 
 
 class SetMatcher(Matcher):
