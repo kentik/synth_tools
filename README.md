@@ -83,13 +83,13 @@ This section specifies test attributes other than list of targets and agents.
 
 _Common test attributes:_
 
-  | name           | purpose                                                                       | required | possible values                                                         |
-  | :--------------| :-----------------------------------------------------------------------------| :--------| :-----------------------------------------------------------------------|
-  | type           | test type                                                                     | YES      | ip, hostname, network_grid, dns, dns_grid, url, page-load, network_mesh |
-  | name           | name of the test                                                              | NO       | any printable string                                                    |
-  | period         | test execution period                                                         | NO       | integer (default: 60 seconds)                                           |
-  | family         | IP address family to use for tests selecting target address via DNS resolution| NO       | IP_FAMILY_DUAL (default), IP_FAMILY_V4, IP_FAMILY_V6                    |
-  | health_settings| definition of thresholds for establishing test health                         | NO       | _see bellow_ (default: no thresholds)                                   |
+| name           | purpose                                                                       | required | possible values                                                         |
+| :--------------| :-----------------------------------------------------------------------------| :--------| :-----------------------------------------------------------------------|
+| type           | test type                                                                     | YES      | ip, hostname, network_grid, dns, dns_grid, url, page-load, network_mesh |
+| name           | name of the test                                                              | NO       | any printable string                                                    |
+| period         | test execution period                                                         | NO       | integer (default: 60 seconds)                                           |
+| family         | IP address family to use for tests selecting target address via DNS resolution| NO       | IP_FAMILY_DUAL (default), IP_FAMILY_V4, IP_FAMILY_V6                    |
+| health_settings| definition of thresholds for establishing test health                         | NO       | _see bellow_ (default: no thresholds)                                   |
 
 _Health settings attributes_
 ```
