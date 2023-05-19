@@ -17,7 +17,7 @@ AgentTestType = TypeVar("AgentTestType", bound="AgentTest")
 @dataclass
 class AgentTest(PingTraceTest):
     type: TestType = field(init=False, default=TestType.agent)
-    settings: AgentTestSettings = field(default=AgentTestSettings(agentIds=[]))
+    settings: AgentTestSettings = field(default_factory=AgentTestSettings)
 
     @classmethod
     def create(
