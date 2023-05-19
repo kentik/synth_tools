@@ -18,7 +18,7 @@ NetworkGridTestType = TypeVar("NetworkGridTestType", bound="NetworkGridTest")
 @dataclass
 class NetworkGridTest(PingTraceTest):
     type: TestType = field(init=False, default=TestType.network_grid)
-    settings: GridTestSettings = field(default=GridTestSettings(agentIds=[]))
+    settings: GridTestSettings = field(default_factory=GridTestSettings)
 
     @classmethod
     def create(

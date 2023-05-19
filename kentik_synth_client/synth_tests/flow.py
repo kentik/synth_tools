@@ -17,7 +17,7 @@ FlowTestType = TypeVar("FlowTestType", bound="FlowTest")
 @dataclass
 class FlowTest(PingTraceTest):
     type: TestType = field(init=False, default=TestType.flow)
-    settings: FlowTestSettings = field(default=FlowTestSettings(agentIds=[]))
+    settings: FlowTestSettings = field(default_factory=FlowTestSettings)
 
     # noinspection PyShadowingBuiltins
     @classmethod
