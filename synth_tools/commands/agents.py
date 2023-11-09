@@ -129,10 +129,10 @@ def activate_agent(
 
 @agents_app.command("activate-details")
 def activate_agent_details(
-        ctx: typer.Context,
-        agent_alias: str,
-        site_id: str,
-        private_ips: List[str],
+    ctx: typer.Context,
+    agent_alias: str,
+    site_id: str,
+    private_ips: List[str],
 ) -> None:
     """
     Activate pending agent
@@ -158,7 +158,7 @@ def activate_agent_details(
             md["privateIpv4Addresses"].append({"value": ip})
     md.pop("publicIpv4Addresses", None)
     md.pop("publicIpv6Addresses", None)
-    typer.echo(json.dumps({"agent":agent}))
+    typer.echo(json.dumps({"agent": agent}))
     a = api_request(api.syn.update_agent, "AgentUpdate", agent["id"], agent)
     if a["status"] != "AGENT_STATUS_OK":
         fail(f"FAILED to activate agent (status: {agent['status']}")
