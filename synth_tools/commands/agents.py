@@ -1,3 +1,4 @@
+import json
 from typing import List, Optional
 
 import typer
@@ -18,6 +19,19 @@ def _get_agent_by_id(api: KentikSynthClient, agent_id: str) -> dict:
         else:
             fail(f"{exc}")
     return {}  # never reached, because fail function (or other exception) terminates the app
+
+
+def _get_agents_by_alias(api: KentikSynthClient, agent_alias: str) -> List[dict]:
+    try:
+        matches = []
+        agents = api.agents
+        for a in agents:
+            if a["alias"] == agent_alias:
+                matches.append(a)
+        return matches
+    except KentikAPIRequestError as exc:
+        fail(f"{exc}")
+    return []
 
 
 @agents_app.command("list")
@@ -111,6 +125,44 @@ def activate_agent(
             typer.echo(f"id: {i} FAILED to activate (status: {a['status']}")
         else:
             typer.echo(f"id: {i} agent activated")
+
+
+@agents_app.command("activate-details")
+def activate_agent_details(
+    ctx: typer.Context,
+    agent_alias: str,
+    site_id: str,
+    private_ips: List[str],
+) -> None:
+    """
+    Activate pending agent
+    """
+    api = get_api(ctx)
+    agents = _get_agents_by_alias(api.syn, agent_alias)
+    if not len(agents):
+        fail(f"Agent alias {agent_alias} not found")
+    elif len(agents) > 1:
+        fail(f"Agent alias {agent_alias} matches multiple agents: {agents}")
+    agent = agents[0]
+    if agent["status"] != "AGENT_STATUS_WAIT":
+        typer.echo(f"agent not pending (status: {agent['status']}), continuing anyway")
+    agent["status"] = "AGENT_STATUS_OK"
+    agent["siteId"] = site_id
+    md = agent["metadata"]
+    md["privateIpv4Addresses"] = []
+    md["privateIpv6Addresses"] = []
+    for ip in private_ips:
+        if ":" in ip:
+            md["privateIpv6Addresses"].append({"value": ip})
+        else:
+            md["privateIpv4Addresses"].append({"value": ip})
+    md.pop("publicIpv4Addresses", None)
+    md.pop("publicIpv6Addresses", None)
+    typer.echo(json.dumps({"agent": agent}))
+    a = api_request(api.syn.update_agent, "AgentUpdate", agent["id"], agent)
+    if a["status"] != "AGENT_STATUS_OK":
+        fail(f"FAILED to activate agent (status: {agent['status']}")
+    typer.echo(f"agent activated!")
 
 
 @agents_app.command("deactivate")
